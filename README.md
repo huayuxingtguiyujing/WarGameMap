@@ -17,6 +17,10 @@ unity上方工具栏 `GameMap`，使用 `InitMapEditor`初始化配置，`OpenMa
 #### 目前进度（2025.1.20 ）：<br> 
 
 支持使用真实地理高度图生成地形，接收`TIF`、`Raw`高度图数据的输入，构建的地形规模可达 `20000*20000` <br> 
+<img src="https://github.com/user-attachments/assets/e3d35487-6509-4dc8-8028-8252f1f91ffb" width="660px" height="480px">
+<img src="https://github.com/user-attachments/assets/e6859358-fc9b-47a2-bf15-4a1ca9dc052d" width="660px" height="480px">
+<img src="https://github.com/user-attachments/assets/52b3768f-341b-4f3e-90ff-3bb7c0afad49" width="660px" height="480px">
+
 ![168148e8c1a62832a93401dc3d221ef](https://github.com/user-attachments/assets/e3d35487-6509-4dc8-8028-8252f1f91ffb)
 ![ffd450ad01c784aa01b566e012241d6](https://github.com/user-attachments/assets/e6859358-fc9b-47a2-bf15-4a1ca9dc052d)
 ![c4cb4932fdfeb92bf1357446628697e](https://github.com/user-attachments/assets/52b3768f-341b-4f3e-90ff-3bb7c0afad49)
