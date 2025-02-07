@@ -1,0 +1,18 @@
+{
+    "name": "com.lz-infrastructure.wargamemap",
+    "displayName": "WarGameMap",
+    "version": "1.0.0-prerelease",
+    "unity": "2023.1",
+    "unityRelease": "1f1c1",
+    "description": "a upgraded map package to help you quickly build the hexagon map scene and data",
+    "keywords": ["package","map","hexagon","scrum"],
+    "author": "LZ",
+    "samples": [
+	    {
+	      "displayName": "WarGame Example Scenes",
+	      "description": "Sample scenes illustrating ways to use WarGameMap",
+	      "path": "Samples~/WarGame Example Scenes"
+	    }
+  	]
+  	
+}

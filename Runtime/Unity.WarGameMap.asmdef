@@ -1,0 +1,29 @@
+{
+    "name": "Unity.LZWarGameMap",
+    "rootNamespace": "LZ.WarGameMap.Runtime",
+    "references": [
+        "GUID:f077275c9e863ed43b96d727f0d33c86"
+    ],
+    "includePlatforms": [
+        "Android",
+        "Editor",
+        "EmbeddedLinux",
+        "GameCoreScarlett",
+        "GameCoreXboxOne",
+        "iOS",
+        "macOSStandalone",
+        "macOSStandaloneServer",
+        "WindowsStandalone32",
+        "WindowsStandalone64",
+        "WindowsStandalone32Server",
+        "WindowsStandalone64Server"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
