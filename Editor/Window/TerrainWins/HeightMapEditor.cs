@@ -55,7 +55,7 @@ namespace LZ.WarGameMap.MapEditor
 
         private void SerializeHeightMaps(string outputPath, string outputName, string[] inputFilePaths, int size) {
             
-            string outputFile = AssetsUtility.GetInstance().GetCombinedPath(outputPath, outputName);
+            string outputFile = AssetsUtility.GetInstance().CombinedPath(outputPath, outputName);
 
             using (FileStream fs = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write)) {
                 using (BinaryWriter writer = new BinaryWriter(fs)) {
@@ -204,7 +204,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            fileRelativePath = AssetsUtility.GetInstance().TransToUnityAssetPath(heightMapSerlizedPath);
+            fileRelativePath = AssetsUtility.GetInstance().TransToAssetPath(heightMapSerlizedPath);
             heightMapSerilzedFile = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(fileRelativePath);
             if (heightMapSerilzedFile == null) {
                 Debug.LogError(string.Format("can not load height serialized resource from this path: {0}", fileRelativePath));
@@ -257,7 +257,7 @@ namespace LZ.WarGameMap.MapEditor
                         heightDataModel.AddHeightData(longitude, latitude, singleFileWidth, heightDatas);
                     }
 
-                    string assetFullPath = AssetsUtility.GetInstance().GetCombinedPath(deserlOutputFilePath, modelName);
+                    string assetFullPath = AssetsUtility.GetInstance().CombinedPath(deserlOutputFilePath, modelName);
                     AssetDatabase.CreateAsset(heightDataModel, assetFullPath);
                     AssetDatabase.SaveAssets();
                 }

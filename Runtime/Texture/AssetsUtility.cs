@@ -1,5 +1,6 @@
 using DG.Tweening.Plugins.Core.PathCore;
 using LZ.WarGameCommon;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -11,7 +12,7 @@ namespace LZ.WarGameMap.Runtime
     {
         public AssetsUtility() { }
 
-        public string GetCombinedPath(string filePath, string fileName) {
+        public string CombinedPath(string filePath, string fileName) {
             if (!Directory.Exists(filePath)) {
                 Directory.CreateDirectory(filePath);
             }
@@ -20,7 +21,7 @@ namespace LZ.WarGameMap.Runtime
             return fullPath;
         }
 
-        public string TransToUnityAssetPath(string fullFilePath) {
+        public string TransToAssetPath(string fullFilePath) {
             return "Assets" + fullFilePath.Substring(Application.dataPath.Length);
         }
 
@@ -33,6 +34,23 @@ namespace LZ.WarGameMap.Runtime
             string lastFolderName = Path.GetFileName(trimmedPath);
             return lastFolderName;
         }
+
+
+        #region get file infos from folder
+
+        public HashSet<string> GetFileNames(string folderPath) {
+            string[] guids = AssetDatabase.FindAssets("", new[] { folderPath });
+
+            HashSet<string> terrainFileNames = new HashSet<string>();
+            foreach (var guid in guids) {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                string fileName = System.IO.Path.GetFileNameWithoutExtension(path);
+                terrainFileNames.Add(fileName);
+            }
+            return terrainFileNames;
+        }
+
+        #endregion
 
 
         #region save load asset

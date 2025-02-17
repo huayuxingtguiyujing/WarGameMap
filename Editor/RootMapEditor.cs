@@ -18,9 +18,6 @@ namespace LZ.WarGameMap.MapEditor
     /// </summary>
     public class RootMapEditor : OdinMenuEditorWindow {
 
-        
-
-
         [MenuItem("GameMap/InitMapEditor")]
         private static void InitMapEditor() {
 
@@ -48,10 +45,10 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             // get HashSet(window objs name) in folders
-            HashSet<string> terrainFileNames = GetFileNames(terrainPath);
-            HashSet<string> buildingFileNames = GetFileNames(buildingPath);
-            HashSet<string> decorateFileNames = GetFileNames(decoratePath);
-            HashSet<string> gameplayFileNames = GetFileNames(gameplayPath);
+            HashSet<string> terrainFileNames = AssetsUtility.GetInstance().GetFileNames(terrainPath);
+            HashSet<string> buildingFileNames = AssetsUtility.GetInstance().GetFileNames(buildingPath);
+            HashSet<string> decorateFileNames = AssetsUtility.GetInstance().GetFileNames(decoratePath);
+            HashSet<string> gameplayFileNames = AssetsUtility.GetInstance().GetFileNames(gameplayPath);
 
             // create every terrain windows 
             if (!terrainFileNames.Contains(MapEditorEnum.TerrainEditor)) {

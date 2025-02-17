@@ -1,10 +1,39 @@
 
 
 using LZ.WarGameCommon;
+using System;
 using UnityEngine;
 
 
 namespace LZ.WarGameMap.Runtime {
+
+    public static class Vector3Extension
+    {
+        public static string ToStringFixed(this Vector3 target) {
+            return $"{target.x},{target.y},{target.z}";
+        }
+        
+        public static string ToStringFixed(this Vector3Int target) {
+            return $"{target.x},{target.y},{target.z}";
+        }
+
+        public static Vector3Int ToVector3Int(this string target) {
+            string[] strs = target.Split(',');
+            return new Vector3Int(Convert.ToInt32(strs[0]), Convert.ToInt32(strs[1]) , Convert.ToInt32(strs[2]));
+        }
+
+        public static string ToStringFixed(this Vector2 target) {
+            return $"{target.x},{target.y}";
+        }
+
+        public static string ToStringFixedRGB(this Color target) {
+            return $"{target.r},{target.g},{target.b}";
+        }
+
+        public static string ToStringFixedRGBA(this Color target) {
+            return $"{target.r},{target.g},{target.b},{target.a}";
+        }
+    }
 
     public static class TransformExtension {
 

@@ -16,10 +16,20 @@ namespace LZ.WarGameMap.MapEditor
 
         public override string EditorName => MapEditorEnum.LandformEditor;
 
+        TerrainConstructor TerrainCtor;
+
         [FoldoutGroup("配置scene", -1)]
         [Button("初始化地貌配置")]
         protected override void InitEditor() {
-
+            GameObject mapRootObj = GameObject.Find(MapSceneEnum.MapRootName);
+            if (mapRootObj == null) {
+                mapRootObj = new GameObject(MapSceneEnum.MapRootName);
+            }
+            TerrainCtor = mapRootObj.GetComponent<TerrainConstructor>();
+            if (TerrainCtor == null) {
+                Debug.LogError("unable to find TerrainCtor, please goto terrainWindow to config it");
+                return;
+            }
         }
 
         [FoldoutGroup("构建地貌/地貌纹理设置")]
@@ -42,6 +52,11 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("当前使用的高度图数据")]
         public List<HeightDataModel> heightDataModels;
 
+
+        [FoldoutGroup("构建地貌")]
+        [LabelText("使用柏林噪声处理")]
+        public bool openPerlinNoise = true;
+
         [FoldoutGroup("构建地貌")]
         [LabelText("起始经纬度")]
         public Vector2Int startLongitudeLatitude = new Vector2Int(109, 32);
@@ -60,7 +75,7 @@ namespace LZ.WarGameMap.MapEditor
         public string curLandformTexPath;
         
         [FoldoutGroup("构建地貌")]
-        [Button("导入地貌纹理", ButtonSizes.Medium)]
+        [Button("导入地貌纹理图", ButtonSizes.Medium)]
         private void ImportLandFormTex() {
             string landformImportPath = EditorUtility.OpenFilePanel("Import Raw Heightmap", "", "");
             if (landformImportPath == "") {
@@ -68,7 +83,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            curLandformTexPath = AssetsUtility.GetInstance().TransToUnityAssetPath(landformImportPath);
+            curLandformTexPath = AssetsUtility.GetInstance().TransToAssetPath(landformImportPath);
             curHandleTex = AssetDatabase.LoadAssetAtPath<UnityEngine.Texture2D>(curLandformTexPath);
             if (curHandleTex == null) {
                 curLandformTexPath = "";
@@ -78,11 +93,15 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         [FoldoutGroup("构建地貌")]
-        [Button("导出地貌纹理", ButtonSizes.Medium)]
+        [Button("导出地貌纹理图", ButtonSizes.Medium)]
         private void ExportLandFormTex() {
 
             HeightDataManager heightDataManager = new HeightDataManager();
             heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize);
+
+            // use perlin noise
+            PerlinGenerator perlinGenerator = new PerlinGenerator();
+            perlinGenerator.GeneratePerlinNoise(ExportTexResolution, ExportTexResolution);
 
             // renderTexture, 效率更高
             //RenderTexture tmpTex = RenderTexture.GetTemporary(ExportTexResolution, ExportTexResolution, 24);
@@ -91,6 +110,7 @@ namespace LZ.WarGameMap.MapEditor
             //RenderTexture.ReleaseTemporary(tmpTex);
             //curHandleTex.ReadPixels(new Rect(0, 0, ExportTexResolution, ExportTexResolution), 0, 0);
 
+            // TODO: 改用 job system
             curHandleTex = new Texture2D(ExportTexResolution, ExportTexResolution, TextureFormat.RGB24, false);
             Color[] colors = curHandleTex.GetPixels();
             for (int i = 0; i < ExportTexResolution; i++) {
@@ -105,7 +125,15 @@ namespace LZ.WarGameMap.MapEditor
                         idx = i * ExportTexResolution + j;
                     }
                     // TODO : 要加入：温度、湿度 如何对应纹理？
-                    colors[idx] = GetColorByHeight(vertPos.y);
+                    //float humidity = LandformDataModel.GetHumidity(vertPos, startLongitudeLatitude);
+                    //float temperature = LandformDataModel.GetTemperature(vertPos, startLongitudeLatitude);
+                    //Color color = LandformDataModel.SampleColor(humidity, temperature);
+                    Color color = GetColorByHeight(vertPos.y);
+                    if (openPerlinNoise) {
+                        colors[idx] = perlinGenerator.SampleNosie(vertPos) * color;
+                    } else {
+                        colors[idx] = color;
+                    }
                 }
             }
             curHandleTex.SetPixels(colors);
@@ -134,16 +162,6 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        private Color AdjustColorByFactors(Color baseColor, float temperature, float humidity) {
-            // T : 
-            baseColor.r += temperature * 0.1f;
-            // H : 
-            baseColor.g += humidity * 0.1f;
-            baseColor.b += (1.0f - humidity) * 0.05f;
-
-            return baseColor;
-        }
-
         [FoldoutGroup("构建地貌")]
         [Button("保存当前纹理", ButtonSizes.Medium)]
         private void SaveLandFormTex() {
@@ -152,6 +170,11 @@ namespace LZ.WarGameMap.MapEditor
             TextureUtility.GetInstance().SaveTextureAsAsset(landformTexImportPath, texName, curHandleTex);
         }
 
+        [FoldoutGroup("构建地貌")]
+        [Button("应用当前纹理", ButtonSizes.Medium)]
+        private void ApplyLandFormTex() { 
+            // TODO : 好像不用做
+        }
 
 
         // TODO : 导出以下的所有贴图
@@ -163,7 +186,7 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("混合纹理地貌生成")]
         [Button("导出索引贴图", ButtonSizes.Medium)]
         private void ImportIdxTex() {
-
+            // 也许不需要导出索引贴图 + 混合贴图，直接使用 color 制作？
         }
 
         [FoldoutGroup("混合纹理地貌生成")]
@@ -181,24 +204,28 @@ namespace LZ.WarGameMap.MapEditor
 
 
         // TODO : 下面的代码要缝到上面
+        // TODO : 利用下面的代码，+上上面的，生成混合纹理地貌
+        // 地貌模型 ： 基于 高度 - 湿度 - 温度 来确定一个地区应该采用的地貌图（纹理）
 
-        [FoldoutGroup("地表纹理处理")]
+        // 参考 ：欧陆风云4
+
+        [FoldoutGroup("图集生成")]
         [LabelText("图集规格")]
         [Tooltip("例如值为4,则图集的规格是4x4")]
         public int texAtlasSize = 4;
 
-        [FoldoutGroup("地表纹理处理")]
+        [FoldoutGroup("图集生成")]
         [LabelText("分辨率")]
         public int texResoution = 2048;
 
-        [FoldoutGroup("地表纹理处理")]
+        [FoldoutGroup("图集生成")]
         [LabelText("默认材质")]
         public Material defaultTerrainMat;
 
         public const string texArrayPath = MapStoreEnum.TerrainTexArrayPath;
         public const string texSavePath = MapStoreEnum.TerrainTexOutputPath;
 
-        [FoldoutGroup("地表纹理处理")]
+        [FoldoutGroup("图集生成")]
         [Button("生成纹理图集")]
         private void GenerateTextureArray() {
 
@@ -254,7 +281,7 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log("generate texture altas, then you can generate the indexTex and blenderTex");
         }
 
-        [FoldoutGroup("地表纹理处理")]
+        [FoldoutGroup("图集生成")]
         [Button("生成索引与混合纹理")]
         private void GenerateIndexBlenderTex() {
 
@@ -266,7 +293,7 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log("generate index altas, then you can generate the blenderTex");
         }
 
-        [FoldoutGroup("地表纹理处理")]
+        [FoldoutGroup("图集生成")]
         [Button("生成地形纹理")]
         private void GenerateSplatTex() {
 

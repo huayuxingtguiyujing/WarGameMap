@@ -5,6 +5,7 @@ using Sirenix.OdinInspector.Editor;
 using UnityEditor;
 using static TreeEditor.TextureAtlas;
 using System.IO;
+using LZ.WarGameMap.Runtime;
 
 namespace LZ.WarGameMap.MapEditor {
 
@@ -17,6 +18,13 @@ namespace LZ.WarGameMap.MapEditor {
 
         protected abstract void InitEditor();
 
+        protected virtual void InitMapSetting() {
+            string mapSetFolerName = AssetsUtility.GetInstance().GetFolderFromPath(MapStoreEnum.WarGameMapSettingPath);
+            if (!AssetDatabase.IsValidFolder(MapStoreEnum.WarGameMapSettingPath)) {
+                AssetDatabase.CreateFolder(MapStoreEnum.WarGameMapRootPath, mapSetFolerName);
+            }
+
+        }
 
         public virtual void Enable() {
             SceneView.duringSceneGui += OnSceneGUI;

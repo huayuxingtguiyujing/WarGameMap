@@ -8,12 +8,16 @@ namespace LZ.WarGameMap.Runtime {
 
         public const string WarGameMapRootPath = "Assets/WarGameMap";
 
+        // 地图设置
+        public const string WarGameMapSettingPath = "Assets/WarGameMap/MapSetting";
+
+
         // 地形相关
-        public const string TerrainMeshPath = "Assets/WarGameMap/TileMeshs/";
+        public const string TerrainMeshPath = "Assets/WarGameMap/Terrain/TerrainMeshs";
 
-        public const string TerrainTexArrayPath = "Assets/WarGameMap/Texture/Terrain";
+        public const string TerrainTexArrayPath = "Assets/WarGameMap/Terrain/Texture/Terrain";
 
-        public const string TerrainTexOutputPath = "Assets/WarGameMap/Texture/Output";
+        public const string TerrainTexOutputPath = "Assets/WarGameMap/Terrain/Texture/Output";
 
         // 高度图相关
         public const string HeightMapInputPath = "Assets/WarGameMap/HeightMap/Origin";

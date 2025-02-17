@@ -14,7 +14,7 @@ namespace LZ.WarGameMap.Runtime
         int srcWidth;
         int srcHeight;
 
-        Vector3Int terrainClusterSize;
+        int terrainClusterSize;
         int terrainClusterWidth;
         int terrainClusterHeight;
 
@@ -86,15 +86,15 @@ namespace LZ.WarGameMap.Runtime
             heightDataModels = new List<HeightDataModel>();
         }
 
-        public void InitHeightDataManager(List<HeightDataModel> heightDataModels, Vector3Int terrainClusterSize) {
+        public void InitHeightDataManager(List<HeightDataModel> heightDataModels, int terrainClusterSize) {
             this.heightDataModels = heightDataModels;
 
             srcWidth = heightDataModels[0].singleHeightFileSize;
             srcHeight = heightDataModels[0].singleHeightFileSize;
 
             this.terrainClusterSize = terrainClusterSize;
-            terrainClusterWidth = terrainClusterSize.x;
-            terrainClusterHeight = terrainClusterSize.z;
+            terrainClusterWidth = terrainClusterSize;
+            terrainClusterHeight = terrainClusterSize;
         }
 
 
@@ -152,7 +152,7 @@ namespace LZ.WarGameMap.Runtime
                 float rx1 = Mathf.Lerp(q01, q11, sx - x0);
 
                 // caculate the height by the data given
-                float h = Mathf.Lerp(rx0, rx1, sy - y0) * terrainClusterSize.y;
+                float h = Mathf.Lerp(rx0, rx1, sy - y0) * terrainClusterSize;
                 float fixed_h = Mathf.Clamp(h, 0, 50);
 
                 return fixed_h;
