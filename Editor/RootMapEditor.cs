@@ -1,11 +1,6 @@
 using LZ.WarGameMap.Runtime;
-using OfficeOpenXml.FormulaParsing.Excel.Functions.Text;
 using Sirenix.OdinInspector.Editor;
-//using Sirenix.Utilities.Editor;
-using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using UnityEditor;
 using UnityEngine;
 
@@ -100,7 +95,7 @@ namespace LZ.WarGameMap.MapEditor
 
 
         [MenuItem("GameMap/OpenMapEditor")]
-        private static void OpenMapEditor() {
+        static void OpenMapEditor() {
             RootMapEditor window = GetWindow<RootMapEditor>("MapEditor");
             window.minSize = new Vector2(720, 320);
             window.Show();

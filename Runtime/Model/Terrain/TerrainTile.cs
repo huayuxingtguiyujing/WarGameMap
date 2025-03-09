@@ -30,7 +30,7 @@ namespace LZ.WarGameMap.Runtime
 
         public TerrainCluster() { IsValid = false; }
 
-        public void InitTerrainCluster(int idxX, int idxY, int longitude, int latitude, TerrainSetting terSet, HeightDataManager heightDataManager, GameObject clusterGo) {
+        public void InitTerrainCluster_Static(int idxX, int idxY, int longitude, int latitude, TerrainSetting terSet, HeightDataManager heightDataManager, GameObject clusterGo) {
             this.idxX = idxX;
             this.idxY = idxY;
 
@@ -42,12 +42,12 @@ namespace LZ.WarGameMap.Runtime
             this.clusterGo = clusterGo;
 
             Vector3 startPoint = new Vector3(terSet.clusterSize * idxX, 0, terSet.clusterSize * idxY);
-            InitTerrainCluster(startPoint, heightDataManager);
+            InitTerrainCluster_Static(startPoint, heightDataManager);
 
             IsValid = true;
         }
 
-        private void InitTerrainCluster(Vector3 clusterStartPoint, HeightDataManager heightDataManager) {
+        private void InitTerrainCluster_Static(Vector3 clusterStartPoint, HeightDataManager heightDataManager) {
             int tileNumPerLine = terSet.clusterSize / terSet.tileSize;
 
             //Debug.Log(string.Format("the cluster size : {0}x{1}, because the size of cluster is {2}, so there are {3} tiles in a row", 
@@ -70,7 +70,11 @@ namespace LZ.WarGameMap.Runtime
             int curLODLevel = terSet.LODLevel - 1;
             while (curLODLevel >= 0) {
                 // when num fix == 1, the vert num per line is equal to tileSize
-                int vertexNumFix = (int)Mathf.Pow(2, (terSet.LODLevel - curLODLevel - 1));
+                // int vertexNumFix = (int)Mathf.Pow(2, (terSet.LODLevel - curLODLevel - 1));
+
+                // NOTE : 现在静态构建时，使用一样的 vertex 边数（128 即原来的 LOD1 级， 所以这里的修正是 2，即除 2）
+                int vertexNumFix = 16;
+
                 if (vertexNumFix > terSet.tileSize) {
                     // wrong
                     break;
@@ -88,10 +92,6 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log(string.Format("successfully generate terrain tiles! "));
         }
 
-        public void SetTerrainCluster(BinaryReader reader) {
-            
-        }
-
         private MeshFilter CreateTerrainTile(int idxX, int idxY) {
             GameObject tileGo = new GameObject();
             tileGo.transform.parent = clusterGo.transform;
@@ -102,6 +102,18 @@ namespace LZ.WarGameMap.Runtime
             return meshFilter;
         }
 
+        public void ExeTerrainSimplify(int tileIdxX, int tileIdxY, TerrainSimplifier terrainSimplifier, float simplifyTarget) {
+
+            // NOTE : 先只做一个地块的
+            tileList[tileIdxX, tileIdxY].ExeTerrainSimplify(tileIdxX, tileIdxY, terrainSimplifier, simplifyTarget);;
+            
+            // TOOD : 要改
+            for (int i = 0; i < tileList.GetLength(1); i++) {
+                for (int j = 0; j < tileList.GetLength(0); j++) {
+                    //tileList[i, j].ExeTerrainSimplify(i, j, terrainSimplifier, simplifyTarget);
+                }
+            }
+        }
 
         #region update terrain ; fix LOD seam
 
@@ -155,37 +167,37 @@ namespace LZ.WarGameMap.Runtime
             }
 
             // copy egde's lodlevelmap to fulllodlevelmap. careful for the sequence
-            List<int> leftLODLevel = new List<int>() { -1, -1, -1, -1 };
-            if (left != null) {
-                leftLODLevel = left.GetEdgeLODLevel(cameraPos, GetEdgeDir.Right);
-            }
-            for (int i = 0; i < tileHeight; i++) {
-                fullLodLevelMap[0, i + 1] = leftLODLevel[i];
-            }
+            //List<int> leftLODLevel = new List<int>() { -1, -1, -1, -1 };
+            //if (left != null) {
+            //    leftLODLevel = left.GetEdgeLODLevel(cameraPos, GetEdgeDir.Right);
+            //}
+            //for (int i = 0; i < tileHeight; i++) {
+            //    fullLodLevelMap[0, i + 1] = leftLODLevel[i];
+            //}
 
-            List<int> rightLODLevel = new List<int>() { -1, -1, -1, -1 };
-            if (right != null) {
-                rightLODLevel = right.GetEdgeLODLevel(cameraPos, GetEdgeDir.Left);
-            }
-            for (int i = 0; i < tileHeight; i++) {
-                fullLodLevelMap[tileHeight + 1, i + 1] = rightLODLevel[i];
-            }
+            //List<int> rightLODLevel = new List<int>() { -1, -1, -1, -1 };
+            //if (right != null) {
+            //    rightLODLevel = right.GetEdgeLODLevel(cameraPos, GetEdgeDir.Left);
+            //}
+            //for (int i = 0; i < tileHeight; i++) {
+            //    fullLodLevelMap[tileHeight + 1, i + 1] = rightLODLevel[i];
+            //}
 
-            List<int> upLODLevel = new List<int>() { -1, -1, -1, -1 };
-            if (up != null) {
-                upLODLevel = up.GetEdgeLODLevel(cameraPos, GetEdgeDir.Down);
-            }
-            for (int i = 0; i < tileWidth; i++) {
-                fullLodLevelMap[i + 1, tileWidth + 1] = upLODLevel[i];
-            }
+            //List<int> upLODLevel = new List<int>() { -1, -1, -1, -1 };
+            //if (up != null) {
+            //    upLODLevel = up.GetEdgeLODLevel(cameraPos, GetEdgeDir.Down);
+            //}
+            //for (int i = 0; i < tileWidth; i++) {
+            //    fullLodLevelMap[i + 1, tileWidth + 1] = upLODLevel[i];
+            //}
 
-            List<int> downLODLevel = new List<int>() { -1, -1, -1, -1 };
-            if (down != null) {
-                downLODLevel = down.GetEdgeLODLevel(cameraPos, GetEdgeDir.Up);
-            }
-            for (int i = 0; i < tileWidth; i++) {
-                fullLodLevelMap[i + 1, 0] = downLODLevel[i];
-            }
+            //List<int> downLODLevel = new List<int>() { -1, -1, -1, -1 };
+            //if (down != null) {
+            //    downLODLevel = down.GetEdgeLODLevel(cameraPos, GetEdgeDir.Up);
+            //}
+            //for (int i = 0; i < tileWidth; i++) {
+            //    fullLodLevelMap[i + 1, 0] = downLODLevel[i];
+            //}
 
             return fullLodLevelMap;
         }
@@ -400,7 +412,40 @@ namespace LZ.WarGameMap.Runtime
             meshData.RecaculateNormal();
         }
 
+        public void ExeTerrainSimplify(int tileIdxX, int tileIdxY, TerrainSimplifier terrainSimplifier, float simplifyTarget) {
+            int length = LODMeshes.Length;
+
+            // TODO : 为了保证时间，先暂时只设置一个地块的 （idx : 1）
+            List<int> edgeVerts = new List<int>();
+            List<Vector3> edgeNormals = new List<Vector3>();
+            LODMeshes[1].GetEdgeVertInfo(ref edgeVerts, ref edgeNormals);
+
+            terrainSimplifier.InitSimplifyer(
+                LODMeshes[1].GetMesh(tileIdxX, tileIdxY, 0),
+                edgeVerts, edgeNormals, simplifyTarget
+            );
+
+            terrainSimplifier.StartSimplify();
+            SetMesh(terrainSimplifier.EndSimplify());
+
+
+            // TODO : 要改
+            for (int i = 0; i < length; i++) {
+
+                //terrainSimplifier.InitSimplifyer(
+                //    LODMeshes[i].GetMesh(tileIdxX, tileIdxY, 0), 
+                //    LODMeshes[i].GetCanNotDelVerts(), simplifyTarget
+                //);
+
+                //terrainSimplifier.StartSimplify();
+                //terrainSimplifier.EndSimplify();
+            }
+        }
+
+        // NOTE : 现在要放弃原先的 LOD 方案了
         public int GetRefinedLODLevel(Vector3 cameraPos) {
+            return 1;
+
             float distance = Vector3.Distance(cameraPos, tileCenterPos);
 
             int idx = LODLevels.Length - 1;

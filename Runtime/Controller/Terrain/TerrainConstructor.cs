@@ -1,5 +1,4 @@
 using LZ.WarGameCommon;
-using OfficeOpenXml.FormulaParsing.Excel.Functions.Text;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -63,7 +62,6 @@ namespace LZ.WarGameMap.Runtime
         }
 
         public void BuildCluster(int i, int j, int longitude, int latitude) {
-            
             if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
                 Debug.LogError($"wrong index : {i}, {j}");
                 return;
@@ -71,18 +69,35 @@ namespace LZ.WarGameMap.Runtime
 
             if (!clusterList[i, j].IsValid) {
                 GameObject clusterGo = CreateTerrainCluster(i, j);
-                clusterList[i, j].InitTerrainCluster(i, j, longitude, latitude, terSet, heightDataManager, clusterGo);
+                clusterList[i, j].InitTerrainCluster_Static(i, j, longitude, latitude, terSet, heightDataManager, clusterGo);
             }
 
             Debug.Log($"handle cluster successfully, use heightData : {longitude}, {latitude}");
         }
 
+        public void ExeSimplify(int i, int j, int tileIdxX, int tileIdxY, float simplifyTarget) {
+            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
+                Debug.LogError($"wrong index : {i}, {j}");
+                return;
+            }
+
+            if (!clusterList[i, j].IsValid) {
+                Debug.LogError($"cluster not valid, index : {i}, {j}");
+                return;
+            }
+
+            TerrainSimplifier terrainSimplifier = new TerrainSimplifier();
+            clusterList[i, j].ExeTerrainSimplify(tileIdxX, tileIdxY, terrainSimplifier, simplifyTarget);
+
+            Debug.Log($"simplify over, cluster idx : {i}, {j}, target : {simplifyTarget}");
+        }
+
         public void ExportClusterByBinary(int idxX, int idxY, int longitude, int latitude, BinaryReader reader) {
             if (!clusterList[idxX, idxY].IsValid) {
                 GameObject clusterGo = CreateTerrainCluster(idxX, idxY);
-                clusterList[idxX, idxY].InitTerrainCluster(idxX, idxY, longitude, latitude, terSet, heightDataManager, clusterGo);
+                clusterList[idxX, idxY].InitTerrainCluster_Static(idxX, idxY, longitude, latitude, terSet, heightDataManager, clusterGo);
             }
-            clusterList[idxX, idxY].SetTerrainCluster(reader);
+            //clusterList[idxX, idxY].SetTerrainCluster(reader);
 
             TDList<TerrainTile> tiles = clusterList[idxX, idxY].TileList;
             foreach (var tile in tiles) {

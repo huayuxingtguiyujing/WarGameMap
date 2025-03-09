@@ -78,6 +78,7 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
+        #region 构建地形
 
         [FoldoutGroup("构建地形", 0)]
         [LabelText("地形设置")]
@@ -85,7 +86,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("构建地形", 0)]
         [Button("初始化地形", ButtonSizes.Medium)]
-        private void GenerateTerrain() { 
+        private void GenerateTerrain() {
 
             int tileNumARow = terSet.clusterSize / terSet.tileSize;
 
@@ -154,8 +155,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            foreach (var model in heightDataModels)
-            {
+            foreach (var model in heightDataModels) {
                 if (model.ExistHeightData(longitude, latitude)) {
                     //HeightData heightData = model.GetHeightData(longitude, latitude);
                     TerrainCtor.BuildCluster(clusterIdx.x, clusterIdx.y, longitude, latitude);
@@ -167,7 +167,9 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
+        #endregion
 
+        #region 地形网格持久化
 
 
         [FoldoutGroup("地形网格持久化")]
@@ -198,7 +200,7 @@ namespace LZ.WarGameMap.MapEditor
             int terrainWidth = clusters.GetLength(1);
             int terrainHeight = clusters.GetLength(0);
             int clusterNums = clusters.GetLength(0) * clusters.GetLength(1);
-            
+
             string outputFile = AssetsUtility.GetInstance().CombinedPath(exportHandleMeshPath,
                 GetMeshDataName(terrainWidth, terrainHeight, clusterNums));
 
@@ -340,7 +342,7 @@ namespace LZ.WarGameMap.MapEditor
                 TerrainCtor.InitHeightCons(trSet, heightDataModels);
 
                 int validClusterNum = reader.ReadInt32();
-                for(int i = 0; i < validClusterNum; i++) {
+                for (int i = 0; i < validClusterNum; i++) {
                     TerrainCluster cls = new TerrainCluster();
                     cls.ReadFromBinary(reader);
 
@@ -388,6 +390,37 @@ namespace LZ.WarGameMap.MapEditor
 
 
         }
+
+        #endregion
+
+
+        #region 地形减面
+
+        [FoldoutGroup("地形减面")]
+        [LabelText("当前简化的cluster索引")]
+        public Vector2Int simplifyClsIdx;
+
+        [FoldoutGroup("地形减面")]
+        [LabelText("当前简化的tile索引")]
+        public Vector2Int simplifyTileIdx;
+
+        [FoldoutGroup("地形减面")]
+        [LabelText("顶点优化目标")]
+        public float simplifyTarget = 0.5f;
+
+        // TODO ： 
+        [FoldoutGroup("地形减面")]
+        [Button("对当前Mesh进行减面", ButtonSizes.Medium)]
+        private void ExeMeshReduction() {
+            // NOTE : qem: https://zhuanlan.zhihu.com/p/547256817
+            if (TerrainCtor == null) {
+                Debug.LogError("terrian ctor is null!");
+                return;
+            }
+            TerrainCtor.ExeSimplify(simplifyClsIdx.x, simplifyClsIdx.y, simplifyTileIdx.x, simplifyTileIdx.y, simplifyTarget);
+        }
+
+        #endregion
 
     }
 

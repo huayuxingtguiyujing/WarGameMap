@@ -2,15 +2,11 @@
 using LZ.WarGameMap.Runtime.HexStruct;
 using LZ.WarGameMap.Runtime.QuadTree;
 using NUnit.Framework;
-using OfficeOpenXml.FormulaParsing.Excel.Functions.Math;
-using OfficeOpenXml.FormulaParsing.Excel.Functions.RefAndLookup;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using LZ.WarGameCommon;
 using UnityEngine;
-using OfficeOpenXml.FormulaParsing.Excel.Functions.Text;
-using UnityEngine.UIElements;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -186,11 +182,19 @@ namespace LZ.WarGameMap.Runtime
             }
         }*/
 
-        private Layout GetScreenLayout() {
+        public Layout GetScreenLayout() {
+            //Vector2 startPoint = new Vector2(transform.position.x, transform.position.y);
+            //Layout layout = new Layout(
+            //    Orientation.Layout_Pointy, new Point(Size.x, Size.y), new Point(startPoint.x, startPoint.y)
+            //);
+            //return layout;
+            return GetScreenLayout(Size);
+        }
 
+        public Layout GetScreenLayout(Vector2 size) {
             Vector2 startPoint = new Vector2(transform.position.x, transform.position.y);
             Layout layout = new Layout(
-                Orientation.Layout_Pointy, new Point(Size.x, Size.y), new Point(startPoint.x, startPoint.y)
+                Orientation.Layout_Pointy, new Point(size.x, size.y), new Point(startPoint.x, startPoint.y)
             );
             return layout;
         }

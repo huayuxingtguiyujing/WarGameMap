@@ -29,6 +29,8 @@ namespace LZ.WarGameMap.Runtime {
         // µÿ√≤œ‡πÿ
         public const string LandformTexOutputPath = "Assets/WarGameMap/Landform/Output";
 
+        public const string HexLandformTexOutputPath = "Assets/WarGameMap/Landform/HexOutput";
+
         //public const string Path = "Assets/WarGameMap/Landform/Output";
 
 

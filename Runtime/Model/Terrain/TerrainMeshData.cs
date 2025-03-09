@@ -194,6 +194,52 @@ namespace LZ.WarGameMap.Runtime
 
         #region mesh data get/set
 
+        public void GetEdgeVertInfo(ref List<int> edgeVertIdxs, ref List<Vector3> edgeRawNormals) {
+            edgeVertIdxs = new List<int>();
+            edgeRawNormals = new List<Vector3>();
+
+            // firstly, we caculate the contribute of the outOfVert to the edgeNormals
+            int borderTriangleCount = outOfMeshTriangles.Length / 3;
+            Vector3[] rawNormals = new Vector3[normals.Length];
+            for (int i = 0; i < borderTriangleCount; i++) {
+                int normalTriangleIndex = i * 3;
+                int vertexIndexA = outOfMeshTriangles[normalTriangleIndex];
+                int vertexIndexB = outOfMeshTriangles[normalTriangleIndex + 1];
+                int vertexIndexC = outOfMeshTriangles[normalTriangleIndex + 2];
+
+                Vector3 triangleNormal = SurfaceNormalFromIndices(vertexIndexA, vertexIndexB, vertexIndexC);
+                if (vertexIndexA >= 0) {
+                    rawNormals[vertexIndexA] += triangleNormal;
+                }
+                if (vertexIndexB >= 0) {
+                    rawNormals[vertexIndexB] += triangleNormal;
+                }
+                if (vertexIndexC >= 0) {
+                    rawNormals[vertexIndexC] += triangleNormal;
+                }
+            }
+
+            int width = vertexIndiceMap.GetLength(0);
+            int height = vertexIndiceMap.GetLength(1);
+
+            // init the edge verts and normals
+            for (int i = 1; i < width - 1; i++) {
+                edgeVertIdxs.Add(vertexIndiceMap[i, 1]);
+                edgeVertIdxs.Add(vertexIndiceMap[i, height - 2]);
+                Vector3 v1 = rawNormals[vertexIndiceMap[i, 1]];
+                edgeRawNormals.Add(v1);
+                edgeRawNormals.Add(rawNormals[vertexIndiceMap[i, height - 2]]);
+            }
+            // start with 2, because vert[1] has been added in ÉÏÃæµÄ
+            for (int i = 2; i < height - 2; i++) {
+                edgeVertIdxs.Add(vertexIndiceMap[1, i]);
+                edgeVertIdxs.Add(vertexIndiceMap[width - 2, i]);
+                edgeRawNormals.Add(rawNormals[vertexIndiceMap[1, i]]);
+                edgeRawNormals.Add(rawNormals[vertexIndiceMap[width - 2, i]]);
+            }
+        }
+
+
         public Mesh GetMesh(int tileIdxX, int tileIdxY, int fixDirection) {
             Mesh mesh = new Mesh();
             mesh.name = string.Format("TerrainMesh_LOD{0}_Idx{1}_{2}", curLODLevel, tileIdxX, tileIdxY);

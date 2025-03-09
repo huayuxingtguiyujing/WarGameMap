@@ -21,11 +21,11 @@ namespace LZ.WarGameMap.Runtime.HexStruct
         }
 
         #region 与屏幕上的点 互相转换
-        internal virtual Point Hex_To_Pixel(Layout layout, _Hex<Number, T> hex) { return null; }
+        public virtual Point Hex_To_Pixel(Layout layout, _Hex<Number, T> hex) { return null; }
 
-        internal virtual Hex Pixel_To_Hex(Layout layout, Point point) { return null; }
+        public virtual Hex Pixel_To_Hex(Layout layout, Point point) { return null; }
 
-        internal virtual Point Hex_Corner_Offset(Layout layout, int corner) { return null; }
+        public virtual Point Hex_Corner_Offset(Layout layout, int corner) { return null; }
 
         internal virtual List<Point> Polygon_Corners(Layout layout, Hex hex) { return null; }
 
@@ -40,11 +40,11 @@ namespace LZ.WarGameMap.Runtime.HexStruct
 
         #region 与屏幕上的点 互相转换
 
-        internal override Point Hex_To_Pixel(Layout layout, HexFraction hex) {
+        public override Point Hex_To_Pixel(Layout layout, HexFraction hex) {
             throw new NotImplementedException();
         }
 
-        internal override Hex Pixel_To_Hex(Layout layout, Point point) {
+        public override Hex Pixel_To_Hex(Layout layout, Point point) {
             throw new NotImplementedException();
         }
 
@@ -133,7 +133,7 @@ namespace LZ.WarGameMap.Runtime.HexStruct
         #region trans with screen point
 
         // 将 六边形数据类 转化为 像素点
-        internal override Point Hex_To_Pixel(Layout layout, Hex hex) {
+        public override Point Hex_To_Pixel(Layout layout, Hex hex) {
             Orientation O = layout.orientation;
 
             //使用 矩阵 将 Hex坐标 转为 屏幕二维坐标点
@@ -142,7 +142,7 @@ namespace LZ.WarGameMap.Runtime.HexStruct
             return new Point(x + layout.Origin.x, y + layout.Origin.y);
         }
 
-        internal override Hex Pixel_To_Hex(Layout layout, Point point) {
+        public override Hex Pixel_To_Hex(Layout layout, Point point) {
             Orientation O = layout.orientation;
 
             //减去原点 除去偏移值
@@ -160,7 +160,7 @@ namespace LZ.WarGameMap.Runtime.HexStruct
         }
 
         // 获取 六边形的 指定顶点 - 顶点0在中心的左上角 - 顺时针取值
-        internal override Point Hex_Corner_Offset(Layout layout, int corner) {
+        public override Point Hex_Corner_Offset(Layout layout, int corner) {
             Point size = layout.Size;
 
             //获取该顶点 的 角度
