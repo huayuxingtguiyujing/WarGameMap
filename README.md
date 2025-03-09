@@ -15,7 +15,10 @@
 -战争迷雾、寻路<br> 
 -划分地图上势力，GamePlay方面的功能<br> 
 
-#### 目前进度（2025.2.10 ）：<br> 
+#### 目前进度（2025.3.9 ）：<br> 
+
+支持地形Mesh减面：<br> 
+<img src="https://github.com/user-attachments/assets/2553973e-6ae2-4201-ab63-078156b7d076" width="720px" height="400px">
 
 支持使用真实地理高度图生成地形，接收`TIF`、`Raw`高度图数据的输入，构建的地形规模可达 `20000*20000`，目前使用 `ChunkedLOD` <br> 
 <img src="https://github.com/user-attachments/assets/e6859358-fc9b-47a2-bf15-4a1ca9dc052d" width="720px" height="400px">
