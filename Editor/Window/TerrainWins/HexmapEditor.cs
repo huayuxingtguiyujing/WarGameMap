@@ -34,7 +34,7 @@ namespace LZ.WarGameMap.MapEditor
 
         GameObject mapRootObj;
         GameObject hexClusterParentObj;
-        GameObject hexSignParentObj;
+        //GameObject hexSignParentObj;
 
         HexmapConstructor HexCtor;
 
@@ -43,6 +43,7 @@ namespace LZ.WarGameMap.MapEditor
         [ShowIf("notInitScene")]
         [LabelText("警告: 没有初始化Scene")]
         public string warningMessage = "请点击按钮初始化!";
+
 
         [FoldoutGroup("配置地图Scene", -1)]
         [Button("初始化地图 Scene")]
@@ -61,104 +62,194 @@ namespace LZ.WarGameMap.MapEditor
             }
             hexClusterParentObj.transform.parent = mapRootObj.transform;
 
-            if (hexSignParentObj == null) {
-                hexSignParentObj = GameObject.Find(MapSceneEnum.HexSignParentName);
-                if (hexSignParentObj == null) {
-                    hexSignParentObj = new GameObject(MapSceneEnum.HexSignParentName);
-                }
-            }
-            hexSignParentObj.transform.parent = mapRootObj.transform;
+            //if (hexSignParentObj == null) {
+            //    hexSignParentObj = GameObject.Find(MapSceneEnum.HexSignParentName);
+            //    if (hexSignParentObj == null) {
+            //        hexSignParentObj = new GameObject(MapSceneEnum.HexSignParentName);
+            //    }
+            //}
+            //hexSignParentObj.transform.parent = mapRootObj.transform;
+            hexClusterParentObj.transform.position = new Vector3(0, hexHeight, 0);
 
             // TODO: 以后其他界面也需要用到 HexConstructor, 需要放到其他地方（开个单例）
             HexCtor = mapRootObj.GetComponent<HexmapConstructor>();
             if (HexCtor == null) {
                 HexCtor = mapRootObj.AddComponent<HexmapConstructor>();
             }
-            HexCtor.SetMapPrefab(hexClusterParentObj.transform, hexSignParentObj.transform);
+
+            InitMapSetting();
+            HexCtor.SetHexSetting(hexSet, hexClusterParentObj.transform, hexMaterial);
             notInitScene = false;
         }
-
+        
+        protected override void InitMapSetting() {
+            base.InitMapSetting();
+            if (hexSet == null) {
+                string hexSettingPath = MapStoreEnum.WarGameMapSettingPath + "/HexSetting_Default.asset";
+                hexSet = AssetDatabase.LoadAssetAtPath<HexSettingSO>(hexSettingPath);
+                if (hexSet == null) {
+                    // create it !
+                    hexSet = CreateInstance<HexSettingSO>();
+                    AssetDatabase.CreateAsset(hexSet, hexSettingPath);
+                    Debug.Log($"successfully create Hex Setting, path : {hexSettingPath}");
+                }
+            }
+        }
 
         #region init map
 
-        [FoldoutGroup("初始化地图")]
-        [LabelText("矩形宽度")]
-        public Vector2 LeftAndRight = new Vector2(0, 10);
-        [FoldoutGroup("初始化地图")]
-        [LabelText("矩形高度")]
-        public Vector2 TopAndBottom = new Vector2(0, 10);
+        [FoldoutGroup("初始化地图", -1)]
+        [LabelText("地图配置")]
+        public HexSettingSO hexSet;
 
         [FoldoutGroup("初始化地图")]
-        [Button("绘制矩形网格")]
+        [LabelText("地图高度")]
+        public float hexHeight = 30;
+
+        [FoldoutGroup("初始化地图")]
+        [LabelText("地图材质")]
+        public Material hexMaterial;
+
+        [FoldoutGroup("初始化地图")]
+        [Button("绘制矩形网格", ButtonSizes.Medium)]
         private void DrawRectangleGrid() {
-            HexCtor.InitHexConsRectangle(
-                (int)TopAndBottom.x, (int)TopAndBottom.y,
-                (int)LeftAndRight.x, (int)LeftAndRight.y
-            );
+            HexCtor.InitHexConsRectangle();
         }
 
         [FoldoutGroup("初始化地图")]
-        [LabelText("平行四边形宽度")]
-        public Vector2 Q1AndQ2 = new Vector2(0, 10);
-        [FoldoutGroup("初始化地图")]
-        [LabelText("平行四边形高度")]
-        public Vector2 Q3AndQ4 = new Vector2(0, 10);
-
-        [FoldoutGroup("初始化地图")]
-        [Button("绘制平行四边形网格")]
-        private void DrawParallelogramGrid() {
-            HexCtor.InitHexConsParallelogram(
-                (int)Q1AndQ2.x, (int)Q1AndQ2.y,
-                (int)Q3AndQ4.x, (int)Q3AndQ4.y
-            );
+        [Button("刷新地图", ButtonSizes.Medium)]
+        private void UpdateHexMap() {
+            // set the height
+            
+            // update the material
         }
 
         [FoldoutGroup("初始化地图")]
-        [Button("清空地图")]
+        [Button("清空地图", ButtonSizes.Medium)]
         private void ClearHexMap() {
             hexClusterParentObj.ClearObjChildren();
         }
 
-        [FoldoutGroup("初始化地图")]
-        [Button("清空标记")]
-        private void ClearHexSigns() {
-            hexSignParentObj.ClearObjChildren();
-        }
-
-        //[FoldoutGroup("初始化地图")]
-        //[Button("构建地图四叉树")]
-        //private void BuildQuadTree() {
-            //HexCtor.BuildQuadTreeMap();
-        //}
-        //[FoldoutGroup("初始化地图")]
-        //[OnValueChanged("ShowHidQuadTree")]
-        //public bool ShowQuadTree = true;
-        //private void ShowHidQuadTree() {
-            //HexCtor.ShowQuadTreeGizmos(ShowQuadTree);
-        //}
-
         #endregion
 
 
-        #region test function
+        #region generate RawHexMap
 
-        [FoldoutGroup("测试")]
-        [LabelText("网格坐标")]
-        public Vector2Int gridIndex = new Vector2Int(0, 0);
+        [FoldoutGroup("生成RawHexMap")]
+        [LabelText("当前使用的高度图数据")]
+        public List<HeightDataModel> heightDataModels;
 
-        [FoldoutGroup("测试")]
-        [Button("获取邻居")]
-        private void TestGetNeighbors() {
-            HexCtor.GetMapGridNeighbor(gridIndex.x, gridIndex.y);
+        [FoldoutGroup("生成RawHexMap")]
+        [LabelText("当前操作Hex地图对象")]
+        public RawHexMapSO rawHexMapSO;
+
+        [FoldoutGroup("生成RawHexMap")]
+        [LabelText("当前Hex地图对象纹理")]
+        public Texture2D rawHexMapTexture;
+
+        [FoldoutGroup("生成RawHexMap")]
+        [LabelText("起始经纬度")]
+        public Vector2Int startLongitudeLatitude = new Vector2Int(109, 32);
+
+        [FoldoutGroup("生成RawHexMap")]
+        [LabelText("导出位置")]
+        public string exportHexMapSOPath = MapStoreEnum.TerrainHexMapPath;
+
+        [FoldoutGroup("生成RawHexMap")]
+        [Button("生成RawHexMapSO", ButtonSizes.Medium)]
+        private void GenerateRawHexMap() {
+
+            HeightDataManager heightDataManager = new HeightDataManager();
+            heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize);
+
+            rawHexMapSO = CreateInstance<RawHexMapSO>();
+            rawHexMapSO.InitRawHexMap(hexSet.mapWidth, hexSet.mapHeight);
+            HexCtor.GenerateRawHexMap(startLongitudeLatitude, rawHexMapSO, heightDataManager);
+
+            // 通过 HexMapSO 还原 Terrain 时
+            //      对当前 vertex 取得对应所属 Hex（以及对应的所有邻居节点）
+            //      根据当前的 Hex type 设置 vert 的 baseHeight
+            //      按照 hill 参数，概率性地调整高度（有一定概率按照邻居节点的参数进行调整）
+
+            // 难点：hex 贴边 shader 要放到还原后的 Terrain 上面
+            // 难点：混合大世界地图...（可以在 HexMapSO 生成的时候做索引/混合贴图吗？（在边缘应用噪声？））
         }
 
-        [FoldoutGroup("测试")]
-        [Button("获取坐标")]
-        private void TestGetCoordinates() {
-            HexCtor.GetMapGridTest(gridIndex.x, gridIndex.y);
+        [FoldoutGroup("生成RawHexMap")]
+        [Button("生成RawHexMap纹理", ButtonSizes.Medium)]
+        private void GenerateRawHexTexture() {
+            if(rawHexMapSO == null) {
+                Debug.LogError("rawHexMapSO is null!");
+                return;
+            } 
+
+            //if(rawHexMapTexture != null) {
+            //    rawHexMapTexture.
+            //}
+
+            rawHexMapTexture = new Texture2D(rawHexMapSO.width, rawHexMapSO.height);
+
+            foreach (var gridTerrainData in rawHexMapSO.HexMapGridTersList) {
+                Vector2Int pos = gridTerrainData.GetHexPos();
+                //Vector2Int pos = gridTerrainData.hexagon;
+                Color color = gridTerrainData.GetTerrainColor();
+
+                // TODO : 下面的生成步骤还是有问题！没有照顾到 hex 坐标的特性
+                //Vector2Int fixed_pos = new Vector2Int(rawHexMapTexture.width - pos.x, rawHexMapTexture.height - pos.y);
+                //Vector2Int fixed_pos = new Vector2Int(pos.x, rawHexMapTexture.height - pos.y);
+                //Vector2Int fixed_pos = new Vector2Int(rawHexMapTexture.width - pos.x, pos.y);
+                //Vector2Int fixed_pos = new Vector2Int(pos.y, pos.x);
+                Vector2Int fixed_pos = new Vector2Int(pos.x, pos.y);
+                // NOTE : ExportFlipVertically true
+                rawHexMapTexture.SetPixel(fixed_pos.x, fixed_pos.y, color);
+                //rawHexMapTexture.SetPixel(pos.x, pos.y, color);
+            }
+
+            //for(int i = 0;  i < rawHexMapTexture.width; i ++) { 
+            //    for(int j = 0; j < rawHexMapTexture.height; j ++) {
+            //        //rawHexMapTexture.SetPixel(i, j, );
+            //    }
+            //}
+            Debug.Log($"generate hex texture : {rawHexMapTexture.width}x{rawHexMapTexture.height}");
+        }
+
+        [FoldoutGroup("生成RawHexMap")]
+        [Button("保存RawHexMapSO", ButtonSizes.Medium)]
+        private void SaveRawHexMap() {
+
+            CheckExportPath();
+            string soName = $"RawHexMap_{rawHexMapSO.width}x{rawHexMapSO.height}_{UnityEngine.Random.Range(0, 100)}.asset";
+            string RawHexPath = exportHexMapSOPath + $"/{soName}";
+            AssetDatabase.CreateAsset(rawHexMapSO, RawHexPath);
+            Debug.Log($"successfully create Hex Map, path : {RawHexPath}");
+        }
+
+        [FoldoutGroup("生成RawHexMap")]
+        [Button("保存RawHexMap纹理", ButtonSizes.Medium)]
+        private void SaveRawHexTexture() {
+            if (rawHexMapTexture == null) {
+                Debug.LogError("rawHexMapTexture is null!");
+                return;
+            }
+
+            CheckExportPath();
+            string textureName = $"hexTexture_{rawHexMapTexture.width}x{rawHexMapTexture.height}_{UnityEngine.Random.Range(0, 100)}";
+            TextureUtility.GetInstance().SaveTextureAsAsset(exportHexMapSOPath, textureName, rawHexMapTexture);
+
+            //string path = exportHexMapSOPath + $"/{textureName}";
+            //AssetDatabase.CreateAsset(rawHexMapTexture, path);
+            //Debug.Log($"successfully create Hex Map, path : {path}");
+        }
+
+        private void CheckExportPath() {
+            string mapSOFolerName = AssetsUtility.GetInstance().GetFolderFromPath(exportHexMapSOPath);
+            if (!AssetDatabase.IsValidFolder(exportHexMapSOPath)) {
+                AssetDatabase.CreateFolder(MapStoreEnum.TerrainRootPath, mapSOFolerName);
+            }
         }
 
         #endregion
+
 
         #region draw map
 
@@ -174,12 +265,21 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("绘制")]
         public Color32 SignColor = Color.green;
 
+        [FoldoutGroup("绘制")]
+        public Vector2Int testPosition = new Vector2Int(0, 0);
+
+        [FoldoutGroup("绘制")]
+        [Button("Log 测试", ButtonSizes.Medium)]
+        private void LogHexPosition() {
+
+        }
+
         #endregion
 
 
         #region hexTexture Construct
         // NOTE : 此处输出六边形网格纹理，是为了构建 类似 文明那样的 六边形 Terrain 地表
-        
+
         [FoldoutGroup("六边形纹理构建/纹理设置")]
         [LabelText("分辨率")]
         public int OuputTextureResolution = 1024;
@@ -214,7 +314,7 @@ namespace LZ.WarGameMap.MapEditor
             HexGenerator hexGenerator = new HexGenerator();
             hexGenerator.GenerateRectangle(0, 50, 0, 50);
 
-            Layout layout = HexCtor.GetScreenLayout(new Vector2(20, 20));
+            Layout layout = HexCtor.GetScreenLayout();
             foreach (var pair in hexGenerator.HexagonIdxDic)
             {
                 Vector2Int idx = pair.Key;

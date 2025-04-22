@@ -11,7 +11,9 @@ namespace LZ.WarGameMap.Runtime.HexStruct
     using HexFraction = _Hex<float, int>;
     using Vector3 = UnityEngine.Vector3;
 
+
     public class _Hex<Number, T> {
+
         public readonly Number q, r, s;
 
         public _Hex(Number q, Number r, Number s) {
@@ -34,6 +36,7 @@ namespace LZ.WarGameMap.Runtime.HexStruct
     }
 
     // 支持 浮点型 的六边形坐标结构
+    [Serializable]
     public class HexagonFraction : HexFraction {
         public HexagonFraction(float q, float r, float s) : base(q, r, s) {
         }
@@ -51,7 +54,7 @@ namespace LZ.WarGameMap.Runtime.HexStruct
         #endregion
     }
 
-    // NOTE: Hexagon 内部使用 偏移 坐标
+    // NOTE: Hexagon 内部使用 轴向 坐标，需要的时候要和 offset 坐标互转
     // 支持 整型 的六边形坐标结构 有q r s三个维度
     public class Hexagon : Hex {
 
@@ -151,7 +154,8 @@ namespace LZ.WarGameMap.Runtime.HexStruct
                 (point.y - layout.Origin.y) / layout.Size.y
             );
 
-            //使用 逆矩阵 将 屏幕二维坐标点 转为 Hex坐标
+            //使用 逆矩阵 将 屏幕二维坐标点 转为 Hex坐标 
+            // 4.22日 等等，为什么是用的double？这有问题吧？
             double q = O.b0 * offsetPoint.x + O.b1 * offsetPoint.y;
             double r = O.b2 * offsetPoint.x + O.b3 * offsetPoint.y;
 
@@ -325,6 +329,55 @@ namespace LZ.WarGameMap.Runtime.HexStruct
         E = 3,
         SE = 4,
         SW = 5
+    }
+
+
+    public static class HexHelper {
+
+
+        //public static Hexagon PixelToAxialHex(Vector2 position, int HexGridSize) {
+        //    int q = Convert.ToInt32((Mathf.Sqrt(3) / 3 * position.x - 1.0f / 3 * position.y) / HexGridSize);
+        //    int r = Convert.ToInt32((2.0f / 3 * position.y) / HexGridSize);
+        //    return new Hexagon(q, r, -q-r);
+        //}
+
+        public static Hexagon PixelToAxialHex(Vector2 worldPos, int HexGridSize) {
+            float q = (Mathf.Sqrt(3) / 3 * worldPos.x - 1.0f/ 3 * worldPos.y) / HexGridSize;
+            float r = 2.0f/ 3 * worldPos.y / HexGridSize;
+            float s = -q - r;
+
+            int fix_q = Mathf.RoundToInt(q);
+            int fix_r = Mathf.RoundToInt(r);
+            int fix_s = Mathf.RoundToInt(s);
+
+            float q_diff = Mathf.Abs(fix_q - q);
+            float r_diff = Mathf.Abs(fix_r - r);
+            float s_diff = Mathf.Abs(fix_s - s);
+
+            int final_q = fix_q, final_r = fix_r, final_s = fix_s;
+            if (q_diff > r_diff && q_diff > s_diff) {
+                final_q = -fix_r - fix_s;
+            } else if (r_diff > s_diff) {
+                final_r = -fix_q - fix_s;
+            } else {
+                final_s = -fix_q - fix_r;
+            }
+            return new Hexagon(final_q, final_r, final_s);
+        }
+
+        public static Vector2Int AxialToOffset(Hexagon hex) {
+            var col = hex.q + (hex.r - (hex.r & 1)) / 2;
+            var row = hex.r;
+            return new Vector2Int(col, row);
+        }
+
+
+        //public static Hexagon OffsetToAxial() {
+        //    var q = hex.col - (hex.row - (hex.row & 1)) / 2
+        //    var r = hex.row
+        //    return Hex(q, r)
+        //}
+
     }
 
 }

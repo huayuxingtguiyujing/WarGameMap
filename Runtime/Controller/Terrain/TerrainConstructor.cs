@@ -17,7 +17,6 @@ namespace LZ.WarGameMap.Runtime
         [SerializeField] Transform heightClusterParent;
         [SerializeField] Transform signParent;
 
-
         // cluster and tile setting
         int terrainWidth;
         int terrainHeight;
@@ -34,6 +33,7 @@ namespace LZ.WarGameMap.Runtime
         private HeightDataManager heightDataManager;
 
         private bool hasInit = false;
+
 
         #region init height cons
 
@@ -61,6 +61,14 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log(string.Format($"successfully generate total terrain!  create {terrainWidth}*{terrainHeight}"));
         }
 
+        public void InitHexCons(HexSettingSO hexSetting, RawHexMapSO rawHexMapSO) {
+            if (heightDataManager == null) {
+                Debug.LogError("you should set hexSetting and rawHexMapSO!");
+                return;
+            }
+            heightDataManager.InitHexSet(hexSetting, rawHexMapSO);
+        }
+
         public void BuildCluster(int i, int j, int longitude, int latitude) {
             if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
                 Debug.LogError($"wrong index : {i}, {j}");
@@ -73,6 +81,22 @@ namespace LZ.WarGameMap.Runtime
             }
 
             Debug.Log($"handle cluster successfully, use heightData : {longitude}, {latitude}");
+        }
+
+        public void BuildClusterNormal(int i, int j, Texture2D normalTex) {
+            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
+                Debug.LogError($"wrong index : {i}, {j}");
+                return;
+            }
+
+            if (!clusterList[i, j].IsValid) {
+                Debug.LogError($"firstly you should build the cluster : {i}, {j}");
+                return;
+            }
+
+            clusterList[i, j].SampleMeshNormal(normalTex);
+
+            Debug.Log("build mesh normal successfully!");
         }
 
         public void ExeSimplify(int i, int j, int tileIdxX, int tileIdxY, float simplifyTarget) {

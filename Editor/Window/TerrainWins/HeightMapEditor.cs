@@ -7,7 +7,9 @@ using System.IO;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
+using static Codice.Client.BaseCommands.BranchExplorer.Layout.BrExLayout;
 using static LZ.WarGameMap.MapEditor.TerrainEditor;
+using static UnityEngine.Awaitable;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -16,6 +18,33 @@ namespace LZ.WarGameMap.MapEditor
         public override string EditorName => MapEditorEnum.HeightMapEditor;
 
         protected override void InitEditor() { }
+
+
+        struct TIFHeightMapInfo {
+            public int latitude { get; private set; }
+            public int longitude { get; private set; }
+
+            public TIFHeightMapInfo(string fixedHeightFilePath) {
+                latitude = 0; longitude = 0;
+
+                // get tif file info from the name, such as "n33_e110_1arc_v3"
+                string inputFileName = Path.GetFileName(fixedHeightFilePath);
+                string[] tifFileInfo = inputFileName.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
+                if (tifFileInfo.Length < 3) {
+                    Debug.LogError($"the tif error, name not correct : {fixedHeightFilePath}");
+                    return;
+                }
+
+                // read the tif file, get longitude and latitude, write to this output file
+                Match matchLatitude = Regex.Match(tifFileInfo[0], @"^[a-zA-Z]+(\d+)$");
+                latitude = int.Parse(matchLatitude.Groups[1].Value);
+                Match matchLongitude = Regex.Match(tifFileInfo[1], @"^[a-zA-Z]+(\d+)$");
+                longitude = int.Parse(matchLongitude.Groups[1].Value);
+            }
+        }
+
+
+        #region 高度图序列化
 
         [FoldoutGroup("高度图序列化/导入设置")]
         [LabelText("导入时翻转")]
@@ -54,7 +83,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         private void SerializeHeightMaps(string outputPath, string outputName, string[] inputFilePaths, int size) {
-            
+
             string outputFile = AssetsUtility.GetInstance().CombinedPath(outputPath, outputName);
 
             using (FileStream fs = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write)) {
@@ -66,22 +95,24 @@ namespace LZ.WarGameMap.MapEditor
                     foreach (var inputFilePath in inputFilePaths) {
                         string fixedFilePath = AssetsUtility.GetInstance().FixFilePath(inputFilePath);
 
-                        // get tif file info from the name, such as "n33_e110_1arc_v3"
-                        string inputFileName = Path.GetFileName(fixedFilePath);
-                        string[] tifFileInfo = inputFileName.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
-                        if (tifFileInfo.Length < 3) {
-                            Debug.LogError($"the tif error, name not correct : {fixedFilePath}");
-                            break;
-                        }
+                        //// get tif file info from the name, such as "n33_e110_1arc_v3"
+                        //string inputFileName = Path.GetFileName(fixedFilePath);
+                        //string[] tifFileInfo = inputFileName.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
+                        //if (tifFileInfo.Length < 3) {
+                        //    Debug.LogError($"the tif error, name not correct : {fixedFilePath}");
+                        //    break;
+                        //}
 
-                        // read the tif file, get longitude and latitude, write to this output file
-                        Match matchLatitude = Regex.Match(tifFileInfo[0], @"^[a-zA-Z]+(\d+)$");
-                        int latitude = int.Parse(matchLatitude.Groups[1].Value);
-                        Match matchLongitude = Regex.Match(tifFileInfo[1], @"^[a-zA-Z]+(\d+)$");
-                        int longitude = int.Parse(matchLongitude.Groups[1].Value);
+                        //// read the tif file, get longitude and latitude, write to this output file
+                        //Match matchLatitude = Regex.Match(tifFileInfo[0], @"^[a-zA-Z]+(\d+)$");
+                        //int latitude = int.Parse(matchLatitude.Groups[1].Value);
+                        //Match matchLongitude = Regex.Match(tifFileInfo[1], @"^[a-zA-Z]+(\d+)$");
+                        //int longitude = int.Parse(matchLongitude.Groups[1].Value);
 
-                        writer.Write(latitude);
-                        writer.Write(longitude);
+                        TIFHeightMapInfo heightMapInfo = new TIFHeightMapInfo(fixedFilePath);
+
+                        writer.Write(heightMapInfo.latitude);
+                        writer.Write(heightMapInfo.longitude);
 
                         // get height data and write to file
                         float[,] heightMap = CompressHeightData(fixedFilePath);
@@ -146,6 +177,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         private float[,] ReadHeightMapData(string heightMapPath) {
+            // NOTE : 栈可能会炸吧
             float[,] heights = ReadTifData(heightMapPath);
             Debug.Log(string.Format("read height data over, length: {0}, path: {1}", heights.Length, heightMapPath));
             return heights;
@@ -180,7 +212,10 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log($"please go to {heightMapOutputPath} to delete output files, delete by code is dangerous");
         }
 
+        #endregion
 
+
+        #region 高度图反序列化
 
         [FoldoutGroup("高度图反序列化")]
         [LabelText("当前操作的序列化文件")]
@@ -249,7 +284,7 @@ namespace LZ.WarGameMap.MapEditor
                         float[,] heightDatas = new float[singleFileWidth, singleFileWidth];
                         // read the height data then add to the heightDataModel
                         for (int q = 0; q < singleFileWidth; q++) {
-                            for(int p  = 0; p < singleFileWidth;  p++) {
+                            for (int p = 0; p < singleFileWidth; p++) {
                                 heightDatas[q, p] = reader.ReadSingle();
                             }
                         }
@@ -266,6 +301,146 @@ namespace LZ.WarGameMap.MapEditor
             AssetDatabase.Refresh();
         }
 
+        #endregion
+
+
+        #region 根据高度图生成法线贴图
+
+        [FoldoutGroup("根据高度图生成法线图")]
+        [LabelText("法线分辨率")]
+        public int normalMapSize = 512;
+
+        [FoldoutGroup("根据高度图生成法线图")]
+        [LabelText("源高度图")]
+        public Texture2D originTexture;
+
+        [FoldoutGroup("根据高度图生成法线图")]
+        [LabelText("导出位置")]
+        public string normalTexOutputPath = MapStoreEnum.HeightMapNormalTexOutputPath;
+
+        [FoldoutGroup("根据高度图生成法线图")]
+        [Button("生成法线贴图", ButtonSizes.Medium)]
+
+        private void GenerateNormalMap() {
+            if (!Directory.Exists(heightMapInputPath)) {
+                Debug.LogError("do not exist input heightmap path");
+                return;
+            }
+            if (!Directory.Exists(heightMapOutputPath)) {
+                Directory.CreateDirectory(heightMapOutputPath);
+            }
+
+            if (originTexture == null) {
+                Debug.LogError("do not use origin texture, so we can not generate normal!");
+                return;
+            }
+
+            string[] heightMapPaths = Directory.GetFiles(heightMapInputPath, "*.tif", SearchOption.AllDirectories);
+            GenerateNormalMap(normalTexOutputPath, heightMapPaths);
+        }
+
+        //ERROR : 目前生成结果有问题！
+        private void GenerateNormalMap(string outputPath, string[] inputFilePaths) {
+            
+            int generateBatch = UnityEngine.Random.Range(1, 255);
+
+            int count = 1;
+            //foreach (var inputFilePath in inputFilePaths) {
+                //if (count <= 0) {
+                //    break;
+                //}
+                //count--;
+
+                //string fixedFilePath = AssetsUtility.GetInstance().FixFilePath(inputFilePath);
+
+                //TIFHeightMapInfo info = new TIFHeightMapInfo(fixedFilePath);
+
+                //float[,] heights = ReadTifData(fixedFilePath);
+                int srcWidth = originTexture.width;
+                int srcHeight = originTexture.height;
+
+                Texture2D normalTex = new Texture2D(normalMapSize, normalMapSize, TextureFormat.RGB24, false);
+
+                // write the data to normalTex
+                for (int i = 0; i < normalMapSize; i++) {
+                    for (int j = 0; j < normalMapSize; j++) {
+                        float sx = i * (float)(srcWidth - 1) / normalMapSize;
+                        float sy = j * (float)(srcHeight - 1) / normalMapSize;
+
+                        int int_sx = Mathf.FloorToInt(sx);
+                        int int_sy = Mathf.FloorToInt(sy);
+
+                        // sobel x
+                        int[,] kernel_sobel_x = {
+                            { -1,  0,  1 },
+                            { -2,  0,  2 },
+                            { -1,  0,  1 }
+                        };
+                        float sum_x = 0f;
+                        for (int ky = -1; ky <= 1; ky++) {
+                            for (int kx = -1; kx <= 1; kx++) {
+                                int px = Mathf.Clamp(int_sx + kx, 0, srcWidth - 1);
+                                int py = Mathf.Clamp(int_sy + ky, 0, srcHeight - 1);
+                                float gray = originTexture.GetPixel(px, py).grayscale;
+                                sum_x += gray * kernel_sobel_x[ky + 1, kx + 1];
+                            }
+                        }
+
+                        // sobel y
+                        int[,] kernel_sobel_y = {
+                            { -1, -2, -1 },
+                            {  0,  0,  0 },
+                            {  1,  2,  1 }
+                        };
+                        float sum_y = 0f;
+                        for (int ky = -1; ky <= 1; ky++) {
+                            for (int kx = -1; kx <= 1; kx++) {
+                                int px = Mathf.Clamp(int_sx + kx, 0, srcWidth - 1);
+                                int py = Mathf.Clamp(int_sy + ky, 0, srcHeight - 1);
+                                float gray = originTexture.GetPixel(px, py).grayscale;
+                                sum_y += gray * kernel_sobel_y[ky + 1, kx + 1];
+                            }
+                        }
+
+
+                        float strength = 5f;
+                        Vector3 normal = new Vector3(-sum_x * strength, -sum_y * strength, 1.0f);
+                        normal.Normalize();
+
+                        // 映射到 [0,1] 区间
+                        Color nColor = new Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
+                        normalTex.SetPixel(i, j, nColor);
+
+
+
+                        //// TODO : caculate normal
+                        //Vector3 left = new Vector3(x0, q00, int_sy);
+                        //Vector3 right = new Vector3(x1, q00, int_sy);
+                        //Vector3 up = new Vector3(int_sx, q00, y1);
+                        //Vector3 down = new Vector3(int_sx, q01, y0);
+
+                        ////Vector3 normal = Vector3.Cross(up - down, right - left).normalized;
+                        //Vector3 normal = new Vector3((left - right).magnitude, (up - down).magnitude, 1 / 100).normalized;
+                        //Color color = new Color((normal.x + 1) / 2, (normal.y + 1) / 2 * 255, (normal.z + 1) / 2 * 255);
+                        ////Color color = new Color(normal.x, normal.y, normal.z);
+                        //normalTex.SetPixel(i, j, color);
+                    }
+                }
+
+                // save normalTex as unity asset
+                string normalName = GetNormalOutputName(200, 200, normalMapSize, -1);
+                TextureUtility.GetInstance().SaveTextureAsAsset(normalTexOutputPath, normalName, normalTex);
+            //}
+
+            Debug.Log($"generate normal map, path : {normalTexOutputPath}");
+
+        }
+
+        private string GetNormalOutputName(int latitude, int longitude, int size, int generateBatch) {
+            return string.Format("normalMap_{0}_{1}_{2}x{2}_{3}",  longitude, latitude, size, generateBatch);
+        }
+
+        #endregion
     }
 
 }

@@ -16,6 +16,8 @@ namespace LZ.WarGameMap.Runtime
         [SerializeField] List<HeightData> heightDataList;
         [SerializeField] Dictionary<string, HeightData> heightDataDict;
 
+        public List<HeightData> HeightDataList {  get { return heightDataList; } }
+
         [Tooltip("该 model 下属的所有地理数据对应的经纬度，对此的修改没有任何作用，仅供展示")]
         public List<Vector2Int> GeographyList;
 

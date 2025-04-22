@@ -28,67 +28,82 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        [FoldoutGroup("构建地貌/地貌纹理设置")]
+        #region 构建设置
+
+        [FoldoutGroup("构建设置")]
         [LabelText("导出时翻转")]
         public bool ExportFlipVertically = true;
 
-        [FoldoutGroup("构建地貌/地貌纹理设置")]
+        [FoldoutGroup("构建设置")]
         [LabelText("导出分辨率")]
         public int ExportTexResolution = 1024;
 
-        [FoldoutGroup("构建地貌/地貌纹理设置")]
-        [LabelText("缺失部分填充颜色")]
-        public Color LostColor = Color.blue;
+        // TODO : 用上它
+        [FoldoutGroup("构建设置")]
+        [LabelText("导出分辨率")]
+        [Tooltip("这一项对应地形中 cluster 的 num per line")]
+        public int ExportTexSize = 4;
 
-        [FoldoutGroup("构建地貌/地貌纹理设置")]
-        [LabelText("各高度对应颜色")]
-        public Gradient heightGradient;
 
-        [FoldoutGroup("构建地貌")]
+        [FoldoutGroup("构建设置")]
         [LabelText("当前使用的高度图数据")]
         public List<HeightDataModel> heightDataModels;
 
-
-        [FoldoutGroup("构建地貌")]
-        [LabelText("使用柏林噪声处理")]
-        public bool openPerlinNoise = true;
-
-        [FoldoutGroup("构建地貌")]
+        [FoldoutGroup("构建设置")]
         [LabelText("起始经纬度")]
         public Vector2Int startLongitudeLatitude = new Vector2Int(109, 32);
 
-        [FoldoutGroup("构建地貌")]
+        #endregion
+
+
+        #region 构建地貌贴图
+
+
+        [FoldoutGroup("构建地貌贴图/地貌纹理设置")]
+        [LabelText("缺失部分填充颜色")]
+        public Color LostColor = Color.blue;
+
+        [FoldoutGroup("构建地貌贴图/地貌纹理设置")]
+        [LabelText("各高度对应颜色")]
+        public Gradient heightGradient;
+
+        [FoldoutGroup("构建地貌贴图/地貌纹理设置")]
+        [LabelText("使用柏林噪声处理")]
+        public bool openPerlinNoise = true;
+
+
+        [FoldoutGroup("构建地貌贴图")]
         [LabelText("当前操作的地貌纹理")]
         [Tooltip("注意，这个Texture可能不是在磁盘中已经存储的")]
-        public Texture2D curHandleTex;
+        public Texture2D curHandleLandformTex;
 
-        [FoldoutGroup("构建地貌")]
-        [LabelText("地貌图导出位置")]
-        public string landformTexImportPath = MapStoreEnum.LandformTexOutputPath;
-
-        [FoldoutGroup("构建地貌")]
+        [FoldoutGroup("构建地貌贴图")]
         [LabelText("当前操作的地貌图位置")]
         public string curLandformTexPath;
-        
-        [FoldoutGroup("构建地貌")]
+
+        [FoldoutGroup("构建地貌贴图")]
+        [LabelText("贴图导出位置")]
+        public string landformTexImportPath = MapStoreEnum.LandformTexOutputPath;
+
+        [FoldoutGroup("构建地貌贴图")]
         [Button("导入地貌纹理图", ButtonSizes.Medium)]
         private void ImportLandFormTex() {
-            string landformImportPath = EditorUtility.OpenFilePanel("Import Raw Heightmap", "", "");
+            string landformImportPath = EditorUtility.OpenFilePanel("Import Landform Texture", "", "");
             if (landformImportPath == "") {
-                Debug.LogError("you do not get the height map");
+                Debug.LogError("you do not get the landform texture");
                 return;
             }
 
             curLandformTexPath = AssetsUtility.GetInstance().TransToAssetPath(landformImportPath);
-            curHandleTex = AssetDatabase.LoadAssetAtPath<UnityEngine.Texture2D>(curLandformTexPath);
-            if (curHandleTex == null) {
+            curHandleLandformTex = AssetDatabase.LoadAssetAtPath<UnityEngine.Texture2D>(curLandformTexPath);
+            if (curHandleLandformTex == null) {
                 curLandformTexPath = "";
                 Debug.LogError(string.Format("can not load landform texture from this path: {0}", curLandformTexPath));
                 return;
             }
         }
 
-        [FoldoutGroup("构建地貌")]
+        [FoldoutGroup("构建地貌贴图")]
         [Button("导出地貌纹理图", ButtonSizes.Medium)]
         private void ExportLandFormTex() {
 
@@ -107,14 +122,16 @@ namespace LZ.WarGameMap.MapEditor
             //curHandleTex.ReadPixels(new Rect(0, 0, ExportTexResolution, ExportTexResolution), 0, 0);
 
             // TODO: 改用 job system
-            curHandleTex = new Texture2D(ExportTexResolution, ExportTexResolution, TextureFormat.RGB24, false);
-            Color[] colors = curHandleTex.GetPixels();
+            curHandleLandformTex = new Texture2D(ExportTexResolution, ExportTexResolution, TextureFormat.RGB24, false);
+            Color[] colors = curHandleLandformTex.GetPixels();
+
+            // TODO : 如果超出，就生成多张地貌图！（每个cluster要对应一张贴图，后面还可以用来做 VT）
             for (int i = 0; i < ExportTexResolution; i++) {
                 for (int j = 0; j < ExportTexResolution; j++) {
                     Vector3 vertPos = new Vector3(i, 0, j);
                     vertPos.y = heightDataManager.SampleFromHeightData(startLongitudeLatitude, vertPos);
 
-                    int idx = 0;
+                    int idx;
                     if (ExportFlipVertically) {
                         idx = j * ExportTexResolution + i;
                     } else {
@@ -132,8 +149,8 @@ namespace LZ.WarGameMap.MapEditor
                     }
                 }
             }
-            curHandleTex.SetPixels(colors);
-            curHandleTex.Apply();
+            curHandleLandformTex.SetPixels(colors);
+            curHandleLandformTex.Apply();
 
             Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExportTexResolution));
         }
@@ -158,24 +175,99 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        [FoldoutGroup("构建地貌")]
-        [Button("保存当前纹理", ButtonSizes.Medium)]
+        [FoldoutGroup("构建地貌贴图")]
+        [Button("保存当前地貌纹理", ButtonSizes.Medium)]
         private void SaveLandFormTex() {
             DateTime dateTime = DateTime.Now;
             string texName = string.Format("landform_{0}x{0}_{1}", ExportTexResolution, dateTime.Ticks);
-            TextureUtility.GetInstance().SaveTextureAsAsset(landformTexImportPath, texName, curHandleTex);
+            TextureUtility.GetInstance().SaveTextureAsAsset(landformTexImportPath, texName, curHandleLandformTex);
         }
 
-        [FoldoutGroup("构建地貌")]
-        [Button("应用当前纹理", ButtonSizes.Medium)]
-        private void ApplyLandFormTex() { 
-            // TODO : 好像不用做
+        #endregion
+
+
+        #region 构建法线贴图
+
+
+        [FoldoutGroup("构建法线贴图")]
+        [LabelText("当前操作的法线纹理")]
+        public Texture2D curHandleNormalTex;
+
+        [FoldoutGroup("构建法线贴图")]
+        [LabelText("当前操作的法线图位置")]
+        public string curNormalTexPath;
+
+        [FoldoutGroup("构建法线贴图")]
+        [LabelText("贴图导出位置")]
+        public string normalTexImportPath = MapStoreEnum.NormalTexOutputPath;
+
+        [FoldoutGroup("构建法线贴图")]
+        [Button("导入地形法线图", ButtonSizes.Medium)]
+        private void ImportNormalTexture() {
+            string normalImportPath = EditorUtility.OpenFilePanel("Import Normal Texture", "", "");
+            if (normalImportPath == "") {
+                Debug.LogError("you do not get the normal texture");
+                return;
+            }
+
+            curNormalTexPath = AssetsUtility.GetInstance().TransToAssetPath(normalImportPath);
+            curHandleNormalTex = AssetDatabase.LoadAssetAtPath<Texture2D>(curNormalTexPath);
+            if (curHandleNormalTex == null) {
+                curNormalTexPath = "";
+                Debug.LogError(string.Format("can not load normal texture from this path: {0}", curNormalTexPath));
+                return;
+            }
         }
 
+        [FoldoutGroup("构建法线贴图")]
+        [Button("导出地形法线图", ButtonSizes.Medium)]
+        private void ExportNormalTexture() {
 
-        // TODO : 导出以下的所有贴图
+            HeightDataManager heightDataManager = new HeightDataManager();
+            heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize);
 
-        [FoldoutGroup("混合纹理地貌生成")]
+            curHandleNormalTex = new Texture2D(ExportTexResolution, ExportTexResolution, TextureFormat.RGB24, false);
+            Color[] colors = curHandleNormalTex.GetPixels();
+
+            // ERROR 为什么全是绿色？
+
+            // TODO : 如果超出，就生成多张法线图！（每个cluster要对应一张贴图）
+            // TODO : 根据 cluster 的宽度 生成法线图
+            for (int i = 0; i < ExportTexResolution; i++) {
+                for (int j = 0; j < ExportTexResolution; j++) {
+                    Vector3 vertPos = new Vector3(i, 0, j);
+                    Vector3 normal = heightDataManager.SampleNormalFromData(startLongitudeLatitude, vertPos);
+                    Color normalColor = new Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f);
+                    int idx;
+                    if (ExportFlipVertically) {
+                        idx = j * ExportTexResolution + i;
+                    } else {
+                        idx = i * ExportTexResolution + j;
+                    }
+                    colors[idx] = normalColor;
+                }
+            }
+            curHandleNormalTex.SetPixels(colors);
+            curHandleNormalTex.Apply();
+
+            curHandleNormalTex = TextureUtility.GetInstance().BilinearResize(curHandleNormalTex);
+
+            Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExportTexResolution));
+        }
+
+        [FoldoutGroup("构建法线贴图")]
+        [Button("保存当前法线纹理", ButtonSizes.Medium)]
+        private void SaveNormalTexture() {
+            DateTime dateTime = DateTime.Now;
+            string texName = string.Format("normal_{0}x{0}_{1}", ExportTexResolution, dateTime.Ticks);
+            TextureUtility.GetInstance().SaveTextureAsAsset(normalTexImportPath, texName, curHandleNormalTex);
+        }
+
+        #endregion
+
+
+        // NOTE : 以下是打算做混合纹理地貌方案
+        [FoldoutGroup("混合纹理地貌生成", order:99)]
         [LabelText("当前使用的地貌纹理图集")]
         public Texture2D curTerrainTexSplat;
 
@@ -199,101 +291,6 @@ namespace LZ.WarGameMap.MapEditor
 
 
 
-        // TODO : 下面的代码要缝到上面
-        // TODO : 利用下面的代码，+上上面的，生成混合纹理地貌
-        // 地貌模型 ： 基于 高度 - 湿度 - 温度 来确定一个地区应该采用的地貌图（纹理）
-
-        // 参考 ：欧陆风云4
-
-        [FoldoutGroup("图集生成")]
-        [LabelText("图集规格")]
-        [Tooltip("例如值为4,则图集的规格是4x4")]
-        public int texAtlasSize = 4;
-
-        [FoldoutGroup("图集生成")]
-        [LabelText("分辨率")]
-        public int texResoution = 2048;
-
-        [FoldoutGroup("图集生成")]
-        [LabelText("默认材质")]
-        public Material defaultTerrainMat;
-
-        public const string texArrayPath = MapStoreEnum.TerrainTexArrayPath;
-        public const string texSavePath = MapStoreEnum.TerrainTexOutputPath;
-
-        [FoldoutGroup("图集生成")]
-        [Button("生成纹理图集")]
-        private void GenerateTextureArray() {
-
-            if (!Directory.Exists(texArrayPath)) {
-                Directory.CreateDirectory(texArrayPath);
-            }
-            if (!Directory.Exists(texSavePath)) {
-                Directory.CreateDirectory(texSavePath);
-            }
-
-            string[] texturePaths = Directory.GetFiles(texArrayPath, "*.png", SearchOption.AllDirectories);
-
-            // texAtlasSize must equal to texture asset size
-            if (texturePaths.Length != texAtlasSize * texAtlasSize) {
-                Debug.LogError(string.Format("wrong texture num, the texAtlasSize^2 should equal to texture num {0}", texturePaths.Length));
-                return;
-            }
-
-            Texture2D[] rtArray = new Texture2D[texAtlasSize * texAtlasSize];
-
-            // read the terrain textures asset
-            int texSize = texResoution / texAtlasSize;
-            for (int i = 0; i < texturePaths.Length; i++) {
-                string assetPath = texturePaths[i].Replace("\\", "/");
-                Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
-                rtArray[i] = texture;
-            }
-
-            Texture2D exportAtlas = new Texture2D(texResoution, texResoution, TextureFormat.RGB24, false);
-            for (int i = 0; i < texAtlasSize; i++) {
-                for (int j = 0; j < texAtlasSize; j++) {
-                    int curAtlaIdx = i * texAtlasSize + j;
-                    int startWidth = i * texSize;
-                    int startHeight = j * texSize;
-
-                    for (int q = 0; q < texSize; q++) {
-                        for (int p = 0; p < texSize; p++) {
-                            // TODO: 这里可能会产生问题，要混合下边缘纹理
-                            Color pixelColor = rtArray[curAtlaIdx].GetPixel(q, p);
-                            exportAtlas.SetPixel(q + startWidth, p + startHeight, pixelColor);
-                        }
-                    }
-
-                }
-            }
-
-            exportAtlas.Apply();
-            byte[] bytes = exportAtlas.EncodeToPNG();
-            string atlaName = string.Format("/TerrainTexArray_{0}x{0}.png", texResoution);
-            File.WriteAllBytes(texSavePath + atlaName, bytes);
-            AssetDatabase.ImportAsset(texSavePath + atlaName);
-
-            Debug.Log("generate texture altas, then you can generate the indexTex and blenderTex");
-        }
-
-        [FoldoutGroup("图集生成")]
-        [Button("生成索引与混合纹理")]
-        private void GenerateIndexBlenderTex() {
-
-
-            string atlaName = string.Format("/TerrainIndexArray_{0}x{0}.png", texResoution);
-            //File.WriteAllBytes(texSavePath + atlaName, bytes);
-            AssetDatabase.ImportAsset(texSavePath + atlaName);
-
-            Debug.Log("generate index altas, then you can generate the blenderTex");
-        }
-
-        [FoldoutGroup("图集生成")]
-        [Button("生成地形纹理")]
-        private void GenerateSplatTex() {
-
-        }
 
 
     }

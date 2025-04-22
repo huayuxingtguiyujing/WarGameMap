@@ -1,7 +1,11 @@
+using LZ.WarGameCommon;
+using LZ.WarGameMap.Runtime.HexStruct;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UIElements;
+using static LZ.WarGameMap.Runtime.RawHexMapSO;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -10,6 +14,11 @@ namespace LZ.WarGameMap.Runtime
 
         //  自觉一点，不要改动 HeightDataModel 里的东西
         List<HeightDataModel> heightDataModels;
+        public List<HeightDataModel> HeightDataModels { get { return heightDataModels; } }
+
+        // needed when generate terrain by hexMapSO
+        HexSettingSO HexSet;
+        RawHexMapSO RawHexMap;
 
         int srcWidth;
         int srcHeight;
@@ -101,21 +110,9 @@ namespace LZ.WarGameMap.Runtime
         #region sample height
 
         public float SampleFromHeightData(Vector2Int startLongitudeLatitude, Vector3 vertPos) {
-            int startLongitude = startLongitudeLatitude.x;
-            int startLatitude = startLongitudeLatitude.y;
-
             Vector3 clusterStartPoint = Vector3.zero;
-
-            int longitude = Mathf.FloorToInt(vertPos.x) / terrainClusterWidth;
-            int latitude = Mathf.FloorToInt(vertPos.z) / terrainClusterHeight;
-
-            clusterStartPoint.x += longitude * terrainClusterWidth;
-            clusterStartPoint.z += latitude * terrainClusterHeight;
-
-            longitude += startLongitude;
-            latitude += startLatitude;
-
-            return SampleFromHeightData(longitude, latitude, vertPos, clusterStartPoint);
+            Vector2Int longAndLat = FixVertPosInCluster(startLongitudeLatitude, vertPos, ref clusterStartPoint);
+            return SampleFromHeightData(longAndLat.x, longAndLat.y, vertPos, clusterStartPoint);
         }
 
         public float SampleFromHeightData(int longitude, int latitude, Vector3 vertPos, Vector3 clusterStartPoint) {
@@ -130,18 +127,18 @@ namespace LZ.WarGameMap.Runtime
 
             HeightData heightData = sampleCache.GetHeightData(0);
             if (heightData != null) {
-
                 // fixed the vert, because exist cluster offset!
                 vertPos.x -= clusterStartPoint.x;
                 vertPos.z -= clusterStartPoint.z;
+
                 // resample the size of height map
                 float sx = vertPos.x / terrainClusterWidth * srcWidth;
                 float sy = vertPos.z / terrainClusterHeight * srcHeight;
 
-                int x0 = Mathf.FloorToInt(sx); //Mathf.Clamp(, 0, srcWidth - 1);
-                int x1 = x0 + 1; // Mathf.Min(, srcWidth - 1);
-                int y0 = Mathf.FloorToInt(sy); // Mathf.Clamp(, 0, srcHeight - 1); ;
-                int y1 = y0 + 1; // Mathf.Min(, srcHeight - 1);
+                int x0 = Mathf.FloorToInt(sx);
+                int x1 = x0 + 1;
+                int y0 = Mathf.FloorToInt(sy);
+                int y1 = y0 + 1;
 
                 float q00 = GetHeightVal(longitude, latitude, x0, y0, heightData);
                 float q01 = GetHeightVal(longitude, latitude, x0, y1, heightData);
@@ -154,11 +151,56 @@ namespace LZ.WarGameMap.Runtime
                 // caculate the height by the data given
                 float h = Mathf.Lerp(rx0, rx1, sy - y0) * terrainClusterSize;
                 float fixed_h = Mathf.Clamp(h, 0, 50);
-
                 return fixed_h;
             }
 
             return 0;
+        }
+
+        public TDList<float> SampleScopeFromHeightData(Vector2Int startLongitudeLatitude, Vector3 vertPos, int scope) {
+            Vector3 clusterStartPoint = Vector3.zero;
+            Vector2Int longAndLat = FixVertPosInCluster(startLongitudeLatitude, vertPos, ref clusterStartPoint);
+            int longitude = longAndLat.x;
+            int latitude = longAndLat.y;
+
+            if (sampleCache == null) {
+                sampleCache = new SampleCache();
+            }
+
+            if (sampleCache.IsDirty(longitude, latitude)) {
+                CacheSampleHandle(longitude, latitude);
+            }
+
+            HeightData heightData = sampleCache.GetHeightData(0);
+            if (heightData != null) {
+                // fixed the vert, because exist cluster offset!
+                vertPos.x -= clusterStartPoint.x;
+                vertPos.z -= clusterStartPoint.z;
+
+                // resample the size of height map
+                float sx = vertPos.x / terrainClusterWidth * srcWidth;
+                float sy = vertPos.z / terrainClusterHeight * srcHeight;
+
+                int x0 = Mathf.FloorToInt(sx);
+                int y0 = Mathf.FloorToInt(sy);
+
+                int startX = Mathf.Max(x0 - scope, 0);
+                int endX = Mathf.Min(x0 + scope, srcWidth - 1);
+                int startY = Mathf.Max(y0 - scope, 0);
+                int endY = Mathf.Min(y0 + scope, srcHeight - 1);
+
+                TDList<float> heights = new TDList<float>(endX - startX + 1, endY - startY + 1);
+
+                for (int i = startX; i <= endX; i++) {
+                    for(int j = startY; j <= endY; j++) {
+                        heights[i - startX, j - startY] = GetHeightVal(longitude, latitude, i, j, heightData);
+                    }
+                }
+                return heights;
+            }
+            TDList<float> ans = new TDList<float>(1, 1);
+            ans[0, 0] = -1;
+            return ans;
         }
 
         private float GetHeightVal(int longitude, int latitude, int x, int y, HeightData heightData) {
@@ -238,5 +280,114 @@ namespace LZ.WarGameMap.Runtime
         }
 
         #endregion
+
+        #region sample height, but byHexMap
+
+        public void InitHexSet(HexSettingSO HexSet, RawHexMapSO RawHexMap) {
+            this.HexSet = HexSet;
+            this.RawHexMap = RawHexMap;
+        }
+
+        int cnt = 10;
+        public float SampleFromHexMap(Vector3 vertPos) {
+            if (HexSet == null || RawHexMap == null) {
+                return 0;
+            }
+            // get hex grid idx by vertPos
+            Vector2 pos = new Vector2(vertPos.x, vertPos.z);
+            Vector2Int offsetHexPos = HexHelper.AxialToOffset(HexHelper.PixelToAxialHex(pos, HexSet.hexGridSize));
+
+            // get the average height and other data
+            GridTerrainData terrainData = RawHexMap.GetTerrainData(offsetHexPos);
+            if(terrainData == null) {
+                //if(cnt > 0) {
+                //    Debug.Log($"{pos}, {offsetHexPos} not found");
+                //    cnt--;
+                //}
+                return -10;
+            }
+
+            float height = terrainData.baseHeight;
+
+            float fix = 0;
+            //float fix = terrainData.hillHeightFix * 0.2f * UnityEngine.Random.Range(-2, 3);
+
+            // return the height
+
+            return height + fix;
+        }
+
+        #endregion
+
+
+        #region sample normal
+
+        public Vector3 SampleNormalFromData(Vector2Int startLongitudeLatitude, Vector3 vertPos) {
+            Vector3 clusterStartPoint = Vector3.zero;
+            Vector2Int longAndLat = FixVertPosInCluster(startLongitudeLatitude, vertPos, ref clusterStartPoint);
+            
+            return SampleNormalFromData(longAndLat.x, longAndLat.y, vertPos, clusterStartPoint);
+        }
+
+        public Vector3 SampleNormalFromData(int longitude, int latitude, Vector3 vertPos, Vector3 clusterStartPoint) {
+            if (sampleCache == null) {
+                sampleCache = new SampleCache();
+            }
+
+            if (sampleCache.IsDirty(longitude, latitude)) {
+                CacheSampleHandle(longitude, latitude);
+            }
+
+            HeightData heightData = sampleCache.GetHeightData(0);
+            if (heightData != null) {
+                // fixed the vert, because exist cluster offset!
+                vertPos.x -= clusterStartPoint.x;
+                vertPos.z -= clusterStartPoint.z;
+
+                // resample the size of height map
+                float sx = vertPos.x / terrainClusterWidth * srcWidth;
+                float sy = vertPos.z / terrainClusterHeight * srcHeight;
+
+                int x0 = Mathf.FloorToInt(sx);
+                int x1 = x0 + 1;
+                int y0 = Mathf.FloorToInt(sy);
+                int y1 = y0 + 1;
+
+                float scale = 1000;
+                float q00 = GetHeightVal(longitude, latitude, x0, y0, heightData) * scale;
+                float q01 = GetHeightVal(longitude, latitude, x0, y1, heightData) * scale;
+                float q10 = GetHeightVal(longitude, latitude, x1, y0, heightData) * scale;
+                float q11 = GetHeightVal(longitude, latitude, x1, y1, heightData) * scale;
+
+                // 计算梯度（Sobel 算子）
+                Vector3 normal = new Vector3(q00 - q10, 4.0f, q01 - q11);
+                return normal.normalized;
+            }
+            return new Vector3(0, 1, 0);
+        }
+
+        #endregion
+
+        private Vector2Int FixVertPosInCluster(Vector2Int startLongitudeLatitude, Vector3 vertPos, ref Vector3 clusterStartPoint) {
+            int startLongitude = startLongitudeLatitude.x;
+            int startLatitude = startLongitudeLatitude.y;
+
+            clusterStartPoint = Vector3.zero;
+
+            // get the start point of cluster's which the pos on
+            int longitude = Mathf.FloorToInt(vertPos.x) / terrainClusterWidth;
+            int latitude = Mathf.FloorToInt(vertPos.z) / terrainClusterHeight;
+
+            clusterStartPoint.x += longitude * terrainClusterWidth;
+            clusterStartPoint.z += latitude * terrainClusterHeight;
+
+            longitude += startLongitude;
+            latitude += startLatitude;
+
+            // get the cluster idx(longitude, latitude) of the position
+            return new Vector2Int(longitude, latitude);
+        }
+
+
     }
 }

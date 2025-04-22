@@ -108,13 +108,17 @@ namespace LZ.WarGameMap.Runtime.HexStruct {
         public readonly Orientation orientation;
         //屏幕 中六边形边 的大小
         internal readonly Point Size;
+        internal readonly int Width;
+        internal readonly int Height;
         //屏幕布局的原点
         internal readonly Point Origin;
 
-        public Layout(Orientation orientation, Point size, Point origin) {
+        public Layout(Orientation orientation, Point size, Point origin, int h, int w) {
             this.orientation = orientation;
             Size = size;
             Origin = origin;
+            Width = w;
+            Height = h;
         }
 
     }

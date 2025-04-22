@@ -76,10 +76,10 @@ namespace LZ.WarGameMap.MapEditor
             LeftAndRight = EditorGUILayout.Vector2Field("Left-Right", LeftAndRight);
             TopAndBottom = EditorGUILayout.Vector2Field("Top-Bottom", TopAndBottom);
             if (GUILayout.Button("绘制矩形网格")) {
-                hexConstructor.InitHexConsRectangle(
-                    (int)TopAndBottom.x, (int)TopAndBottom.y,
-                    (int)LeftAndRight.x, (int)LeftAndRight.y
-                );
+                //hexConstructor.InitHexConsRectangle(
+                //    (int)TopAndBottom.x, (int)TopAndBottom.y,
+                //    (int)LeftAndRight.x, (int)LeftAndRight.y
+                //);
             }
 
             GUILayout.Label("六边形网格大小");

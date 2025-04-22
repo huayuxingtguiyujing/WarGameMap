@@ -131,6 +131,10 @@ namespace LZ.WarGameMap.MapEditor
         public List<HeightDataModel> heightDataModels;
 
         [FoldoutGroup("懒构建地形")]
+        [LabelText("当前使用的法线纹理")]    // 一个cluster对应一张法线纹理
+        public Texture2D curHandleNormalTex;
+
+        [FoldoutGroup("懒构建地形")]
         [LabelText("当前操作的cluster索引")]
         public Vector2Int clusterIdx;
 
@@ -143,8 +147,9 @@ namespace LZ.WarGameMap.MapEditor
         public int latitude;
 
         [FoldoutGroup("懒构建地形")]
-        [Button("构建对应的clusterMesh", ButtonSizes.Medium)]
+        [Button("构建对应cluster的Mesh", ButtonSizes.Medium)]
         private void BuildCluster() {
+
             if (heightDataModels == null) {
                 Debug.LogError("you do not set the heightDataModel");
                 return;
@@ -167,7 +172,62 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
+        [FoldoutGroup("懒构建地形")]
+        [Button("构建对应cluster的法线", ButtonSizes.Medium)]
+        private void BuildClusterNormal() {
+
+            if (curHandleNormalTex == null) {
+                Debug.LogError("no normal texture, so you can not build the mesh");
+                return;
+            }
+
+            TerrainCtor.BuildClusterNormal(clusterIdx.x, clusterIdx.y, curHandleNormalTex);
+        }
+
         #endregion
+
+
+        #region 使用Hex构建地形
+
+        [FoldoutGroup("使用Hex构建地形")]
+        [LabelText("地图配置")]
+        public HexSettingSO hexSet;
+
+        [FoldoutGroup("使用Hex构建地形")]
+        [LabelText("当前使用的HexMapSO")]
+        [Tooltip("必须使用 hexSet 对应生成的 rawHexMapSO！否则会出错")]
+        public RawHexMapSO rawHexMapSO;
+
+        [FoldoutGroup("使用Hex构建地形")]
+        [LabelText("当前操作的cluster索引")]
+        public Vector2Int curClusterIdx_Hex;
+
+        [FoldoutGroup("使用Hex构建地形")]
+        [Button("生成Terrain", ButtonSizes.Medium)]
+        private void GenerateTerrainByHex() {
+            if (hexSet == null) {
+                Debug.LogError("hex Set is null!");
+                return;
+            }
+            if (rawHexMapSO == null) {
+                Debug.LogError("rawHexMapSO is null!");
+                return;
+            }
+            if (TerrainCtor == null) {
+                Debug.LogError("TerrainCtor is null!");
+                return;
+            }
+            rawHexMapSO.UpdateGridTerrainData();
+            TerrainCtor.InitHexCons(hexSet, rawHexMapSO);
+            TerrainCtor.BuildCluster(curClusterIdx_Hex.x, curClusterIdx_Hex.y, -1, -1);
+            // Terrain的size和hexmap的size不一定要对应
+            // 第一步：继续按TerrainCtor的方式去生成 TerrainMesh（cluster-tile的结构）
+            // 第二步：遍历生成mesh的时候，找到该点对应的hex格子
+            // 第三步：根据hex格子高度，设置vert高度；根据hex格子坡度，调整vert
+        }
+
+        #endregion
+
 
         #region 地形网格持久化
 

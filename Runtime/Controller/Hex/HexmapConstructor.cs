@@ -1,15 +1,14 @@
 
+using LZ.WarGameCommon;
 using LZ.WarGameMap.Runtime.HexStruct;
 using LZ.WarGameMap.Runtime.QuadTree;
-using NUnit.Framework;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using LZ.WarGameCommon;
+using Unity.Collections;
 using UnityEngine;
 
-namespace LZ.WarGameMap.Runtime
-{
+namespace LZ.WarGameMap.Runtime {
     /// <summary>
     /// 封装 六边形网格地图 的生成过程，地图管理不在此处，此类不会工作在运行时
     /// - 负责把 hexagon 数据转为 monobehaviour 的地图块（MapCluster）
@@ -18,9 +17,9 @@ namespace LZ.WarGameMap.Runtime
     public class HexmapConstructor : MonoBehaviour
     {
         [Header("hex map config")]
-        //[SerializeField] Transform originPoint;
-        [SerializeField] Vector2 Size = new Vector2(1, 1);
+        [SerializeField] HexSettingSO hexSet;
         [SerializeField] GameObject SignPrefab;
+        [SerializeField] Material hexMat;
 
         Transform clusterParentTrans;
         Transform signParentTrans;
@@ -38,9 +37,10 @@ namespace LZ.WarGameMap.Runtime
 
         #region hex map init
 
-        public void SetMapPrefab(Transform clusterParentObj, Transform signParentObj) {
+        public void SetHexSetting(HexSettingSO hexSettingSO, Transform clusterParentObj, Material hexMat) {
+            this.hexSet = hexSettingSO;
             this.clusterParentTrans = clusterParentObj;
-            this.signParentTrans = signParentObj;
+            this.hexMat = hexMat;
         }
 
 
@@ -70,17 +70,16 @@ namespace LZ.WarGameMap.Runtime
             //_InitCons();
         }
 
-        public void InitHexConsRectangle(int bottom, int top, int left, int right) {
+        public void InitHexConsRectangle() {
             InitHexGenerator();
-            hexGenerator.GenerateRectangle(bottom, top, left, right);
+            hexGenerator.GenerateRectangle(0, hexSet.mapHeight, 0, hexSet.mapWidth);
             // NOTE: 其他地图形状需要不一样的cluster构建，过于复杂，此处只写四边形的生成
-            _InitCons(right - left + 1, top - bottom + 1);
+            _InitCons();
         }
 
-        private void _InitCons(int width, int height) {
-
+        private void _InitCons() {
             layout = GetScreenLayout();
-            StartCoroutine(LoadMapGrid(width, height, 100000));
+            StartCoroutine(LoadMapGrid(hexSet.mapWidth, hexSet.mapHeight, 100000));
 
             // TODO: init river etc
             // TODO: add noise disturb
@@ -92,17 +91,19 @@ namespace LZ.WarGameMap.Runtime
             this.height = height;
 
             // divide map into cluster
-            int clusterSize = MapEnum.ClusterSize;
+            int clusterSize = hexSet.clusterSize;
             int cls_num_width = width / clusterSize;
             if (width % clusterSize > 0) cls_num_width++;
             int cls_num_height = height / clusterSize;
             if (height % clusterSize > 0) cls_num_height++;
 
             hexClusters = new TDList<HexCluster>(cls_num_width, cls_num_height);
-            
+            Debug.Log($"num : {hexGenerator.HexagonIdxDic.Count}");
             // create and init map cluster
             int count = 0;
             foreach (var pair in hexGenerator.HexagonIdxDic) {
+                // NOTE : HexagonIdxDic中的 key 是 offset hex，value 是 axial hex
+                // use them discreetly
                 Vector2Int mapIdx = pair.Key;
 
                 // caculate map grid'index inside cluster
@@ -125,12 +126,13 @@ namespace LZ.WarGameMap.Runtime
 
             for (int i = 0; i < cls_num_width; i++) {
                 for (int j = 0; j < cls_num_height; j++) {
-                    hexClusters[i,j].SetClusterMesh();
+                    //Debug.Log($"{i}, {j}");
+                    hexClusters[i,j].SetClusterMesh();  
                 }
             }
 
             // build the quad tree
-            BuildQuadTreeMap(cls_num_width, cls_num_height);
+            //BuildQuadTreeMap(cls_num_width, cls_num_height);
 
             yield return null;
         }
@@ -170,31 +172,12 @@ namespace LZ.WarGameMap.Runtime
             GizmosCtrl.GetInstance().RegisterGizmoEvent(mapGridQuadTree.DrawScopeInGizmos);
         }
 
-        /*public void ShowQuadTreeGizmos(bool status) {
-            if (mapQuadTree == null) {
-                return;
-            }
-            Debug.Log(111);
-            if (status) {
-                GizmosCtrl.GetInstance().UnregisterGizmoEvent(mapQuadTree.DrawScopeInGizmos);
-            } else {
-                GizmosCtrl.GetInstance().RegisterGizmoEvent(mapQuadTree.DrawScopeInGizmos);
-            }
-        }*/
-
         public Layout GetScreenLayout() {
-            //Vector2 startPoint = new Vector2(transform.position.x, transform.position.y);
-            //Layout layout = new Layout(
-            //    Orientation.Layout_Pointy, new Point(Size.x, Size.y), new Point(startPoint.x, startPoint.y)
-            //);
-            //return layout;
-            return GetScreenLayout(Size);
-        }
-
-        public Layout GetScreenLayout(Vector2 size) {
             Vector2 startPoint = new Vector2(transform.position.x, transform.position.y);
             Layout layout = new Layout(
-                Orientation.Layout_Pointy, new Point(size.x, size.y), new Point(startPoint.x, startPoint.y)
+                Orientation.Layout_Pointy, 
+                new Point(hexSet.hexGridSize, hexSet.hexGridSize), 
+                new Point(startPoint.x, startPoint.y), hexSet.mapHeight, hexSet.mapWidth
             );
             return layout;
         }
@@ -206,11 +189,48 @@ namespace LZ.WarGameMap.Runtime
             clusterObj.transform.parent = clusterParentTrans.transform;
             
             MeshFilter meshFilter = clusterObj.AddComponent<MeshFilter>();
-            clusterObj.AddComponent<MeshRenderer>();
+            MeshRenderer renderer = clusterObj.AddComponent<MeshRenderer>();
+            renderer.material = hexMat;
 
             HexCluster hexCluster = new HexCluster();
             hexClusters[i, j] = hexCluster;
             hexCluster.InitMapCluster(meshFilter, clusterSize);
+            //Debug.Log($"create cluster : {i}, {j}");
+        }
+
+        #endregion
+
+        #region generate hex message by height info
+
+        public void GenerateRawHexMap(Vector2Int startLongitudeLatitude, RawHexMapSO rawHexMapSO, HeightDataManager heightDataManager) {
+
+            layout = GetScreenLayout();
+
+            if(hexGenerator == null || hexGenerator.HexagonIdxDic == null) {
+                Debug.LogError("do not set hexGenerator!");
+                return;
+            }
+
+            foreach (var pair in hexGenerator.HexagonIdxDic) {
+                Vector2Int mapIdx = pair.Key;
+
+                // caculate map grid'index inside cluster
+                Vector2Int clusterIdx = GetGridClusterIdx(mapIdx.x, mapIdx.y);
+                Vector2Int inClusterIdx = GetGridInClusterIdx(mapIdx.x, mapIdx.y);
+
+                // trans hex center position to terrain position
+                Hexagon hex = pair.Value;
+                Point center = hex.Hex_To_Pixel(layout, hex).ConvertToXZ();
+                TDList<float> heights = heightDataManager.SampleScopeFromHeightData(startLongitudeLatitude, center, hexSet.hexCalcuVertScope);
+                rawHexMapSO.AddGridTerrainData(mapIdx, hex, heights);
+            }
+            rawHexMapSO.UpdateGridTerrainData();
+
+            Debug.Log($"generate over, RawHexMapSO can be use, grid : {hexGenerator.HexagonIdxDic.Count}");
+        }
+
+        public void BuildByRawHexMap() {
+            // TODO : 
         }
 
         #endregion
@@ -321,7 +341,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
         private Vector2Int GetGridClusterIdx(int mapIdxX, int mapIdxY) {
-            int clusterSize = MapEnum.ClusterSize;
+            int clusterSize = hexSet.clusterSize;
             Vector2Int clusterIdx = new Vector2Int();
             clusterIdx.x = mapIdxX / clusterSize;
             clusterIdx.y = mapIdxY / clusterSize;
@@ -329,7 +349,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
         private Vector2Int GetGridInClusterIdx(int mapIdxX, int mapIdxY) {
-            int clusterSize = MapEnum.ClusterSize;
+            int clusterSize = hexSet.clusterSize;
 
             // caculate map grid'index inside cluster
             Vector2Int inClusterIdx = new Vector2Int();
@@ -397,12 +417,14 @@ namespace LZ.WarGameMap.Runtime
         List<Vector3> vertices = new List<Vector3>();
         List<int> triangles = new List<int>();
         List<Color> colors = new List<Color>();
+        List<Vector2> uvs = new List<Vector2>();
 
         TDList<MapGrid> mapGridList;
         public Dictionary<Vector2, MapGrid> mapPosGridDict {  get; private set; }
 
         private Mesh hexMesh;
         private MeshFilter meshFilter;
+        private Layout layout;
 
         public bool hasInit { get; private set; }
 
@@ -435,9 +457,11 @@ namespace LZ.WarGameMap.Runtime
         }
 
         internal void AddMapGrid(Vector2Int mapIdx, Vector2Int clusterIdx, Hexagon hex, Layout layout) {
+            this.layout = layout;
+
             Point center = hex.Hex_To_Pixel(layout, hex).ConvertToXZ();
             Vector3 hexPos = new Vector3((float)center.x, 0, (float)center.z);
-            //Debug.Log(hexPos);
+            
             // construct the map grid, and add it
             MapGrid mapGrid = new MapGrid(mapIdx, clusterIdx, hexPos);
             mapGridList[clusterIdx.x, clusterIdx.y] = mapGrid;
@@ -456,7 +480,7 @@ namespace LZ.WarGameMap.Runtime
                 if (!grid.IsValidGrid) {
                     continue;
                 }
-                BuildGridMesh(grid.hexagon, layout, grid.GridColor);
+                BuildGridMesh(grid.hexagon, layout, Color.white);
             }
             SetClusterMesh();
         }
@@ -467,7 +491,7 @@ namespace LZ.WarGameMap.Runtime
 
             float radius = Vector3.Distance(center, (Vector3)vertexs[0]);
 
-            float innerRatio = MapEnum.GridInnerRatio;
+            float innerRatio = 0.9f;
 
             List<Point> innerVertexs = new List<Point>();
             List<Point> outterVertexs = new List<Point>();
@@ -485,8 +509,8 @@ namespace LZ.WarGameMap.Runtime
 
                 AddTriangle(center, innerVertexs[i], innerVertexs[j]);
                 AddTriangle(center, outterVertexs[i], outterVertexs[j]);
-                AddTriangleColor(color, color, color);
-                AddTriangleColor(color, color, color);
+                //AddTriangleColor(color, color, color);
+                //AddTriangleColor(color, color, color);
             }
         }
 
@@ -504,7 +528,8 @@ namespace LZ.WarGameMap.Runtime
         internal void SetClusterMesh() {
             hexMesh.vertices = vertices.ToArray();
             hexMesh.triangles = triangles.ToArray();
-            hexMesh.colors = colors.ToArray();
+            //hexMesh.colors = colors.ToArray();
+            hexMesh.uv = uvs.ToArray();
             hexMesh.RecalculateNormals();
         }
 
@@ -521,6 +546,10 @@ namespace LZ.WarGameMap.Runtime
             triangles.Add(vertexIndex);
             triangles.Add(vertexIndex + 2);
             triangles.Add(vertexIndex + 1);
+
+            uvs.Add(new Vector2(v1.x / layout.Width, v1.z / layout.Height));
+            uvs.Add(new Vector2(v2.x / layout.Width, v2.z / layout.Height));
+            uvs.Add(new Vector2(v3.x / layout.Width, v3.z / layout.Height));
         }
 
         private void AddTriangleColor(Color c1, Color c2, Color c3) {

@@ -21,6 +21,7 @@ namespace LZ.WarGameMap.Runtime
 
 
         TerrainSetting terSet;
+        Vector3 clusterStartPoint;
 
         private TDList<TerrainTile> tileList;
         
@@ -41,13 +42,13 @@ namespace LZ.WarGameMap.Runtime
 
             this.clusterGo = clusterGo;
 
-            Vector3 startPoint = new Vector3(terSet.clusterSize * idxX, 0, terSet.clusterSize * idxY);
-            InitTerrainCluster_Static(startPoint, heightDataManager);
+            clusterStartPoint = new Vector3(terSet.clusterSize * idxX, 0, terSet.clusterSize * idxY);
+            _InitTerrainCluster_Static(heightDataManager);
 
             IsValid = true;
         }
 
-        private void InitTerrainCluster_Static(Vector3 clusterStartPoint, HeightDataManager heightDataManager) {
+        private void _InitTerrainCluster_Static(HeightDataManager heightDataManager) {
             int tileNumPerLine = terSet.clusterSize / terSet.tileSize;
 
             //Debug.Log(string.Format("the cluster size : {0}x{1}, because the size of cluster is {2}, so there are {3} tiles in a row", 
@@ -73,7 +74,7 @@ namespace LZ.WarGameMap.Runtime
                 // int vertexNumFix = (int)Mathf.Pow(2, (terSet.LODLevel - curLODLevel - 1));
 
                 // NOTE : 现在静态构建时，使用一样的 vertex 边数（128 即原来的 LOD1 级， 所以这里的修正是 2，即除 2）
-                int vertexNumFix = 16;
+                int vertexNumFix = 2;
 
                 if (vertexNumFix > terSet.tileSize) {
                     // wrong
@@ -111,6 +112,15 @@ namespace LZ.WarGameMap.Runtime
             for (int i = 0; i < tileList.GetLength(1); i++) {
                 for (int j = 0; j < tileList.GetLength(0); j++) {
                     //tileList[i, j].ExeTerrainSimplify(i, j, terrainSimplifier, simplifyTarget);
+                }
+            }
+        }
+
+        public void SampleMeshNormal(Texture2D normalTex) {
+
+            for (int i = 0; i < tileList.GetLength(1); i++) {
+                for (int j = 0; j < tileList.GetLength(0); j++) {
+                    tileList[i, j].SampleMeshNormal();
                 }
             }
         }
@@ -306,12 +316,15 @@ namespace LZ.WarGameMap.Runtime
 
         Vector3 clusterStartPoint;
 
+        int clusterSize;
         int tileSize;
         int[] LODLevels;
         TerrainMeshData[] LODMeshes;
 
         public TerrainMeshData[] GetLODMeshes() { return LODMeshes; }
 
+
+        HeightDataManager heightDataManager;
 
         public Vector3 tileCenterPos { get; private set; }
 
@@ -335,7 +348,9 @@ namespace LZ.WarGameMap.Runtime
             LODMeshes = new TerrainMeshData[lODLevels.Length];
         }
 
-        public void SetMeshData(int curLODLevel, TerrainSetting terSet, int vertexNumFix,  HeightDataManager heightDataManager) {
+        public void SetMeshData(int curLODLevel, TerrainSetting terSet, int vertexNumFix, HeightDataManager heightDataManager) {
+            this.heightDataManager = heightDataManager;
+            this.clusterSize = terSet.clusterSize;
             this.tileSize = terSet.tileSize;
 
             // caculate tile's start point
@@ -367,8 +382,10 @@ namespace LZ.WarGameMap.Runtime
 
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
+                    // NOTE : 这里的代码不能删！千万不能删啊
                     //float height = SampleFromHeightData(terrainClusterSize, vert);
-                    float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
+                    //float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
+                    float height = heightDataManager.SampleFromHexMap(vert);
                     //float height = 0;
 
                     vert.y = height;
@@ -409,7 +426,21 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            meshData.RecaculateNormal();
+            //meshData.RecaculateNormal();
+        }
+
+        public void SampleMeshNormal() {
+            Mesh curMesh = meshFilter.sharedMesh;    // GetMesh(curLODLevel, 0000)
+            int vertNum = curMesh.normals.Length;
+            Vector3[] vertex = curMesh.vertices;
+            Vector3[] normals = new Vector3[vertNum];
+            for(int i = 0; i < vertNum; i++) {
+                Vector3 pos = vertex[i];
+                normals[i] = heightDataManager.SampleNormalFromData(longitude, latitude, pos, clusterStartPoint);
+            }
+
+            curMesh.normals = normals;
+            SetMesh(curMesh);
         }
 
         public void ExeTerrainSimplify(int tileIdxX, int tileIdxY, TerrainSimplifier terrainSimplifier, float simplifyTarget) {
@@ -422,7 +453,7 @@ namespace LZ.WarGameMap.Runtime
 
             terrainSimplifier.InitSimplifyer(
                 LODMeshes[1].GetMesh(tileIdxX, tileIdxY, 0),
-                edgeVerts, edgeNormals, simplifyTarget
+                edgeVerts, edgeNormals, simplifyTarget, clusterStartPoint, clusterSize
             );
 
             terrainSimplifier.StartSimplify();
@@ -442,7 +473,7 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        // NOTE : 现在要放弃原先的 LOD 方案了
+        // NOTE : 现在放弃原先的 LOD 方案了
         public int GetRefinedLODLevel(Vector3 cameraPos) {
             return 1;
 
@@ -465,43 +496,6 @@ namespace LZ.WarGameMap.Runtime
 
             return 0;   // default level
         }
-
-        // Move to HeightDataManager
-        /*private float SampleFromHeightData(Vector3Int terrainClusterSize, Vector3 vertPos) {
-            
-            int srcWidth = heightDataManager.GetLength();
-            int srcHeight = heightDataManager.GetLength();
-
-            int terrainClusterWidth = terrainClusterSize.x;
-            int terrainClusterHeight = terrainClusterSize.z;
-
-            // fixed the vert, because exist cluster offset!
-            vertPos.x -= clusterStartPoint.x;
-            vertPos.z -= clusterStartPoint.z;
-            // resample the size of height map
-            float sx = vertPos.x / terrainClusterWidth * srcWidth;
-            float sy = vertPos.z / terrainClusterHeight * srcHeight;
-
-            int x0 = Mathf.Clamp(Mathf.FloorToInt(sx), 0, srcWidth - 1);
-            int x1 = Mathf.Min(x0 + 1, srcWidth - 1);
-            int y0 = Mathf.Clamp(Mathf.FloorToInt(sy), 0, srcHeight - 1); ;
-            int y1 = Mathf.Min(y0 + 1, srcHeight - 1);
-
-            float q00 = heightDataManager[x0, y0];
-            float q01 = heightDataManager[x0, y1];
-            float q10 = heightDataManager[x1, y0];
-            float q11 = heightDataManager[x1, y1];
-
-            float rx0 = Mathf.Lerp(q00, q10, sx - x0);
-            float rx1 = Mathf.Lerp(q01, q11, sx - x0);
-
-            // caculate the height by the data given
-            float h = Mathf.Lerp(rx0, rx1, sy - y0) * terrainClusterSize.y;
-            float fixed_h = Mathf.Clamp(h, 0, 50);
-
-            return fixed_h;
-        }
-*/
 
         public Mesh GetMesh(int curLODLevel, int fixDirection) {
             this.curLODLevel = curLODLevel;

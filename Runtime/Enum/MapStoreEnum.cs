@@ -13,11 +13,16 @@ namespace LZ.WarGameMap.Runtime {
 
 
         // 地形相关
+        public const string TerrainRootPath = "Assets/WarGameMap/Terrain";
+
         public const string TerrainMeshPath = "Assets/WarGameMap/Terrain/TerrainMeshs";
 
         public const string TerrainTexArrayPath = "Assets/WarGameMap/Terrain/Texture/Terrain";
 
         public const string TerrainTexOutputPath = "Assets/WarGameMap/Terrain/Texture/Output";
+
+        public const string TerrainHexMapPath = "Assets/WarGameMap/Terrain/HexMap";
+
 
         // 高度图相关
         public const string HeightMapInputPath = "Assets/WarGameMap/HeightMap/Origin";
@@ -26,8 +31,12 @@ namespace LZ.WarGameMap.Runtime {
 
         public const string HeightMapScriptableObjPath = "Assets/WarGameMap/HeightMap/ScriptableObj";
 
+        public const string HeightMapNormalTexOutputPath = "Assets/WarGameMap/HeightMap/Normal_Output";
+
         // 地貌相关
-        public const string LandformTexOutputPath = "Assets/WarGameMap/Landform/Output";
+        public const string LandformTexOutputPath = "Assets/WarGameMap/Landform/Landform_Output";
+
+        public const string NormalTexOutputPath = "Assets/WarGameMap/Landform/Normal_Output";
 
         public const string HexLandformTexOutputPath = "Assets/WarGameMap/Landform/HexOutput";
 

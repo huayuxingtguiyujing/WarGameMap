@@ -1,4 +1,5 @@
-﻿using System;
+﻿using NUnit.Framework;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -29,6 +30,8 @@ namespace LZ.WarGameMap.Runtime
 
         // https://zhuanlan.zhihu.com/p/545507892
 
+        Vector3 clusterStartPoint;
+        int clusterSize;
 
         // simplify metric
         int vertCnt;
@@ -57,13 +60,15 @@ namespace LZ.WarGameMap.Runtime
         Dictionary<int, Vector3> edgeVert_normals_dict;
 
 
-        public void InitSimplifyer(Mesh mesh, List<int> edgeVerts, List<Vector3> edgeNormals, float simplifyTarget) {
-            // NOTE : simplifyTarget 40% : end util 40% vertex
+        public void InitSimplifyer(Mesh mesh, List<int> edgeVerts, List<Vector3> edgeNormals, float simplifyTarget, Vector3 clusterStartPoint, int clusterSize) {
+            this.clusterSize = clusterSize;
+            this.clusterStartPoint = clusterStartPoint;
 
             meshName = mesh.name;
             vertexs = mesh.vertices;
             triangles = mesh.triangles;
 
+            // NOTE : simplifyTarget 40% : end util 40% vertex
             vertCnt = vertexs.Length;
             targetCnt = (int)(vertexs.Length * simplifyTarget);
 
@@ -202,8 +207,13 @@ namespace LZ.WarGameMap.Runtime
 
             int curCnt = vertCnt;
             int iterCnt = 0;    // 防止无限循环
-            int maxIter = 200;
+            int maxIter = vertCnt - 1;
             while(curCnt > targetCnt && iterCnt < maxIter) {
+
+                iterCnt++;
+                if (iterCnt >= maxIter) {
+                    Debug.LogError("simplify end because iterCnt has reach its limit");
+                }
 
                 VectorPair pair = qemMinHeap.GetTop();
                 if (pair == null) {
@@ -241,9 +251,9 @@ namespace LZ.WarGameMap.Runtime
                         vertex_pair_dict[idx2].RemoveAt(i);
                         continue;
                     }
-
+                    // TODO : 因为在init的时候，防止同样的顶点堆加入两次，导致了在处理了一次顶点对之后，就会丢失pair的引用
                     idx2_pair.UpdatePair(idx2, idx1, newV, newM);
-                    //qemMinHeap.UpdatePair(idx2_pair);
+                    qemMinHeap.UpdatePair(idx2_pair, iterCnt);
                 }
 
                 int length1 = vertex_pair_dict[idx1].Count;
@@ -256,7 +266,7 @@ namespace LZ.WarGameMap.Runtime
 
                     idx1_pair.UpdatePair(idx1, idx1, newV, newM);
                     //idx1_pair.UpdatePair(idx2, idx1, newV, newM);
-                    //qemMinHeap.UpdatePair(idx1_pair);
+                    qemMinHeap.UpdatePair(idx1_pair, iterCnt);
                 }
 
 
@@ -309,10 +319,6 @@ namespace LZ.WarGameMap.Runtime
 
                 curCnt--;
 
-                iterCnt++;
-                if (iterCnt >= maxIter) {
-                    Debug.LogError("simplify end because iterCnt has reach its limit");
-                }
             }
 
         }
@@ -377,8 +383,6 @@ namespace LZ.WarGameMap.Runtime
 
             DebugSimplifyResult();
 
-            // TODO : 要减去无效的 顶点 和 三角型 ......
-
             // 去掉所有 not valid 的顶点的vertex
             int vertNum = vertexs.Length;
             List<Vector3> newVerts = new List<Vector3>();
@@ -419,15 +423,20 @@ namespace LZ.WarGameMap.Runtime
                 newTriangles.Add(v3);
             }
 
-            // TODO : 法线还是要传入边缘顶点进行计算！
-            //mesh.normals = normals;
+            // NOTE : 法线改用法线贴图了
+
             // TODO : 为每个顶点重新计算一下 uv
-            //mesh.uv = uvs;
+            List<Vector2> newUvs = new List<Vector2>();
+            for (int i = 0; i < newVerts.Count; i++) {
+                Vector3 curPos = newVerts[i] - clusterStartPoint;
+                newUvs.Add(new Vector2(curPos.x / clusterSize, curPos.z / clusterSize));
+            }
 
             mesh.vertices = newVerts.ToArray();
             mesh.triangles = newTriangles.ToArray();
+            mesh.uv = newUvs.ToArray();
             mesh.RecalculateBounds();
-            mesh.RecalculateNormals();
+            //mesh.RecalculateNormals();
             return mesh;
         }
 
@@ -549,6 +558,7 @@ namespace LZ.WarGameMap.Runtime
 
     }
 
+    // TODO: 重写一下这个堆结构！！！
     // ERROR : 堆是有问题的！！！为什么同样的顶点对 会被操作多次？
     internal class QEMMinHeap {
         
@@ -592,28 +602,30 @@ namespace LZ.WarGameMap.Runtime
             return min;
         }
 
-        public void UpdatePair(VectorPair pair) {
+        // ERROR : 目前有问题，要修！
+        public void UpdatePair(VectorPair pair, int itTime = 0) {
             if (!heap_idx_dict.ContainsKey(pair)) {
-                Debug.LogError($"pair 未找到: {pair.v1Idx}, {pair.v2Idx}" );
+                Debug.LogError($"pair 未找到: {pair.v1Idx}, {pair.v2Idx}, {itTime}" );
                 return;
             }
 
-            // TODO : 测试它
             int idx = heap_idx_dict[pair];
-            heap[idx] = pair; // ？？？
+
+            // fix the error
+            if (idx < 0 || idx >= heap.Count) {
+                for(int i = 0; i < heap.Count; i++) {
+                    if (heap[i].v1Idx == pair.v1Idx && heap[i].v2Idx == pair.v2Idx) {
+                        idx = i;
+                        heap_idx_dict[pair] = idx;
+                        break;
+                    }
+                }
+            }
+
+            heap[idx] = pair;
             HeapifyUp(idx);
             HeapifyDown(idx);
 
-            // TODO : 不能这样每次都去遍历，性能跟不上
-            // 找到对应的顶点对
-            //for (int i = 0; i < heap.Count; i++) {
-            //    if (heap[i].v1Idx == pair.v1Idx && heap[i].v2Idx == pair.v2Idx) {
-            //        heap[i] = pair; // ？？？
-            //        HeapifyUp(i);
-            //        HeapifyDown(i);
-            //        return;
-            //    }
-            //}
         }
 
 
@@ -642,9 +654,9 @@ namespace LZ.WarGameMap.Runtime
         }
 
         private void Swap(int i, int j) {
-            heap_idx_dict[heap[i]] = j;
-            heap_idx_dict[heap[j]] = i;
             (heap[i], heap[j]) = (heap[j], heap[i]);
+            heap_idx_dict[heap[i]] = i;
+            heap_idx_dict[heap[j]] = j;
         }
     
     }

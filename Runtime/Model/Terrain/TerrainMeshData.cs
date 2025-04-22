@@ -266,7 +266,7 @@ namespace LZ.WarGameMap.Runtime
             }
 
             //RecaculateNormal();
-            RecaculateBorderNormal();
+            //RecaculateBorderNormal();
 
             mesh.vertices = fixedVertexs;
             mesh.normals = normals;

@@ -17,6 +17,7 @@ namespace LZ.WarGameMap.Runtime
 
         [SerializeField]
         List<float> heightDatas;
+        public List<float> HeightDatas {  get { return heightDatas; } }
 
         public HeightData() { }
 

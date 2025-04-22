@@ -7,6 +7,7 @@ using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime {
     [Serializable]
+    [CreateAssetMenu(fileName = "TerrainSetting_Default", menuName = "WarGameMap/Set/TerrainSetting", order = 2)]
     public class TerrainSettingSO : MapSettingSO {
 
         public override string MapSettingType {
@@ -17,7 +18,7 @@ namespace LZ.WarGameMap.Runtime {
 
         public override string MapSettingDescription {
             get {
-                return "setting for game map terrain, include lod levels, cluster size, tile size";
+                return "setting for game map terrain, include lod levels, cluster size, tile size; and note terrain is not gameplay only to show";
             }
         }
 

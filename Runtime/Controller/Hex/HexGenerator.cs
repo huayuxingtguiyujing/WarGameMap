@@ -99,10 +99,10 @@ namespace LZ.WarGameMap.Runtime
         public void GenerateRectangle(int top, int bottom, int left, int right) {
             uint count = 0;
             int i = 0, j = 0;
-            for (int r = top; r <= bottom; r++) { // pointy top
+            for (int r = top; r < bottom; r++) { // pointy top
                 //Ö´ÐÐºáÏòµÄÆ«ÒÆ
                 int r_offset = (int)Mathf.Floor(r / 2); // or r>>1
-                for (int q = left - r_offset; q <= right - r_offset; q++) {
+                for (int q = left - r_offset; q < right - r_offset; q++) {
                     Hexagon hexagon = new Hexagon(q, r, -q - r);
                     hexagonIdxDic.Add(new Vector2Int(j, i) , hexagon);
                     hexagonNumDic.Add((uint)count, hexagon);
