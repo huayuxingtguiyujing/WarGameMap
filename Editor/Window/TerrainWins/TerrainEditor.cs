@@ -149,12 +149,10 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("懒构建地形")]
         [Button("构建对应cluster的Mesh", ButtonSizes.Medium)]
         private void BuildCluster() {
-
             if (heightDataModels == null) {
                 Debug.LogError("you do not set the heightDataModel");
                 return;
             }
-
             if (TerrainCtor == null) {
                 Debug.LogError("terrian ctor is null!");
                 return;
@@ -203,7 +201,7 @@ namespace LZ.WarGameMap.MapEditor
         public Vector2Int curClusterIdx_Hex;
 
         [FoldoutGroup("使用Hex构建地形")]
-        [Button("生成Terrain", ButtonSizes.Medium)]
+        [Button("生成Hex版本Terrain", ButtonSizes.Medium)]
         private void GenerateTerrainByHex() {
             if (hexSet == null) {
                 Debug.LogError("hex Set is null!");

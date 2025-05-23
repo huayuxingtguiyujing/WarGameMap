@@ -3,12 +3,50 @@ using LZ.WarGameMap.Runtime.HexStruct;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.UIElements;
 using static LZ.WarGameMap.Runtime.RawHexMapSO;
+using static UnityEditor.PlayerSettings;
 
 namespace LZ.WarGameMap.Runtime
 {
+    // TODO : 这个是用于 实现 NoGC结构的 HeightDataManager类，可以用在 JobSystem当中
+    public struct HeightDataManager_Blittable {
+        
+        // TODO : 层层嵌套的结构不太好！不要这样乱搞......
+        // TODO : heightDatamodel这个中间层可以消灭掉，然后把 HeightData 的高度图数据全部搬到这里
+        // TODO : 在这里实现高度图数据采样！不要放到其他地方了......
+
+        // TODO : 现在底层的高度图数据全部是 half，注意精度！
+
+        //NativeArray<HeightDataModel_Blittable> heightDataModels;
+        //public NativeArray<HeightDataModel_Blittable> HeightDataModels { get { return heightDataModels; } }
+
+        int srcWidth;
+        int srcHeight;
+
+        int terrainClusterSize;
+        int terrainClusterWidth;
+        int terrainClusterHeight;
+
+        public HeightDataManager_Blittable(List<HeightDataModel> heightDataModels, int terrainClusterSize) {
+            srcWidth = heightDataModels[0].singleHeightFileSize;
+            srcHeight = heightDataModels[0].singleHeightFileSize;
+
+            this.terrainClusterSize = terrainClusterSize;
+            terrainClusterWidth = terrainClusterSize;
+            terrainClusterHeight = terrainClusterSize;
+
+            //this.heightDataModels = new NativeArray<HeightDataModel_Blittable>(); heightDataModels;
+            // TODO : 初始化所有的数据......
+        }
+
+        // step1 : 依靠 HeightDataManager 的 heightDataModels
+        // step2 : 
+
+    }
+
     public class HeightDataManager
     {
 
@@ -84,7 +122,6 @@ namespace LZ.WarGameMap.Runtime
                     default:
                         return centerHeightData;
                 }
-                
             }
 
         }
@@ -288,7 +325,6 @@ namespace LZ.WarGameMap.Runtime
             this.RawHexMap = RawHexMap;
         }
 
-        int cnt = 10;
         public float SampleFromHexMap(Vector3 vertPos) {
             if (HexSet == null || RawHexMap == null) {
                 return 0;
@@ -298,23 +334,75 @@ namespace LZ.WarGameMap.Runtime
             Vector2Int offsetHexPos = HexHelper.AxialToOffset(HexHelper.PixelToAxialHex(pos, HexSet.hexGridSize));
 
             // get the average height and other data
-            GridTerrainData terrainData = RawHexMap.GetTerrainData(offsetHexPos);
-            if(terrainData == null) {
-                //if(cnt > 0) {
-                //    Debug.Log($"{pos}, {offsetHexPos} not found");
-                //    cnt--;
-                //}
-                return -10;
+            GridTerrainData grid = RawHexMap.GetTerrainData(offsetHexPos);
+            if(grid == null) {
+                return 0;
             }
 
-            float height = terrainData.baseHeight;
+            Vector2 hexCenterPos = grid.GetHexCenter();
+            Vector2 vertCenterVec = pos - hexCenterPos;
+            float angle = Mathf.Atan2(vertCenterVec.y, vertCenterVec.x) * Mathf.Rad2Deg;
+            if (angle < 0) { angle += 360; }
 
+            // get all neighbor
+            Vector2Int[] neighbour = HexHelper.GetOffsetNeighbour(offsetHexPos);
+            GridTerrainData leftGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[0]);
+            GridTerrainData leftUpGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[1]);
+            GridTerrainData rightUpGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[2]);
+            GridTerrainData rightGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[3]);
+            GridTerrainData rightDownGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[4]);
+            GridTerrainData leftDownGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[5]);
+            
+            float height = grid.baseHeight;
+            if (angle >= 0 && angle <= 60) {
+                height = IntepWeightTriangle_Wrapper(grid, rightGrid, rightUpGrid, pos);
+            } else if (angle <= 120) {
+                height = IntepWeightTriangle_Wrapper(grid, rightUpGrid, leftUpGrid, pos);
+            } else if (angle <= 180) {
+                height = IntepWeightTriangle_Wrapper(grid, leftUpGrid, leftGrid, pos);
+            } else if (angle <= 240) {
+                height = IntepWeightTriangle_Wrapper(grid, leftGrid, leftDownGrid, pos);
+            } else if (angle <= 300) {
+                height = IntepWeightTriangle_Wrapper(grid, leftDownGrid, rightDownGrid, pos);
+            } else {
+                height = IntepWeightTriangle_Wrapper(grid, rightDownGrid, rightGrid, pos);
+            }
+            //height = grid.baseHeight;
             float fix = 0;
             //float fix = terrainData.hillHeightFix * 0.2f * UnityEngine.Random.Range(-2, 3);
 
-            // return the height
-
             return height + fix;
+        }
+
+        private float IntepWeightTriangle_Wrapper(GridTerrainData A, GridTerrainData B, GridTerrainData C, Vector2 P) {
+            if (A == null || B == null || C == null) {
+                return A.baseHeight;
+            }
+            return IntepWeightTriangle(A.GetHexCenter(), B.GetHexCenter(), C.GetHexCenter(), A.baseHeight, B.baseHeight, C.baseHeight, P);
+        }
+
+        private float IntepWeightTriangle(Vector2 A, Vector2 B, Vector2 C, float wA, float wB, float wC, Vector2 P) {
+            // 重心坐标 插值
+            Vector2 v0 = B - A;
+            Vector2 v1 = C - A;
+            Vector2 v2 = P - A;
+
+            float d00 = Vector2.Dot(v0, v0);
+            float d01 = Vector2.Dot(v0, v1);
+            float d11 = Vector2.Dot(v1, v1);
+            float d20 = Vector2.Dot(v2, v0);
+            float d21 = Vector2.Dot(v2, v1);
+
+            float denom = d00 * d11 - d01 * d01;
+            if (Mathf.Abs(denom) < 1e-6f) {
+                return 0f;
+            }
+
+            float v = (d11 * d20 - d01 * d21) / denom;
+            float w = (d00 * d21 - d01 * d20) / denom;
+            float u = 1.0f - v - w;
+
+            return u * wA + v * wB + w * wC;
         }
 
         #endregion

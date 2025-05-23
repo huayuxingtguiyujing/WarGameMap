@@ -26,6 +26,7 @@ namespace LZ.WarGameMap.Runtime
 
         public Dictionary<Vector2Int, GridTerrainData> HexMapGridTersDic { get { return HexMapGridTerDic; } }
 
+
         // grid type
         public enum GridTerrainType {
             Sea,
@@ -41,12 +42,14 @@ namespace LZ.WarGameMap.Runtime
             Flat,
             Hill,
         }
+        
 
         [Serializable]
         public class GridTerrainData {
-            public Vector2Int idx;      // offset hex coord
-            public Vector2Int hex_q_r;
-            //public Hexagon hexagon;
+            Vector2Int idx;      // offset hex coord
+            Vector2Int hex_q_r;
+
+            Vector2 hexGridCenter;
 
             public float baseHeight = 0;
             public GridTerrainType terrainType = GridTerrainType.Plain1;
@@ -55,11 +58,12 @@ namespace LZ.WarGameMap.Runtime
             public float hillHeightFix = 1;
             public GridSlopeType slopeType = GridSlopeType.Flat;
 
-            public void CaculateTerrainData(Vector2Int offsetHex, Hexagon hexagon, TDList<float> scopeHeights) {
-                //this.hexagon = hexagon;
-                this.idx = offsetHex;
+            public void CaculateTerrainData(Vector2Int hexIdx, Hexagon hexagon, Vector3 hexCenter, TDList<float> scopeHeights) {
+                this.idx = hexIdx;
                 this.hex_q_r = new Vector2Int(hexagon.q, hexagon.r);
-                
+
+                this.hexGridCenter = new Vector2(hexCenter.x, hexCenter.z);
+
                 // caculate the terrain data, to decide the grid type and othe field
                 int height = scopeHeights.GetLength(0);
                 int width = scopeHeights.GetLength(1);
@@ -125,14 +129,14 @@ namespace LZ.WarGameMap.Runtime
                 return Color.white;
             }
 
-            //public float GetHeight(Vector3 vertPos) {
-            //    return baseHeight;
-            //}
-
             #region get data
 
             public Vector2Int GetHexPos() {
                 return idx;
+            }
+
+            public Vector2 GetHexCenter() {
+                return hexGridCenter;
             }
 
             public Hexagon GetHexagon() {
@@ -146,10 +150,28 @@ namespace LZ.WarGameMap.Runtime
             width = w; height = h;
         }
 
-        public void AddGridTerrainData(Vector2Int offsetHex, Hexagon hexagon, TDList<float> scopeHeights) {
+        public void AddGridTerrainData(Vector2Int hexIdx, Hexagon hexagon, Vector3 hexCenter, TDList<float> scopeHeights) {
             GridTerrainData gridTerrainData = new GridTerrainData();
-            gridTerrainData.CaculateTerrainData(offsetHex, hexagon, scopeHeights);
+            gridTerrainData.CaculateTerrainData(hexIdx, hexagon, hexCenter, scopeHeights);
             HexMapGridTers.Add(gridTerrainData);
+        }
+
+        public void LerpGridTerrainHeight(Vector2Int hexIdx) {
+            // 使格子变得更加平滑...
+            if (!HexMapGridTerDic.ContainsKey(hexIdx)) {
+                Debug.LogError($"do not exist hex idx : {hexIdx}");
+                return;
+            }
+
+            GridTerrainData gridTerrainData = HexMapGridTerDic[hexIdx];
+
+            if (hexIdx.x % 2 == 1) {
+                // 奇数行的格子
+                
+            } else {
+                // 偶数行的格子
+
+            }
         }
 
         public void UpdateGridTerrainData() {
@@ -160,12 +182,20 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
+
         #region get/set 方法
 
+        int cnt = 10;
+        int iterCnt = 0;
         public GridTerrainData GetTerrainData(Vector2Int offsetHex) {
+            iterCnt++;
             if (HexMapGridTerDic.ContainsKey(offsetHex)) {
                 return HexMapGridTerDic[offsetHex];
             } else {
+                if(cnt > 20) {
+                    cnt--;
+                    Debug.LogError($"missing!, offsetHex : {offsetHex}, iterCnt : {iterCnt}");
+                }
                 return null;
             }
         }

@@ -71,7 +71,6 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("使用柏林噪声处理")]
         public bool openPerlinNoise = true;
 
-
         [FoldoutGroup("构建地貌贴图")]
         [LabelText("当前操作的地貌纹理")]
         [Tooltip("注意，这个Texture可能不是在磁盘中已经存储的")]
@@ -266,14 +265,31 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
+        #region 自动生成索引/混合贴图
+
+        // TODO : 目前要怎么搞捏，是不是应该弄些高级点的噪声，不止是perlin呢
+        // 说不定还要看些算法
+
+        // step1 : 找可能可以用的噪声/自动化生成算法，可能要读读论文，多问问GPT
+        // step2 : 应用这个算法，生成一版混合纹理，然后用这个混合纹理去做纹理混合（先不考虑索引贴图）
+        // step3 : 思考怎么搞索引贴图，嘶......是不是也应该去自动化生成一下呢（目前没有头绪）
+
+        #endregion
+
+        #region 混合纹理地貌
+
+        [FoldoutGroup("混合纹理地貌生成", order: 99)]
+        [LabelText("NOTE")]  // NOTE : 其实后面可能不止会用到16张地貌纹理，要考虑后续扩充
+        public string blenderTexLandformStr = "此部分用于做混合地貌方案，可以根据参数自动生成无缝的混合纹理/索引纹理";
+
         // NOTE : 以下是打算做混合纹理地貌方案
-        [FoldoutGroup("混合纹理地貌生成", order:99)]
-        [LabelText("当前使用的地貌纹理图集")]
-        public Texture2D curTerrainTexSplat;
+        [FoldoutGroup("混合纹理地貌生成", order: 99)]
+        [LabelText("当前使用的地貌纹理图集")]  // NOTE : 其实后面可能不止会用到16张地貌纹理，要考虑后续扩充
+        public List<Texture2D> curTerrainTexSplats;
 
         [FoldoutGroup("混合纹理地貌生成")]
         [Button("导出索引贴图", ButtonSizes.Medium)]
-        private void ImportIdxTex() {
+        private void ExportIdxTex() {
             // 也许不需要导出索引贴图 + 混合贴图，直接使用 color 制作？
         }
 
@@ -290,6 +306,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
 
+        #endregion
 
 
 

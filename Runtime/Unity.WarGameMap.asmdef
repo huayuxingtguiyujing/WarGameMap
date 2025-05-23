@@ -2,7 +2,9 @@
     "name": "Unity.LZWarGameMap",
     "rootNamespace": "LZ.WarGameMap.Runtime",
     "references": [
-        "GUID:f077275c9e863ed43b96d727f0d33c86"
+        "GUID:f077275c9e863ed43b96d727f0d33c86",
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:e0cd26848372d4e5c891c569017e11f1"
     ],
     "includePlatforms": [
         "Android",

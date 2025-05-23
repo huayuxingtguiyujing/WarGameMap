@@ -14,6 +14,8 @@ namespace LZ.WarGameMap.MapEditor {
 
         public static string GamePlayClass = "GamePlay编辑";
 
+        public static string ToolClass = "通用工具";
+
     }
 
     public static class MapEditorEnum {
@@ -43,6 +45,10 @@ namespace LZ.WarGameMap.MapEditor {
         //public static string CountryEditor = "国家编辑";
         //public static string ResFieldEditor = "资源编辑";
         //public static string PeopleEditor = "人口编辑";
+
+        // 通用工具
+        public static string TextureToolEditor = "地形纹理编辑工具";
+
     }
 
     public static class MapBrushEnum {

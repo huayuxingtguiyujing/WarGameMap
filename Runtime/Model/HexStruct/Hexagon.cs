@@ -371,6 +371,21 @@ namespace LZ.WarGameMap.Runtime.HexStruct
             return new Vector2Int(col, row);
         }
 
+        public static Vector2Int[] GetOffsetNeighbour(Vector2Int offsetHex) {
+            Vector2Int[] neighbour = new Vector2Int[6];
+            if (offsetHex.x % 2 == 1) {
+                // 奇数行的邻居 偏移
+                neighbour = new Vector2Int[6]{ 
+                    new Vector2Int(0, -1), new Vector2Int(1, 0), new Vector2Int(1, 1), 
+                    new Vector2Int(0, 1), new Vector2Int(-1, 1), new Vector2Int(-1, 0)};
+            } else {
+                // 偶数行的邻居 偏移
+                neighbour = new Vector2Int[6]{
+                    new Vector2Int( 0, -1), new Vector2Int(1, -1), new Vector2Int(1, 0), 
+                    new Vector2Int(0, 1), new Vector2Int(-1, 0), new Vector2Int(-1, -1)};
+            }
+            return neighbour;
+        }
 
         //public static Hexagon OffsetToAxial() {
         //    var q = hex.col - (hex.row - (hex.row & 1)) / 2

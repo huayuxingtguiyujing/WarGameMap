@@ -12,7 +12,7 @@ namespace LZ.WarGameMap.Runtime
             hexagonNumDic = new Dictionary<uint, Hexagon>();
         }
 
-        // NOTE: hexagon 中存储的是偏移坐标，此处使用轴向坐标
+        // NOTE: hexagon 中存储的是偏移坐标，此处使用轴向坐标作为 Key
         // 轴向坐标 - Hexagon 的映射(纯数据)
         private Dictionary<Vector2Int, Hexagon> hexagonIdxDic;
 

@@ -348,6 +348,10 @@ namespace LZ.WarGameMap.Runtime
             LODMeshes = new TerrainMeshData[lODLevels.Length];
         }
 
+        // JobSystem
+        // TODO : !
+
+
         public void SetMeshData(int curLODLevel, TerrainSetting terSet, int vertexNumFix, HeightDataManager heightDataManager) {
             this.heightDataManager = heightDataManager;
             this.clusterSize = terSet.clusterSize;
@@ -426,7 +430,7 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            //meshData.RecaculateNormal();
+            meshData.RecaculateNormal();
         }
 
         public void SampleMeshNormal() {

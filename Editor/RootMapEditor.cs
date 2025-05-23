@@ -26,6 +26,7 @@ namespace LZ.WarGameMap.MapEditor
             string buildingPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.BuildingsClass;
             string decoratePath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.DecorateClass;
             string gameplayPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.GamePlayClass;
+            string toolPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.ToolClass;
             if (!AssetDatabase.IsValidFolder(terrainPath)) {
                 AssetDatabase.CreateFolder(MapStoreEnum.MapWindowPath, MapEditorClass.TerrainClass);
             }
@@ -38,12 +39,16 @@ namespace LZ.WarGameMap.MapEditor
             if (!AssetDatabase.IsValidFolder(gameplayPath)) {
                 AssetDatabase.CreateFolder(MapStoreEnum.MapWindowPath, MapEditorClass.GamePlayClass);
             }
+            if (!AssetDatabase.IsValidFolder(toolPath)) {
+                AssetDatabase.CreateFolder(MapStoreEnum.MapWindowPath, MapEditorClass.ToolClass);
+            }
 
             // get HashSet(window objs name) in folders
             HashSet<string> terrainFileNames = AssetsUtility.GetInstance().GetFileNames(terrainPath);
             HashSet<string> buildingFileNames = AssetsUtility.GetInstance().GetFileNames(buildingPath);
             HashSet<string> decorateFileNames = AssetsUtility.GetInstance().GetFileNames(decoratePath);
             HashSet<string> gameplayFileNames = AssetsUtility.GetInstance().GetFileNames(gameplayPath);
+            HashSet<string> toolFileNames = AssetsUtility.GetInstance().GetFileNames(toolPath);
 
             // create every terrain windows 
             if (!terrainFileNames.Contains(MapEditorEnum.TerrainEditor)) {
@@ -60,11 +65,14 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             // TODO : river edit
-
             if (!decorateFileNames.Contains(MapEditorEnum.PlantEditor)) {
                 CreateWindowObj<PlantCoverEditor>(MapEditorClass.DecorateClass);
             }
 
+            // 
+            if (!decorateFileNames.Contains(MapEditorEnum.TextureToolEditor)) {
+                CreateWindowObj<TextureToolEditor>(MapEditorClass.ToolClass);
+            }
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -113,6 +121,7 @@ namespace LZ.WarGameMap.MapEditor
             tree.AddAllAssetsAtPath(MapEditorClass.BuildingsClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.BuildingsClass, typeof(BaseMapEditor), true);
             tree.AddAllAssetsAtPath(MapEditorClass.DecorateClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.DecorateClass, typeof(BaseMapEditor), true);
             tree.AddAllAssetsAtPath(MapEditorClass.GamePlayClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.GamePlayClass, typeof(BaseMapEditor), true);
+            tree.AddAllAssetsAtPath(MapEditorClass.ToolClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.ToolClass, typeof(BaseMapEditor), true);
             return tree;
         }
 
@@ -134,12 +143,17 @@ namespace LZ.WarGameMap.MapEditor
                     // triger the Disable and Enable
                     if (curSelected != null) {
                         BaseMapEditor lastMapEditor = curSelected.Value as BaseMapEditor;
-                        lastMapEditor.Disable();
+                        if(lastMapEditor != null) {
+                            lastMapEditor.Disable();
+                        }
                         //Debug.Log($"{curSelected.Name} disable");
                     }
+
                     curSelected = selected;
                     BaseMapEditor curMapEditor = curSelected.Value as BaseMapEditor;
-                    curMapEditor.Enable();
+                    if (curMapEditor != null) {
+                        curMapEditor.Enable();
+                    }
                     //Debug.Log($"{curSelected.Name} enable");
                 }
             }
@@ -168,7 +182,6 @@ namespace LZ.WarGameMap.MapEditor
 
             base.OnDestroy();
         }
+    
     }
-
-
 }

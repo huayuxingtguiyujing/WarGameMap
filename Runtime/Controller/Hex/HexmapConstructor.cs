@@ -205,7 +205,6 @@ namespace LZ.WarGameMap.Runtime {
         public void GenerateRawHexMap(Vector2Int startLongitudeLatitude, RawHexMapSO rawHexMapSO, HeightDataManager heightDataManager) {
 
             layout = GetScreenLayout();
-
             if(hexGenerator == null || hexGenerator.HexagonIdxDic == null) {
                 Debug.LogError("do not set hexGenerator!");
                 return;
@@ -213,16 +212,17 @@ namespace LZ.WarGameMap.Runtime {
 
             foreach (var pair in hexGenerator.HexagonIdxDic) {
                 Vector2Int mapIdx = pair.Key;
-
-                // caculate map grid'index inside cluster
-                Vector2Int clusterIdx = GetGridClusterIdx(mapIdx.x, mapIdx.y);
-                Vector2Int inClusterIdx = GetGridInClusterIdx(mapIdx.x, mapIdx.y);
+                //// caculate map grid'index inside cluster
+                //Vector2Int clusterIdx = GetGridClusterIdx(mapIdx.x, mapIdx.y);
+                //Vector2Int inClusterIdx = GetGridInClusterIdx(mapIdx.x, mapIdx.y);
 
                 // trans hex center position to terrain position
                 Hexagon hex = pair.Value;
                 Point center = hex.Hex_To_Pixel(layout, hex).ConvertToXZ();
+
+                // get height datas, then use them generate hex grid...
                 TDList<float> heights = heightDataManager.SampleScopeFromHeightData(startLongitudeLatitude, center, hexSet.hexCalcuVertScope);
-                rawHexMapSO.AddGridTerrainData(mapIdx, hex, heights);
+                rawHexMapSO.AddGridTerrainData(mapIdx, hex, center, heights);
             }
             rawHexMapSO.UpdateGridTerrainData();
 

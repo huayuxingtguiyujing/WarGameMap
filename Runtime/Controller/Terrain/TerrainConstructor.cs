@@ -63,12 +63,14 @@ namespace LZ.WarGameMap.Runtime
 
         public void InitHexCons(HexSettingSO hexSetting, RawHexMapSO rawHexMapSO) {
             if (heightDataManager == null) {
-                Debug.LogError("you should set hexSetting and rawHexMapSO!");
+                Debug.LogError("you should init height Data Manager!");
                 return;
             }
             heightDataManager.InitHexSet(hexSetting, rawHexMapSO);
         }
 
+        // NOTE : 由于现在在开发Hex功能，所以这个函数目前不能用于构建通用地形的 TerrainMesh
+        // 现在只能用来搞 hex 版本的地形
         public void BuildCluster(int i, int j, int longitude, int latitude) {
             if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
                 Debug.LogError($"wrong index : {i}, {j}");
