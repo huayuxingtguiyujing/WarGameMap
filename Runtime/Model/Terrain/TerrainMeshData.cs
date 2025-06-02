@@ -7,7 +7,6 @@ using UnityEngine;
 namespace LZ.WarGameMap.Runtime
 {
 
-    // TODO : 地貌的修改也得到这里，到时候怎么搞？是不是应该拆出来？
     public class TerrainMeshData : IBinarySerializer {
 
         public int curLODLevel { get; private set; }
@@ -347,21 +346,6 @@ namespace LZ.WarGameMap.Runtime
                 return mountainColor; // 山地
             else
                 return snowColor; // 雪地
-        }
-
-        // GPT 提供：湿度、温度、海拔混合公式
-        private Color CalculateTerrainColor(float temperature, float humidity, float height) {
-            float mexHeight = 40;
-            float snowLine = 40;
-
-            Color baseColor = Color.green;
-            baseColor.r += Mathf.Clamp(temperature - 20, 0, 10) * 0.05f;    // 温度影响
-            baseColor.g += humidity * 0.1f;                                 // 湿度影响
-            baseColor *= 1.0f - (height / mexHeight);                       // 海拔影响
-            if (height > snowLine) {
-                baseColor = Color.Lerp(baseColor, Color.white, (height - snowLine) / (mexHeight - snowLine)); // 高山雪地
-            }
-            return baseColor;
         }
 
         #endregion

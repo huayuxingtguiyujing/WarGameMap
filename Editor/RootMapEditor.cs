@@ -7,7 +7,6 @@ using UnityEngine;
 namespace LZ.WarGameMap.MapEditor
 {
 
-
     /// <summary>
     /// ±à¼­Æ÷µÄ Root£¬ÓÃÓÚ³õÊ¼»¯±à¼­Æ÷ÅäÖÃ
     /// </summary>
@@ -22,11 +21,15 @@ namespace LZ.WarGameMap.MapEditor
                 Debug.Log(string.Format("create file folder : {0}", MapStoreEnum.MapWindowPath));
             }
 
+            string mapsetPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.MapSetClass;
             string terrainPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.TerrainClass;
             string buildingPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.BuildingsClass;
             string decoratePath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.DecorateClass;
             string gameplayPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.GamePlayClass;
             string toolPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.ToolClass;
+            if (!AssetDatabase.IsValidFolder(mapsetPath)) {
+                AssetDatabase.CreateFolder(MapStoreEnum.MapWindowPath, MapEditorClass.MapSetClass);
+            }
             if (!AssetDatabase.IsValidFolder(terrainPath)) {
                 AssetDatabase.CreateFolder(MapStoreEnum.MapWindowPath, MapEditorClass.TerrainClass);
             }
@@ -44,13 +47,18 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             // get HashSet(window objs name) in folders
+            HashSet<string> mapsetFileNames = AssetsUtility.GetInstance().GetFileNames(mapsetPath);
             HashSet<string> terrainFileNames = AssetsUtility.GetInstance().GetFileNames(terrainPath);
             HashSet<string> buildingFileNames = AssetsUtility.GetInstance().GetFileNames(buildingPath);
             HashSet<string> decorateFileNames = AssetsUtility.GetInstance().GetFileNames(decoratePath);
             HashSet<string> gameplayFileNames = AssetsUtility.GetInstance().GetFileNames(gameplayPath);
             HashSet<string> toolFileNames = AssetsUtility.GetInstance().GetFileNames(toolPath);
 
-            // create every terrain windows 
+            if (!mapsetFileNames.Contains(MapEditorEnum.MapSetEditor)) {
+                CreateWindowObj<MapSetEditor>(MapEditorClass.MapSetClass);
+            }
+
+            // create terrain windows 
             if (!terrainFileNames.Contains(MapEditorEnum.TerrainEditor)) {
                 CreateWindowObj<TerrainEditor>(MapEditorClass.TerrainClass);
             }
@@ -117,6 +125,7 @@ namespace LZ.WarGameMap.MapEditor
         protected override OdinMenuTree BuildMenuTree() {
             var tree = new OdinMenuTree();
             tree.DefaultMenuStyle = OdinMenuStyle.TreeViewStyle;
+            tree.AddAllAssetsAtPath(MapEditorClass.MapSetClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.MapSetClass, typeof(BaseMapEditor), true);
             tree.AddAllAssetsAtPath(MapEditorClass.TerrainClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.TerrainClass, typeof(BaseMapEditor), true);
             tree.AddAllAssetsAtPath(MapEditorClass.BuildingsClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.BuildingsClass, typeof(BaseMapEditor), true);
             tree.AddAllAssetsAtPath(MapEditorClass.DecorateClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.DecorateClass, typeof(BaseMapEditor), true);

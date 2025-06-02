@@ -2,7 +2,6 @@ using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using UnityEditor;
 using UnityEngine;
 
@@ -57,7 +56,7 @@ namespace LZ.WarGameMap.MapEditor
 
 
         #region 构建地貌贴图
-
+        // NOTE : 该块的代码用于生成简单版本的地貌，即：不同的高度对应不同的纯色地貌
 
         [FoldoutGroup("构建地貌贴图/地貌纹理设置")]
         [LabelText("缺失部分填充颜色")]
@@ -110,8 +109,9 @@ namespace LZ.WarGameMap.MapEditor
             heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize);
 
             // use perlin noise
-            PerlinGenerator perlinGenerator = new PerlinGenerator();
-            perlinGenerator.GeneratePerlinNoise(ExportTexResolution, ExportTexResolution);
+            //PerlinGenerator perlinGenerator = new PerlinGenerator();
+            //perlinGenerator.GeneratePerlinNoise(ExportTexResolution / 4, ExportTexResolution / 4);
+            PerlinNoise perlinNoise = new PerlinNoise(ExportTexResolution, 16, true, 4, new Vector2(1, 1), 8);
 
             // renderTexture, 效率更高
             //RenderTexture tmpTex = RenderTexture.GetTemporary(ExportTexResolution, ExportTexResolution, 24);
@@ -141,8 +141,10 @@ namespace LZ.WarGameMap.MapEditor
                     //float temperature = LandformDataModel.GetTemperature(vertPos, startLongitudeLatitude);
                     //Color color = LandformDataModel.SampleColor(humidity, temperature);
                     Color color = GetColorByHeight(vertPos.y);
+                    color = Color.white;
                     if (openPerlinNoise) {
-                        colors[idx] = perlinGenerator.SampleNosie(vertPos) * color;
+                        //colors[idx] = perlinGenerator.SampleNoise(vertPos) * color;
+                        colors[idx] = perlinNoise.SampleNoise(vertPos) * color;
                     } else {
                         colors[idx] = color;
                     }
@@ -150,6 +152,8 @@ namespace LZ.WarGameMap.MapEditor
             }
             curHandleLandformTex.SetPixels(colors);
             curHandleLandformTex.Apply();
+
+            perlinNoise.Dispose();
 
             Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExportTexResolution));
         }
@@ -181,6 +185,12 @@ namespace LZ.WarGameMap.MapEditor
             string texName = string.Format("landform_{0}x{0}_{1}", ExportTexResolution, dateTime.Ticks);
             TextureUtility.GetInstance().SaveTextureAsAsset(landformTexImportPath, texName, curHandleLandformTex);
         }
+
+        #endregion
+
+
+        #region 构建六边形地貌贴图
+        // NOTE : 
 
         #endregion
 
@@ -265,14 +275,16 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-        #region 自动生成索引/混合贴图
+        #region 构建索引/混合贴图
 
-        // TODO : 目前要怎么搞捏，是不是应该弄些高级点的噪声，不止是perlin呢
+        // TODO : 目前要怎么搞，是不是应该弄些高级点的噪声，不止是perlin呢
         // 说不定还要看些算法
 
         // step1 : 找可能可以用的噪声/自动化生成算法，可能要读读论文，多问问GPT
         // step2 : 应用这个算法，生成一版混合纹理，然后用这个混合纹理去做纹理混合（先不考虑索引贴图）
         // step3 : 思考怎么搞索引贴图，嘶......是不是也应该去自动化生成一下呢（目前没有头绪）
+
+        // 另外，把那篇混合纹理地貌的文章实践出来！！！（反正只是搬运代码
 
         #endregion
 

@@ -3,7 +3,10 @@ using Sirenix.OdinInspector;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
+using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -124,6 +127,133 @@ namespace LZ.WarGameMap.MapEditor
             byte[] bytes = terrainTexSplat.EncodeToPNG();
             TextureUtility.GetInstance().SaveTextureAsAsset(exportPath, "TerrainSplat_AAA.png", terrainTexSplat);
 
+        }
+
+        #endregion
+
+
+        #region 噪声纹理生成
+
+        [FoldoutGroup("噪声纹理生成/噪声设置")]
+        [LabelText("分辨率")]
+        public int noiseTexResolution = 512;
+
+        [FoldoutGroup("噪声纹理生成/噪声设置")]
+        [LabelText("频率")]
+        public int frequency = 16;
+
+        [FoldoutGroup("噪声纹理生成/噪声设置")]
+        [LabelText("噪声随机数")]
+        public int randomSpeed = 1;
+
+        [FoldoutGroup("噪声纹理生成/噪声设置")]
+        [LabelText("FBM迭代次数")]
+        public int fbmIteration = 8;
+
+        [FoldoutGroup("噪声纹理生成/噪声设置")]
+        [LabelText("噪声导出位置")]
+        public string noiseExportPath = MapStoreEnum.NoiseTexOutputPath;
+
+        [FoldoutGroup("噪声纹理生成")]
+        [LabelText("当前的噪声纹理")]
+        public Texture2D noiseTex;
+
+        [FoldoutGroup("噪声纹理生成")]
+        [ValueDropdown("noiseTypeOptions")]
+        public string noiseType;
+
+        private static IEnumerable<ValueDropdownItem<string>> noiseTypeOptions = new ValueDropdownList<string> {
+            "Perlin", "Vonoro", "space",
+        };
+
+        [FoldoutGroup("噪声纹理生成")]
+        [Button("生成噪声纹理", ButtonSizes.Medium)]
+        private void GenerateNoiseTexture() {
+            switch (noiseType) {
+                case "Perlin":
+                    GeneratePerlin();
+                    break;
+                case "Voronoi":
+                    break;
+                case "space":
+                    break;
+                default:
+                    Debug.Log("you do not set the noise type");
+                    break;
+            }
+        }
+
+        private void GeneratePerlin() {
+            PerlinNoise perlinNoise = new PerlinNoise(noiseTexResolution, frequency, true, randomSpeed, new Vector2(1, 1), fbmIteration);
+
+            noiseTex = new Texture2D(noiseTexResolution, noiseTexResolution, TextureFormat.RGB24, false);
+            Color[] colors = noiseTex.GetPixels();
+
+            for (int i = 0; i < noiseTexResolution; i++) {
+                for (int j = 0; j < noiseTexResolution; j++) {
+                    Vector3 vertPos = new Vector3(i, 0, j);
+                    int idx;
+                    idx = j * noiseTexResolution + i;
+                    Color color = Color.white; 
+                    colors[idx] = perlinNoise.SampleNoise(vertPos) * color; 
+                }
+            }
+            noiseTex.SetPixels(colors);
+            noiseTex.Apply();
+            perlinNoise.Dispose();
+            Debug.Log(string.Format("successfully generate noise texture, resolution : {0}, frequency : {1}, fbm : {2}", noiseTexResolution, frequency, fbmIteration));
+        }
+
+        private void GenerateVoronoi() {
+            // TODO : 
+        }
+
+
+        [FoldoutGroup("噪声纹理生成")]
+        [Button("保存噪声纹理", ButtonSizes.Medium)]
+        private void SaveNoiseTexture() {
+            if (noiseTex == null) {
+                Debug.LogError("noiseTex is null!");
+                return;
+            }
+
+            TextureUtility.GetInstance().SaveTextureAsAsset(noiseExportPath, $"noiseTex_{noiseTexResolution}_{frequency}_{Random.Range(0, 1000)}.png", noiseTex);
+
+        }
+
+        #endregion
+
+
+        #region 纹理混合测试
+
+        [FoldoutGroup("纹理混合测试")]
+        [LabelText("混合权重纹理")]
+        public Texture2D blenderTex;
+
+        [FoldoutGroup("纹理混合测试")]
+        [LabelText("混合纹理图集")]
+        public Texture2D blenderTexSplat;
+
+        [FoldoutGroup("纹理混合测试")]
+        [LabelText("生成的混合地貌纹理")]
+        public Texture2D targetTerrainTex;
+
+        [FoldoutGroup("纹理混合测试")]
+        [Button("生成混合地貌纹理", ButtonSizes.Medium)]
+        private void GenerateBlendTerrain() {
+            // 生成多大的尺寸？ 和 混合纹理一样大吗？
+
+
+        }
+
+        [FoldoutGroup("地貌图集生成")]
+        [Button("保存混合地貌纹理", ButtonSizes.Medium)]
+        private void SaveBlendTerrainTexture() {
+            if (targetTerrainTex == null) {
+                Debug.Log("you do not generate blend terrain texture");
+                return;
+            }
+            // TODO : save to asset path
         }
 
         #endregion

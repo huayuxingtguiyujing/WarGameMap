@@ -21,6 +21,7 @@ namespace LZ.WarGameMap.Runtime {
 
         public const string TerrainTexOutputPath = "Assets/WarGameMap/Terrain/Texture/Output";
 
+
         public const string TerrainHexMapPath = "Assets/WarGameMap/Terrain/HexMap";
 
 
@@ -38,8 +39,9 @@ namespace LZ.WarGameMap.Runtime {
 
         public const string NormalTexOutputPath = "Assets/WarGameMap/Landform/Normal_Output";
 
-        public const string HexLandformTexOutputPath = "Assets/WarGameMap/Landform/HexOutput";
+        public const string HexLandformTexOutputPath = "Assets/WarGameMap/Landform/Hex_Output";
 
+        public const string NoiseTexOutputPath = "Assets/WarGameMap/Landform/Noise_Output";
         //public const string Path = "Assets/WarGameMap/Landform/Output";
 
 

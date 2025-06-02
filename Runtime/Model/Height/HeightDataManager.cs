@@ -345,7 +345,7 @@ namespace LZ.WarGameMap.Runtime
             if (angle < 0) { angle += 360; }
 
             // get all neighbor
-            Vector2Int[] neighbour = HexHelper.GetOffsetNeighbour(offsetHexPos);
+            Vector2Int[] neighbour = HexHelper.GetOffsetHexNeighbour(offsetHexPos);
             GridTerrainData leftGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[0]);
             GridTerrainData leftUpGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[1]);
             GridTerrainData rightUpGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[2]);

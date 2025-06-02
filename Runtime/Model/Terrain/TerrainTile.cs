@@ -388,8 +388,8 @@ namespace LZ.WarGameMap.Runtime
 
                     // NOTE : 这里的代码不能删！千万不能删啊
                     //float height = SampleFromHeightData(terrainClusterSize, vert);
-                    //float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
-                    float height = heightDataManager.SampleFromHexMap(vert);
+                    float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
+                    //float height = heightDataManager.SampleFromHexMap(vert);
                     //float height = 0;
 
                     vert.y = height;

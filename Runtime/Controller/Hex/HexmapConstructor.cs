@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
 using UnityEngine;
+using static UnityEngine.UI.GridLayoutGroup;
 
 namespace LZ.WarGameMap.Runtime {
     /// <summary>
@@ -78,7 +79,7 @@ namespace LZ.WarGameMap.Runtime {
         }
 
         private void _InitCons() {
-            layout = GetScreenLayout();
+            layout = hexSet.GetScreenLayout();
             StartCoroutine(LoadMapGrid(hexSet.mapWidth, hexSet.mapHeight, 100000));
 
             // TODO: init river etc
@@ -172,15 +173,15 @@ namespace LZ.WarGameMap.Runtime {
             GizmosCtrl.GetInstance().RegisterGizmoEvent(mapGridQuadTree.DrawScopeInGizmos);
         }
 
-        public Layout GetScreenLayout() {
-            Vector2 startPoint = new Vector2(transform.position.x, transform.position.y);
-            Layout layout = new Layout(
-                Orientation.Layout_Pointy, 
-                new Point(hexSet.hexGridSize, hexSet.hexGridSize), 
-                new Point(startPoint.x, startPoint.y), hexSet.mapHeight, hexSet.mapWidth
-            );
-            return layout;
-        }
+        //public Layout GetScreenLayout() {
+        //    Vector2 startPoint = new Vector2(transform.position.x, transform.position.y);
+        //    Layout layout = new Layout(
+        //        Orientation.Layout_Pointy, 
+        //        new Point(hexSet.hexGridSize, hexSet.hexGridSize), 
+        //        new Point(startPoint.x, startPoint.y), hexSet.mapHeight, hexSet.mapWidth
+        //    );
+        //    return layout;
+        //}
 
         private void CreateHexCluster(int i, int j, int clusterSize) {
 
@@ -204,7 +205,7 @@ namespace LZ.WarGameMap.Runtime {
 
         public void GenerateRawHexMap(Vector2Int startLongitudeLatitude, RawHexMapSO rawHexMapSO, HeightDataManager heightDataManager) {
 
-            layout = GetScreenLayout();
+            layout = hexSet.GetScreenLayout();
             if(hexGenerator == null || hexGenerator.HexagonIdxDic == null) {
                 Debug.LogError("do not set hexGenerator!");
                 return;
@@ -218,7 +219,7 @@ namespace LZ.WarGameMap.Runtime {
 
                 // trans hex center position to terrain position
                 Hexagon hex = pair.Value;
-                Point center = hex.Hex_To_Pixel(layout, hex).ConvertToXZ();
+                Point center = hex.Hex_To_Pixel(layout).ConvertToXZ();
 
                 // get height datas, then use them generate hex grid...
                 TDList<float> heights = heightDataManager.SampleScopeFromHeightData(startLongitudeLatitude, center, hexSet.hexCalcuVertScope);
@@ -459,7 +460,7 @@ namespace LZ.WarGameMap.Runtime {
         internal void AddMapGrid(Vector2Int mapIdx, Vector2Int clusterIdx, Hexagon hex, Layout layout) {
             this.layout = layout;
 
-            Point center = hex.Hex_To_Pixel(layout, hex).ConvertToXZ();
+            Point center = hex.Hex_To_Pixel(layout).ConvertToXZ();
             Vector3 hexPos = new Vector3((float)center.x, 0, (float)center.z);
             
             // construct the map grid, and add it
@@ -486,8 +487,8 @@ namespace LZ.WarGameMap.Runtime {
         }
 
         private void BuildGridMesh(Hexagon hex, Layout layout, Color32 color) {
-            Point center = hex.Hex_To_Pixel(layout, hex).ConvertToXZ();
-            List<Point> vertexs = hex.Polygon_Corners(layout, hex);
+            Point center = hex.Hex_To_Pixel(layout).ConvertToXZ();
+            List<Point> vertexs = hex.Polygon_Corners(layout);
 
             float radius = Vector3.Distance(center, (Vector3)vertexs[0]);
 
@@ -498,8 +499,17 @@ namespace LZ.WarGameMap.Runtime {
 
             for (int i = 0; i < 6; i++) {
                 Point offset = hex.Hex_Corner_Offset(layout, i);
-                Point innerVertex = center + new Point(offset.x * innerRatio, 0, offset.y * innerRatio);
+                Point innerVertex = center + new Point(offset.x, 0, offset.y) * innerRatio;
                 Point outterVertex = center + new Point(offset.x, 0, offset.y);
+
+                //Point _center = hex.Hex_To_Pixel(layout).ConvertToXZ();
+                //Point curOffset = hex.Hex_Corner_Offset(layout, i);
+                //Point curVertex = center + new Point(curOffset.x, 0, curOffset.y);
+                //Vector2 cornerVec = new Vector2((float)curVertex.x, (float)curVertex.z);
+
+                //Point innerVertex = new Point(cornerVec.x, 0, cornerVec.y) * innerRatio;
+                //Point outterVertex = new Point(cornerVec.x, 0, cornerVec.y);
+
                 innerVertexs.Add(innerVertex);
                 outterVertexs.Add(outterVertex);
             }

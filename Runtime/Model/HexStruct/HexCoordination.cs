@@ -8,7 +8,7 @@ namespace LZ.WarGameMap.Runtime.HexStruct {
     /// <summary>
     /// 用于将Cube Coordinate转化为屏幕坐标，存储2x2正向矩阵 2x2逆矩阵，起始角度
     /// </summary>
-    public class Orientation {
+    public struct Orientation {
         // 2x2正向矩阵（坐标变换矩阵）
         public readonly double f0, f1, f2, f3;
         // 2x2逆矩阵
@@ -44,9 +44,11 @@ namespace LZ.WarGameMap.Runtime.HexStruct {
     /// <summary>
     /// 点类, 专供 GameMap
     /// </summary>
-    public class Point {
+    public struct Point {
         public readonly double x, y;
         public double z;
+
+        public static Point OriginPoint = new Point(0, 0);
 
         public Point(double x, double y) {
             this.x = x;
@@ -103,7 +105,7 @@ namespace LZ.WarGameMap.Runtime.HexStruct {
     /// <summary>
     /// 布局类
     /// </summary>
-    public class Layout {
+    public struct Layout {
         //变换矩阵 用于转化 Hex坐标 和 屏幕坐标
         public readonly Orientation orientation;
         //屏幕 中六边形边 的大小

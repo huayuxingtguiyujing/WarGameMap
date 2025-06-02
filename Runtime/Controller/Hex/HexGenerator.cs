@@ -16,7 +16,7 @@ namespace LZ.WarGameMap.Runtime
         // 轴向坐标 - Hexagon 的映射(纯数据)
         private Dictionary<Vector2Int, Hexagon> hexagonIdxDic;
 
-        // 网格ID - Hexagon 的映射
+        // ID - Hexagon 的映射
         private Dictionary<uint, Hexagon> hexagonNumDic;
 
         public Dictionary<Vector2Int, Hexagon> HexagonIdxDic {
