@@ -2,8 +2,12 @@ using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEditor;
 using UnityEngine;
+using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -35,7 +39,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("构建设置")]
         [LabelText("导出分辨率")]
-        public int ExportTexResolution = 1024;
+        public int ExpTexResolution = 1024;
 
         // TODO : 用上它
         [FoldoutGroup("构建设置")]
@@ -66,9 +70,21 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("各高度对应颜色")]
         public Gradient heightGradient;
 
-        [FoldoutGroup("构建地貌贴图/地貌纹理设置")]
-        [LabelText("使用柏林噪声处理")]
-        public bool openPerlinNoise = true;
+        [FoldoutGroup("构建地貌贴图/噪声与平滑")]
+        [LabelText("开启噪声处理")]
+        public bool openNoise = true;
+
+        [FoldoutGroup("构建地貌贴图/噪声与平滑")]
+        [LabelText("噪声偏移修正")]
+        public float noiseOffset = 1.0f;
+
+        [FoldoutGroup("构建地貌贴图/噪声与平滑")]
+        [LabelText("噪声强度")]
+        public float noiseIntense = 100;
+
+        [FoldoutGroup("构建地貌贴图/噪声与平滑")]
+        [LabelText("开启平滑处理")]
+        public bool openLerp = false;
 
         [FoldoutGroup("构建地貌贴图")]
         [LabelText("当前操作的地貌纹理")]
@@ -101,61 +117,97 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
+
+        struct LerpLandformJob : IJobParallelFor {
+            [ReadOnly] public int lerpScope;
+            [ReadOnly] public int resolution;
+
+            [ReadOnly] public NativeArray<Color> originColors;
+            [WriteOnly] public NativeArray<Color> targetColors;
+
+            public void Execute(int index) {
+                int i = index / resolution;
+                int j = index % resolution;
+
+                Color targetColor = Color.black;
+                int lerpWH = (lerpScope * 2 + 1) * (lerpScope * 2 + 1);
+                for(int q = Mathf.Max(0, i - lerpScope); q <= Mathf.Min(i + lerpScope, resolution - 1); q++) {
+                    for (int p = Mathf.Max(0, j - lerpScope); p <= Mathf.Min(j + lerpScope, resolution - 1); p++) {
+                        int targetIdx = q * resolution + p;
+                        targetColor += originColors[targetIdx] / lerpWH;
+                    }
+                }
+                targetColors[index] = targetColor;
+            }
+
+        }
+
         [FoldoutGroup("构建地貌贴图")]
         [Button("导出地貌纹理图", ButtonSizes.Medium)]
         private void ExportLandFormTex() {
+            if(curHandleLandformTex != null) {
+                UnityEngine.Object.DestroyImmediate(curHandleLandformTex);
+            }
 
             HeightDataManager heightDataManager = new HeightDataManager();
             heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize);
 
             // use perlin noise
-            //PerlinGenerator perlinGenerator = new PerlinGenerator();
-            //perlinGenerator.GeneratePerlinNoise(ExportTexResolution / 4, ExportTexResolution / 4);
-            PerlinNoise perlinNoise = new PerlinNoise(ExportTexResolution, 16, true, 4, new Vector2(1, 1), 8);
-
-            // renderTexture, 效率更高
-            //RenderTexture tmpTex = RenderTexture.GetTemporary(ExportTexResolution, ExportTexResolution, 24);
-            //Graphics.Blit(terrainDataSplats[i].texture, rtArray[i], defaultMaterial, 0);
-            //RenderTexture.active = tmpTex;
-            //RenderTexture.ReleaseTemporary(tmpTex);
-            //curHandleTex.ReadPixels(new Rect(0, 0, ExportTexResolution, ExportTexResolution), 0, 0);
+            PerlinNoise perlinNoise = new PerlinNoise(ExpTexResolution, 16, true, 4, new Vector2(1, 1), 8);
 
             // TODO: 改用 job system
-            curHandleLandformTex = new Texture2D(ExportTexResolution, ExportTexResolution, TextureFormat.RGB24, false);
+            curHandleLandformTex = new Texture2D(ExpTexResolution, ExpTexResolution, TextureFormat.RGB24, false);
             Color[] colors = curHandleLandformTex.GetPixels();
 
             // TODO : 如果超出，就生成多张地貌图！（每个cluster要对应一张贴图，后面还可以用来做 VT）
-            for (int i = 0; i < ExportTexResolution; i++) {
-                for (int j = 0; j < ExportTexResolution; j++) {
+            for (int i = 0; i < ExpTexResolution; i++) {
+                for (int j = 0; j < ExpTexResolution; j++) {
                     Vector3 vertPos = new Vector3(i, 0, j);
+
+                    if (openNoise) {
+                        float noise = (perlinNoise.SampleNoise(vertPos) - noiseOffset);
+                        vertPos = new Vector3(vertPos.x, 0, vertPos.z);
+                        vertPos.x += (int)(noise * noiseIntense);
+                        vertPos.z += (int)(noise * noiseIntense);
+                    }
+
                     vertPos.y = heightDataManager.SampleFromHeightData(startLongitudeLatitude, vertPos);
 
                     int idx;
                     if (ExportFlipVertically) {
-                        idx = j * ExportTexResolution + i;
+                        idx = j * ExpTexResolution + i;
                     } else {
-                        idx = i * ExportTexResolution + j;
+                        idx = i * ExpTexResolution + j;
                     }
-                    // TODO : 要加入：温度、湿度 如何对应纹理？
-                    //float humidity = LandformDataModel.GetHumidity(vertPos, startLongitudeLatitude);
-                    //float temperature = LandformDataModel.GetTemperature(vertPos, startLongitudeLatitude);
-                    //Color color = LandformDataModel.SampleColor(humidity, temperature);
                     Color color = GetColorByHeight(vertPos.y);
-                    color = Color.white;
-                    if (openPerlinNoise) {
-                        //colors[idx] = perlinGenerator.SampleNoise(vertPos) * color;
-                        colors[idx] = perlinNoise.SampleNoise(vertPos) * color;
-                    } else {
-                        colors[idx] = color;
-                    }
+                    idx = Mathf.Clamp(idx, 0, ExpTexResolution * ExpTexResolution - 1);
+                    colors[idx] = color;
                 }
             }
-            curHandleLandformTex.SetPixels(colors);
+
+            NativeArray<Color> originColors = new NativeArray<Color>(colors, Allocator.TempJob);
+            NativeArray<Color> targetColors = new NativeArray<Color>(ExpTexResolution * ExpTexResolution, Allocator.TempJob);
+
+            if (openLerp) {
+                // 额外的平滑处理
+                LerpLandformJob lerpLandformJob = new LerpLandformJob() {
+                    resolution = ExpTexResolution,
+                    lerpScope = 1,
+                    originColors = originColors,
+                    targetColors = targetColors
+                };
+                JobHandle jobHandle1 = lerpLandformJob.Schedule(ExpTexResolution * ExpTexResolution, 64);
+                jobHandle1.Complete();
+                curHandleLandformTex.SetPixels(targetColors.ToArray());
+            } else {
+                curHandleLandformTex.SetPixels(originColors.ToArray());
+            }
             curHandleLandformTex.Apply();
 
-            perlinNoise.Dispose();
+            originColors.Dispose();
+            targetColors.Dispose();
 
-            Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExportTexResolution));
+            Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExpTexResolution));
         }
 
         private Color GetColorByHeight(float height) {
@@ -182,7 +234,7 @@ namespace LZ.WarGameMap.MapEditor
         [Button("保存当前地貌纹理", ButtonSizes.Medium)]
         private void SaveLandFormTex() {
             DateTime dateTime = DateTime.Now;
-            string texName = string.Format("landform_{0}x{0}_{1}", ExportTexResolution, dateTime.Ticks);
+            string texName = string.Format("landform_{0}x{0}_{1}", ExpTexResolution, dateTime.Ticks);
             TextureUtility.GetInstance().SaveTextureAsAsset(landformTexImportPath, texName, curHandleLandformTex);
         }
 
@@ -235,23 +287,23 @@ namespace LZ.WarGameMap.MapEditor
             HeightDataManager heightDataManager = new HeightDataManager();
             heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize);
 
-            curHandleNormalTex = new Texture2D(ExportTexResolution, ExportTexResolution, TextureFormat.RGB24, false);
+            curHandleNormalTex = new Texture2D(ExpTexResolution, ExpTexResolution, TextureFormat.RGB24, false);
             Color[] colors = curHandleNormalTex.GetPixels();
 
             // ERROR 为什么全是绿色？
 
             // TODO : 如果超出，就生成多张法线图！（每个cluster要对应一张贴图）
             // TODO : 根据 cluster 的宽度 生成法线图
-            for (int i = 0; i < ExportTexResolution; i++) {
-                for (int j = 0; j < ExportTexResolution; j++) {
+            for (int i = 0; i < ExpTexResolution; i++) {
+                for (int j = 0; j < ExpTexResolution; j++) {
                     Vector3 vertPos = new Vector3(i, 0, j);
                     Vector3 normal = heightDataManager.SampleNormalFromData(startLongitudeLatitude, vertPos);
                     Color normalColor = new Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f);
                     int idx;
                     if (ExportFlipVertically) {
-                        idx = j * ExportTexResolution + i;
+                        idx = j * ExpTexResolution + i;
                     } else {
-                        idx = i * ExportTexResolution + j;
+                        idx = i * ExpTexResolution + j;
                     }
                     colors[idx] = normalColor;
                 }
@@ -261,14 +313,14 @@ namespace LZ.WarGameMap.MapEditor
 
             curHandleNormalTex = TextureUtility.GetInstance().BilinearResize(curHandleNormalTex);
 
-            Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExportTexResolution));
+            Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExpTexResolution));
         }
 
         [FoldoutGroup("构建法线贴图")]
         [Button("保存当前法线纹理", ButtonSizes.Medium)]
         private void SaveNormalTexture() {
             DateTime dateTime = DateTime.Now;
-            string texName = string.Format("normal_{0}x{0}_{1}", ExportTexResolution, dateTime.Ticks);
+            string texName = string.Format("normal_{0}x{0}_{1}", ExpTexResolution, dateTime.Ticks);
             TextureUtility.GetInstance().SaveTextureAsAsset(normalTexImportPath, texName, curHandleNormalTex);
         }
 

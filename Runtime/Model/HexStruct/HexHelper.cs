@@ -17,20 +17,34 @@ namespace LZ.WarGameMap.Runtime
         // A----------B
         //  \l| e  |r/
         //   \|    |/
-        //    a----b
+        //    a----b(inner triangle)
         //     \  /
+        //       C
+
+        // v2
+        // A----------B
+        //  \    |   /
+        //   \ l |r /
+        //    \  | /
+        //     \ |/
         //       C
     }
 
     public struct HexAreaPointData {
+        // this struct discribe the relation of point in a hex
+        // 
+        //
+        //
+
         public Vector2 worldPos;
 
         public bool insideInnerHex;
-        public HexDirection hexAreaDir;
-        public OutHexAreaEnum outHexAreaEnum;
+        
+        public HexDirection hexAreaDir;     // point's existing direction of hex
 
-        public float distanceToInnerAB;
+        public OutHexAreaEnum outHexAreaEnum;       // 
 
+        public float ratioBetweenInnerAndOutter;
     }
 
 
@@ -62,8 +76,11 @@ namespace LZ.WarGameMap.Runtime
             return new Vector3Int(final_q, final_r, final_s);
         }
 
-        public static Hexagon PixelToAxialHex(Vector2 worldPos, int HexGridSize) {
+        public static Hexagon PixelToAxialHex(Vector2 worldPos, int HexGridSize, bool reverseAxial = false) {
             Vector3Int hex = PixelToAxialHexVector(worldPos, HexGridSize);
+            if (reverseAxial) {
+                //hex.x = -hex.x;
+            }
             return new Hexagon(hex.x, hex.y, hex.z);
         }
 
@@ -108,11 +125,11 @@ namespace LZ.WarGameMap.Runtime
             for (int k = 0; k < 6; k++) {
                 Vector2 curPoint = hexCenter + hex.Hex_Corner_Offset(layout, k) * fix;
                 Vector2 nextPoint = hexCenter + hex.Hex_Corner_Offset(layout, k + 1) * fix;
-                bool inTriangle = IsInsideTriangle(hexCenter, curPoint, nextPoint, worldPos);
+                bool inTriangle = MathUtil.IsInsideTriangle(hexCenter, curPoint, nextPoint, worldPos);
 
                 Vector2 curOutPoint = hex.Get_Hex_CornerPos(layout, k);
                 Vector2 nextOutPoint = hex.Get_Hex_CornerPos(layout, k + 1);
-                bool inOutTriangle = IsInsideTriangle(hexCenter, curOutPoint, nextOutPoint, worldPos);
+                bool inOutTriangle = MathUtil.IsInsideTriangle(hexCenter, curOutPoint, nextOutPoint, worldPos);
 
                 if (inTriangle) {
                     data.insideInnerHex = true;
@@ -124,10 +141,8 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            // NOTE : 现在导出的纹理似乎会x对称，不知道原因，待修
             // this pos is not inside the hex, so we need know more info to blend hexgrid texture
             data.insideInnerHex = false;
-            // TODO : 目前的方法有问题，主要是 insideInnerHex 会判断错误
             HandleOutAreaPointData(worldPos, hex, layout, fix, ref data);
 
             return data;
@@ -142,18 +157,25 @@ namespace LZ.WarGameMap.Runtime
             int idx = (int)data.hexAreaDir;
             Vector2 innerA = hexCenter + hex.Hex_Corner_Offset(layout, idx) * fix;
             Vector2 innerB = hexCenter + hex.Hex_Corner_Offset(layout, idx + 1) * fix;
-            data.outHexAreaEnum = GetOutHexArea(innerA, innerB, center, worldPos);
+            data.outHexAreaEnum = GetOutHexArea(innerA, innerB, hexCenter, worldPos);
+            float distanceToInnerAB = MathUtil.DistancePointToLine(innerA, innerB, worldPos);
 
-            data.distanceToInnerAB = DistancePointToLine(innerA, innerB, worldPos);
+            Vector2 outterA = hexCenter + hex.Hex_Corner_Offset(layout, idx);
+            float innerToOutter = Vector2.Distance(innerA, outterA);
+            float distanceOutterToInner = innerToOutter * Mathf.Sqrt(3) / 2;
+
+            data.ratioBetweenInnerAndOutter = distanceToInnerAB / (distanceOutterToInner * 2);  //distanceOutterToInner
         }
 
         // NOTE : A must be the left, please view graph in OutHexAreaEnum 
         private static OutHexAreaEnum GetOutHexArea(Vector2 innerA, Vector2 innerB, Vector2 center, Vector2 worldPos) {
             Vector2 ab_center = (innerA + innerB) / 2;
             float ab_distance_half = Vector2.Distance(innerA, innerB) / 2;
-            float pos_center_distance = DistancePointToLine(ab_center, center, worldPos);
+            float pos_center_distance = MathUtil.DistancePointToLine(ab_center, center, worldPos);
             float pos_a_distance = Vector2.Distance(worldPos, innerA);
             float pos_b_distance = Vector2.Distance(worldPos, innerB);
+
+            // DistanceLineToLine
 
             if (pos_center_distance >= ab_distance_half && pos_a_distance >= pos_b_distance) {
                 return OutHexAreaEnum.LeftCorner;
@@ -164,39 +186,37 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
+        public static HexAreaPointData GetPointHexArea_NoInner(Vector2 worldPos, Hexagon hex, Layout layout) {
+            // this method blend hex with its six neighbor hex, no divide of inner and outter triangle
+            Point center = hex.Hex_To_Pixel(layout).ConvertToXZ();
+            Vector2 hexCenter = new Vector2((float)center.x, (float)center.z);
 
-        public static bool IsInsideTriangle(Vector2 A, Vector2 B, Vector2 C, Vector2 P) {
-            Vector2 ab = B - A;
-            Vector2 bc = C - B;
-            Vector2 ca = A - C;
+            HexAreaPointData data = new HexAreaPointData();
+            data.worldPos = worldPos;
+            data.hexAreaDir = HexDirection.None;
+            data.outHexAreaEnum = OutHexAreaEnum.LeftCorner;
 
-            Vector2 ap = P - A;
-            Vector2 bp = P - B;
-            Vector2 cp = P - C;
+            for (int k = 0; k < 6; k++) {
+                Vector2 curOutPoint = hex.Get_Hex_CornerPos(layout, k);
+                Vector2 nextOutPoint = hex.Get_Hex_CornerPos(layout, k + 1);
+                bool inHexTriangle = MathUtil.IsInsideTriangle(hexCenter, curOutPoint, nextOutPoint, worldPos);
 
-            float cross1 = ab.x * ap.y - ab.y * ap.x;
-            float cross2 = bc.x * bp.y - bc.y * bp.x;
-            float cross3 = ca.x * cp.y - ca.y * cp.x;
+                if (inHexTriangle) {
+                    data.hexAreaDir = (HexDirection)Enum.ToObject(typeof(HexDirection), k);
 
-            bool hasNeg = (cross1 < 0) || (cross2 < 0) || (cross3 < 0);
-            bool hasPos = (cross1 > 0) || (cross2 > 0) || (cross3 > 0);
-
-            return !(hasNeg && hasPos);
-        }
-
-        public static float DistancePointToLine(Vector2 A, Vector2 B, Vector2 P) {
-            Vector2 AB = B - A;
-            Vector2 AP = P - A;
-
-            float abLengthSquared = Vector2.Dot(AB, AB);
-            if (abLengthSquared == 0) {     // if A is B
-                return Vector2.Distance(P, A);
+                    Vector2 pointCenter = (curOutPoint + nextOutPoint) / 2;
+                    bool inLeftTriangle = MathUtil.IsInsideTriangle(hexCenter, pointCenter, nextOutPoint, worldPos);
+                    if (inLeftTriangle) {
+                        data.outHexAreaEnum = OutHexAreaEnum.LeftCorner;
+                    } else {
+                        data.outHexAreaEnum = OutHexAreaEnum.RightCorner;
+                    }
+                    break;
+                }
             }
-
-            float t = Vector2.Dot(AP, AB) / abLengthSquared;
-            Vector2 projection = A + t * AB;
-            return Vector2.Distance(P, projection);
+            return data;
         }
+
 
     }
 }

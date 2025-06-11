@@ -1,18 +1,15 @@
-using Codice.Client.BaseCommands.BranchExplorer.ExplorerData;
+
 using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.HexStruct;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
-using System.Xml.Linq;
+using System.ComponentModel;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEditor;
-using UnityEditor.TerrainTools;
 using UnityEngine;
 using UnityEngine.UIElements;
-using static Codice.Client.Common.Servers.RecentlyUsedServers;
-using static LZ.WarGameMap.Runtime.HexHelper;
 using Random = UnityEngine.Random;
 using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
 
@@ -56,6 +53,7 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("配置地图Scene", -1)]
         [Button("初始化地图 Scene")]
         protected override void InitEditor() {
+
             if (mapRootObj == null) {
                 mapRootObj = GameObject.Find(MapSceneEnum.MapRootName);
                 if (mapRootObj == null) {
@@ -259,9 +257,20 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-
         #region hexTexture Construct
         // NOTE : 此处输出六边形网格纹理，是为了构建 类似 文明那样的 六边形 Terrain 地表
+
+        public enum BlendMethod {
+            Catlike, NoCorner, NoInner
+        }
+
+        [FoldoutGroup("六边形纹理构建/纹理设置")]
+        [LabelText("混合方式")]
+        public BlendMethod blendMethod = BlendMethod.Catlike;
+
+        [FoldoutGroup("六边形纹理构建/纹理设置")]
+        [LabelText("六边形内圈比例")]
+        public float innerHexRatio = 0.8f;
 
         [FoldoutGroup("六边形纹理构建/纹理设置")]
         [LabelText("分辨率")]
@@ -271,9 +280,42 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("颜色")]
         public Color hexEdgeColor = new Color(1, 1, 1, 0.5f);
 
+        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [LabelText("噪声频率")]
+        public float frequency = 16;
+
+        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [LabelText("随机数")]
+        public float randomSpeed = 1;
+
+        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [LabelText("分形噪声")]
+        public int fbmIteration = 8;
+
+        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [LabelText("噪声强度")]
+        public float noiseIntense = 30;
+
+        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [LabelText("噪声偏移")]
+        public float noiseOffset = 0.5f;
+
         [FoldoutGroup("六边形纹理构建")]
-        [LabelText("当前操作的地貌纹理")]
-        public Texture2D curHexLandformTex;
+        [LabelText("地貌图集")]
+        public Texture2D curHexTerrainSplat;    //当前没有用
+
+        [FoldoutGroup("六边形纹理构建")]
+        [LabelText("地貌索引纹理")]
+        public Texture2D curHexLandformIdxTex;  //当前没有用
+
+        [FoldoutGroup("六边形纹理构建")]
+        [LabelText("地貌混合权重")]
+        public Texture2D curHexLandformBlendTex;    //当前没有用
+
+        [FoldoutGroup("六边形纹理构建")]
+        [LabelText("生成的地貌纹理")]
+        public Texture2D curHexLandformResult;
+
 
         [FoldoutGroup("六边形纹理构建")]
         [LabelText("贴图导出位置")]
@@ -282,44 +324,62 @@ namespace LZ.WarGameMap.MapEditor
         // TODO : 总目标：按照文明6的地貌方式生成混合地貌，基本步骤如下：
         // step1 : 通过随机数种子得到每个Hex格子的地形数据
         // step2 : 准备对应地形的纹理（至少16张，这些纹理与地形其实不是一一对应的，可能会进行叠加）
-        // step3 : 根据catlike的方案做初版的 hex 混合地貌，即边缘插值与周围格子进行混合，中心不做混合
+        // （--Sloved--）step3 : 根据catlike的方案做初版的 hex 混合地貌，即边缘插值与周围格子进行混合，中心不做混合
+        // step4 : 通过 renderdoc 看 文明6 等项目的纹理混合
         // step4 : （要调研）通过噪声等方式对边缘混合地带进行处理，得到更为自然和美观的地貌
         // step5 : （要调研）做更多的地貌效果，了解贴花原理，写shader......
+        struct HexLandFormDataJob : IJobParallelFor {
+            // this job prepare hex landform data
+            public void Execute(int index) {
+
+            }
+        }
+
         struct ExportHexLandFormJob : IJobParallelFor {
+            [ReadOnly] public BlendMethod blendMethod;
             [ReadOnly] public int OuputTextureResolution;
             [ReadOnly] public int hexGridSize;
+            [ReadOnly] public float innerHexRatio;
             [ReadOnly] public Layout layout;
 
             [ReadOnly] public NativeHashMap<Vector2Int, int> tempTerrainType;
-            [WriteOnly] public NativeArray<Color> colors;
+            //[ReadOnly] public NativeArray<Color> baseColors;    // terrain texture colors
+
+            [WriteOnly] public NativeArray<Color> landformColors;
 
             public void Execute(int index) {
                 int j = index / OuputTextureResolution;
                 int i = index % OuputTextureResolution;
 
                 Vector2 pos = new Vector2(i, j);
-                Hexagon hex = HexHelper.PixelToAxialHex(pos, hexGridSize);
-                HexAreaPointData hexData = HexHelper.GetPointHexArea(pos, hex, layout, 0.7f);
+                Hexagon hex = HexHelper.PixelToAxialHex(pos, hexGridSize, true);
 
-                // NOTE : 这里的方位是错误的，会对称，需要查证为什么？
-                HandleHexPointData(index, ref hexData, hex);
+                switch (blendMethod) {
+                    case BlendMethod.Catlike:
+                        HexAreaPointData hexData = HexHelper.GetPointHexArea(pos, hex, layout, innerHexRatio);
+                        HandleHexPointData(index, ref hexData, ref hex);
+                        break;
+                    case BlendMethod.NoCorner:
+                        HexAreaPointData hexData_NoCorner = HexHelper.GetPointHexArea(pos, hex, layout, innerHexRatio);
+                        HandleHexPointData_NoCorner(index, ref hexData_NoCorner, ref hex);
+                        break;
+                    case BlendMethod.NoInner:
+                        HexAreaPointData hexData_NoInner = HexHelper.GetPointHexArea_NoInner(pos, hex, layout);
+                        HandleHexPointData_NoInner(index, ref hexData_NoInner, ref hex);
+                        break;
+                }
             }
 
-            private void HandleHexPointData(int idx, ref HexAreaPointData hexData, Hexagon hex) {
+            private void HandleHexPointData(int idx, ref HexAreaPointData hexData, ref Hexagon hex) {
                 // get this hexGrid's type type
-                int terrainType = -1;
                 Vector2Int OffsetHex = HexHelper.AxialToOffset(hex);
-                if (tempTerrainType.ContainsKey(OffsetHex)) {
-                    terrainType = tempTerrainType[OffsetHex];
-                }
-
+                int terrainType = GetTerrainType(OffsetHex);
+                
                 if (hexData.insideInnerHex) {
-                    colors[idx] = GetColorByType_Test(terrainType);
+                    landformColors[idx] = GetColorByType_Test(terrainType);
+                    // TODO : 怎么做 idx color 到 base color 的映射？   // use Texture2DArray
                 } else {
-                    //colors[idx] = Color.white;
-                    // not inner hex, so need lerp and mix
-                    colors[idx] = GetColorByDirection(hexData.hexAreaDir);
-
+                    BlendWithNeighborHex(terrainType, idx, ref hexData, ref hex);
                     /*switch (hexData.hexAreaDir) {
                         case HexDirection.NW:
                             break;
@@ -337,27 +397,140 @@ namespace LZ.WarGameMap.MapEditor
                             break;
                     }*/
                 }
-
-                //BlenderWithNeighborHex(idx, ref hexData);
             }
 
-            private void BlenderWithNeighborHex(int idx, ref HexAreaPointData hexData) {
+            private void BlendWithNeighborHex(int terrainType, int idx, ref HexAreaPointData hexData, ref Hexagon hex) {
+
+                Hexagon neighborHex = hex.Hex_Neighbor(hexData.hexAreaDir);
+
                 switch (hexData.outHexAreaEnum) {
                     case OutHexAreaEnum.Edge:
-                        colors[idx] = Color.red;
+                        Vector2Int neighbor_offsetHex = HexHelper.AxialToOffset(neighborHex);
+                        int neighborType = GetTerrainType(neighbor_offsetHex);
+                        Color neighbor_Color = GetColorByType_Test(neighborType);
+                        Color hex_Color = GetColorByType_Test(terrainType);
+                        landformColors[idx] = MathUtil.LinearLerp(hex_Color, neighbor_Color, hexData.ratioBetweenInnerAndOutter);
+
                         break;
                     case OutHexAreaEnum.LeftCorner:
-                        colors[idx] = Color.blue;
+                        // 根据推演,混合时 : cur + 1, neighbor + 2, next + 4 
+                        Hexagon nextHex = hex.Hex_Neighbor(hexData.hexAreaDir + 1);
+                        Vector2 l_A = hex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir + 1, innerHexRatio);
+                        Vector2 l_B = neighborHex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir + 3, innerHexRatio);
+                        Vector2 l_C = nextHex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir + 5, innerHexRatio);
+                        Color l_a = GetColorByType_Test(GetTerrainType(HexHelper.AxialToOffset(hex)));
+                        Color l_b = GetColorByType_Test(GetTerrainType(HexHelper.AxialToOffset(neighborHex)));
+                        Color l_c = GetColorByType_Test(GetTerrainType(HexHelper.AxialToOffset(nextHex)));
+                        landformColors[idx] = MathUtil.TriangleLerp(l_a, l_b, l_c, l_A, l_B, l_C, hexData.worldPos);
                         break;
                     case OutHexAreaEnum.RightCorner:
-                        colors[idx] = Color.green;
+                        // 根据推演,混合时 : neighbor - 2, next - 4 
+                        Hexagon preHex = hex.Hex_Neighbor(hexData.hexAreaDir - 1);
+                        Vector2 r_A = hex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir, innerHexRatio);
+                        Vector2 r_B = neighborHex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir - 2, innerHexRatio);
+                        Vector2 r_C = preHex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir - 4, innerHexRatio);
+                        Color r_a = GetColorByType_Test(GetTerrainType(HexHelper.AxialToOffset(hex)));
+                        Color r_b = GetColorByType_Test(GetTerrainType(HexHelper.AxialToOffset(neighborHex)));
+                        Color r_c = GetColorByType_Test(GetTerrainType(HexHelper.AxialToOffset(preHex)));
+                        landformColors[idx] = MathUtil.TriangleLerp(r_a, r_b, r_c, r_A, r_B, r_C, hexData.worldPos);
                         break;
                 }
             }
 
+            private void HandleHexPointData_NoCorner(int idx, ref HexAreaPointData hexData, ref Hexagon hex) {
+                Vector2Int OffsetHex = HexHelper.AxialToOffset(hex);
+                int terrainType = GetTerrainType(OffsetHex);    // perlinNoise
+
+                if (hexData.insideInnerHex) {
+                    landformColors[idx] = GetColorByType_Test(terrainType);
+                } else {
+                    // edge directly blend with neighbor, and do not divide into left/right corner
+                    Hexagon neighborHex = hex.Hex_Neighbor(hexData.hexAreaDir);
+
+                    Vector2Int neighbor_offsetHex = HexHelper.AxialToOffset(neighborHex);
+                    int neighborType = GetTerrainType(neighbor_offsetHex);
+                    Color neighbor_Color = GetColorByType_Test(neighborType);
+                    Color hex_Color = GetColorByType_Test(terrainType);
+                    landformColors[idx] = MathUtil.LinearLerp(hex_Color, neighbor_Color, hexData.ratioBetweenInnerAndOutter);
+                }
+            }
+
+            private void HandleHexPointData_NoInner(int idx, ref HexAreaPointData hexData, ref Hexagon hex) {
+                // TODO : 我认为目前的混合结果是有问题的，但我不知道是哪里出了问题
+
+                Vector2Int OffsetHex = HexHelper.AxialToOffset(hex);
+                int terType = GetTerrainType(OffsetHex);
+                Color hex_Color = GetColorByType_Test(terType);
+                Vector2 hexCenter = hex.Get_Hex_Center(layout);
+
+                Hexagon neighborHex = hex.Hex_Neighbor(hexData.hexAreaDir);
+                Vector2Int neighborOffsetHex = HexHelper.AxialToOffset(neighborHex);
+                int neighborTerType = GetTerrainType(neighborOffsetHex);
+                Color neighbor_Color = GetColorByType_Test(neighborTerType);
+                Vector2 neighborCenter = neighborHex.Get_Hex_Center(layout);
+
+                if (hexData.outHexAreaEnum == OutHexAreaEnum.LeftCorner) {
+                    Hexagon nextHex = hex.Hex_Neighbor(hexData.hexAreaDir + 1);
+                    Vector2Int nextOffsetHex = HexHelper.AxialToOffset(nextHex);
+                    int nextTerType = GetTerrainType(nextOffsetHex);
+                    Color next_Color = GetColorByType_Test(nextTerType);
+                    Vector2 nextCenter = nextHex.Get_Hex_Center(layout);
+
+                    landformColors[idx] = MathUtil.TriangleLerp(hex_Color, neighbor_Color, next_Color,
+                        hexCenter, neighborCenter, nextCenter, hexData.worldPos); ;
+
+                } else if (hexData.outHexAreaEnum == OutHexAreaEnum.RightCorner) {
+                    Hexagon preHex = hex.Hex_Neighbor(hexData.hexAreaDir - 1);
+                    Vector2Int preOffsetHex = HexHelper.AxialToOffset(preHex);
+                    int preTerType = GetTerrainType(preOffsetHex);
+                    Color pre_Color = GetColorByType_Test(preTerType);
+                    Vector2 preCenter = preHex.Get_Hex_Center(layout);
+
+                    landformColors[idx] = MathUtil.TriangleLerp(hex_Color, neighbor_Color, pre_Color,
+                        hexCenter, neighborCenter, preCenter, hexData.worldPos);
+
+                }
+            }
+
+
+            private int GetTerrainType(Vector2Int offsetHex) {
+                int terrainType = -1;
+                if (tempTerrainType.ContainsKey(offsetHex)) {
+                    terrainType = tempTerrainType[offsetHex];
+                }
+                return terrainType;
+            }
+
+            private void BlendHexEdge(Vector2 worldPos, HexDirection hexAreaDir, ref Hexagon hex) {
+                switch (hexAreaDir) {
+                    case HexDirection.NE:
+                        break;
+                        //return Color.red;
+                    case HexDirection.NW:
+                        //return Color.green;
+                        break;
+                    case HexDirection.W:
+                        //return Color.blue;
+                        break;
+                    case HexDirection.SW:
+                        //return Color.gray;
+                        break;
+                    case HexDirection.SE:
+                        //return Color.cyan;
+                        break;
+                    case HexDirection.E:
+                        //return Color.yellow;
+                        break;
+                    default:
+                        //return Color.white;
+                        break;
+                }
+            }
+
+            // test method
             private Color GetColorByType_Test(int type) {
                 //Debug.Log("trriger it!");
-                // NOTE : 这个方法目前是占位符
+                // NOTE : 这个方法目前是占位符, 之后要从地貌纹理上提取颜色
                 switch (type) {
                     case 0:
                         return new Color(0.20f, 0.60f, 0.20f); // 浅绿色 #339933
@@ -367,81 +540,165 @@ namespace LZ.WarGameMap.MapEditor
                         return new Color(0.62f, 0.49f, 0.34f); // 浅棕色 #9E7E57
                     case 3:
                         return new Color(0.85f, 0.85f, 0.85f); // 浅灰色 #D8D8D8;
+                    case 4:
+                        return new Color(0.85f, 0.85f, 0.85f); // 浅灰色 #D8D8D8;
                     default:
                         return Color.white;
                 }
             }
+
         
-            private Color GetColorByDirection(HexDirection direction) {
-                switch (direction) {
-                    case HexDirection.NW:
-                        return Color.red;
-                    case HexDirection.NE:
-                        return Color.green;
-                    case HexDirection.E:
-                        return Color.blue;
-                    case HexDirection.SE:
-                        return Color.gray;
-                    case HexDirection.SW:
-                        return Color.cyan;
-                    case HexDirection.W:
-                        return Color.yellow;
-                    default:
-                        return Color.white;
-                }
+        }
+
+        struct NoiseHexLandFormJob : IJobParallelFor {
+            [ReadOnly] public int OuputTexResolution;
+            [ReadOnly] public float noiseIntense;
+            [ReadOnly] public float noiseOffset;
+
+            [ReadOnly] public PerlinNoise perlinNoise;
+            [ReadOnly] public NativeArray<Color> originColors;
+            [WriteOnly] public NativeArray<Color> targetColors;
+
+            public void Execute(int index) {
+                int j = index / OuputTexResolution;
+                int i = index % OuputTexResolution;
+
+                Vector3Int pos = new Vector3Int(i, 0, j);
+
+                float noise = (perlinNoise.SampleNoise(pos) - noiseOffset);
+                pos = new Vector3Int(i, 0, j);
+                pos.x = Mathf.Clamp(pos.x + (int)(noise * noiseIntense), 0, OuputTexResolution * OuputTexResolution - 1);
+                pos.z = Mathf.Clamp(pos.z + (int)(noise * noiseIntense), 0, OuputTexResolution * OuputTexResolution - 1);
+
+                int originIdx = pos.z * OuputTexResolution + pos.x;
+                int targetIdx = j * OuputTexResolution + i;
+
+                targetColors[targetIdx] = originColors[originIdx];
             }
 
         }
 
+
         [FoldoutGroup("六边形纹理构建")]
-        [Button("导出六边形地貌纹理图", ButtonSizes.Medium)]
+        [Button("导出六边形混合地貌纹理", ButtonSizes.Medium)]
         private void ExportHexLandFormTex() {
-            curHexLandformTex = new Texture2D(OuputTexResolution, OuputTexResolution);
-            HexGenerator hexGenerator = new HexGenerator();
-            hexGenerator.GenerateRectangle(0, 50, 0, 50);
+            //if (curHexTerrainSplat == null) {
+            //    Debug.Log("curHexTerrainSplat is null, no base color, can not blend");
+            //    return;
+            //}
+
+            if(curHexLandformIdxTex != null) {
+                DestroyImmediate(curHexLandformIdxTex);
+            }
+            if (curHexLandformBlendTex != null) {
+                DestroyImmediate(curHexLandformBlendTex);
+            }
+            if (curHexLandformResult != null) {
+                DestroyImmediate(curHexLandformResult);
+            }
+            curHexLandformIdxTex = new Texture2D(OuputTexResolution, OuputTexResolution, TextureFormat.RGBA32, false);
+            curHexLandformBlendTex = new Texture2D(OuputTexResolution, OuputTexResolution, TextureFormat.RGBA32, false);
+            curHexLandformResult = new Texture2D(OuputTexResolution, OuputTexResolution, TextureFormat.RGBA32, false);
 
             // 暂时使用 这个hashmap 记录所有 hex 省份的地形类型
             Layout layout = hexSet.GetScreenLayout();
-            Color[] colors = curHexLandformTex.GetPixels();
+
+            Color[] colors = curHexLandformResult.GetPixels();
+            //Color[] idxColor = curHexLandformIdxTex.GetPixels();
+            //Color[] blendColor = curHexLandformBlendTex.GetPixels();
 
             NativeArray<Color> nativeColors = new NativeArray<Color>(colors, Allocator.TempJob);
+            NativeArray<Color> targetColors = new NativeArray<Color>(OuputTexResolution * OuputTexResolution, Allocator.TempJob);
+            //NativeArray<Color> idxColors = new NativeArray<Color>(idxColor, Allocator.TempJob);
+            //NativeArray<Color> blendColors = new NativeArray<Color>(blendColor, Allocator.TempJob);
+
+            HexGenerator hexGenerator = new HexGenerator();
+            hexGenerator.GenerateRectangle(0, 50, 0, 50);
             NativeHashMap<Vector2Int, int> tempTerrainType = new NativeHashMap<Vector2Int, int>(
                 hexGenerator.HexagonIdxDic.Count, Allocator.TempJob
             );
-            foreach (var pair in hexGenerator.HexagonIdxDic)
-            {
+            foreach (var pair in hexGenerator.HexagonIdxDic) {
                 int type = Random.Range(0, 3);
                 tempTerrainType.Add(pair.Key, type);
             }
 
+            // TODO : 现在的地貌混合方案，有如下步骤
+            // step1 : 基于六边形的数据，对纹理像素点着色时要获取对应hex数据，建立先用一个批次建立好hex的数据
+            // step2 : 第二个batch，进行初步混合，可以是catlike的，也可以用其他的混合方式（总之要达到cv6的效果）
+            // step3 : 第三个batch，在2之上对边缘进行混合，例如加入噪声控制边缘的插值（总之要像cv6）
+            // step4 : 第四个batch，更多的地形混合，上面已经完成了第一层地貌混合，但是还需要更多的效果（cv6一些地形会叠加在其他地形上面，如沼泽）
+            // 故要对 job 进行拆分，按 bacth 来
+
             ExportHexLandFormJob exportJob = new ExportHexLandFormJob {
+                innerHexRatio = innerHexRatio,
                 OuputTextureResolution = OuputTexResolution,
                 hexGridSize = hexSet.hexGridSize,
-                layout = layout,
+                blendMethod = blendMethod,
+                layout = layout, 
+                
                 tempTerrainType = tempTerrainType,
-                colors = nativeColors,
+                landformColors = nativeColors,
             };
-            JobHandle jobHandle1 = exportJob.Schedule(OuputTexResolution * OuputTexResolution, 64);
+            JobHandle jobHandle1 = exportJob.Schedule(OuputTexResolution * OuputTexResolution, 128);
             jobHandle1.Complete();
 
-            curHexLandformTex.SetPixels(nativeColors.ToArray());
-            curHexLandformTex.Apply();
+            // noise handle
+            NoiseHexLandFormJob noiseHexLandForm = new NoiseHexLandFormJob() {
+                OuputTexResolution = OuputTexResolution,
+                noiseIntense = noiseIntense,
+                noiseOffset = noiseOffset,
+
+                perlinNoise = new PerlinNoise(OuputTexResolution, frequency, true, randomSpeed, new Vector2(1, 1), fbmIteration),
+                originColors = nativeColors,
+                targetColors = targetColors,
+            };
+            JobHandle jobHandle2 = noiseHexLandForm.Schedule(OuputTexResolution * OuputTexResolution, 128);
+            jobHandle2.Complete();
+
+            // TODO : lerp handle
+
+            curHexLandformResult.SetPixels(targetColors.ToArray());
+            //curHexLandformResult.SetPixels(nativeColors.ToArray());
+            curHexLandformResult.Apply();
 
             nativeColors.Dispose();
+            targetColors.Dispose();
+            //idxColors.Dispose();
+            //blendColors.Dispose();
             tempTerrainType.Dispose();
 
-        }
-
+            Debug.Log($"blend over, use method : {blendMethod}, resolution : {OuputTexResolution}");
+        }// C#, python, matlab, C++, Java, R, 
 
         private Color SampleFromTex(int i, int j, Texture2D tex) {
             return tex.GetPixel(i, j);
+        }
+
+
+        [FoldoutGroup("六边形纹理构建")]
+        [Button("保存六边形混合索引/权重图", ButtonSizes.Medium)]
+        private void ExportHexBlendWeightTex() {
+            if (curHexLandformIdxTex == null) {
+                Debug.Log("cur idx texture is null, so we can not save");
+                return;
+            }
+            if (curHexLandformBlendTex == null) {
+                Debug.Log("cur blend weight texture is null, so we can not save");
+                return;
+            }
+
+            string texName1 = string.Format("idx_landform_{0}x{0}_{1}", OuputTexResolution, DateTime.Now.Ticks);
+            TextureUtility.GetInstance().SaveTextureAsAsset(hexLandformTexImportPath, texName1, curHexLandformIdxTex);
+            string texName2 = string.Format("blendweight_landform_{0}x{0}_{1}", OuputTexResolution, DateTime.Now.Ticks);
+            TextureUtility.GetInstance().SaveTextureAsAsset(hexLandformTexImportPath, texName2, curHexLandformBlendTex);
+
         }
 
         [FoldoutGroup("六边形纹理构建")]
         [Button("保存六边形地貌纹理图", ButtonSizes.Medium)]
         private void SaveHexLandFormTex() {
             string texName = string.Format("landform_{0}x{0}_{1}", OuputTexResolution, DateTime.Now.Ticks);
-            TextureUtility.GetInstance().SaveTextureAsAsset(hexLandformTexImportPath, texName, curHexLandformTex);
+            TextureUtility.GetInstance().SaveTextureAsAsset(hexLandformTexImportPath, texName, curHexLandformResult);
         }
 
 

@@ -2,6 +2,7 @@
 using LZ.WarGameCommon;
 using LZ.WarGameMap.Runtime.HexStruct;
 using LZ.WarGameMap.Runtime.QuadTree;
+using Sirenix.OdinInspector;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,12 +18,15 @@ namespace LZ.WarGameMap.Runtime {
     /// </summary>
     public class HexmapConstructor : MonoBehaviour
     {
+
+        public static HexmapConstructor Instance;
+
         [Header("hex map config")]
         [SerializeField] HexSettingSO hexSet;
-        [SerializeField] GameObject SignPrefab;
+        [SerializeField] public GameObject SignPrefab;
         [SerializeField] Material hexMat;
 
-        Transform clusterParentTrans;
+        public Transform clusterParentTrans;
         Transform signParentTrans;
 
         HexGenerator hexGenerator;
@@ -39,6 +43,8 @@ namespace LZ.WarGameMap.Runtime {
         #region hex map init
 
         public void SetHexSetting(HexSettingSO hexSettingSO, Transform clusterParentObj, Material hexMat) {
+            Instance = this;
+
             this.hexSet = hexSettingSO;
             this.clusterParentTrans = clusterParentObj;
             this.hexMat = hexMat;
@@ -498,6 +504,14 @@ namespace LZ.WarGameMap.Runtime {
             List<Point> outterVertexs = new List<Point>();
 
             for (int i = 0; i < 6; i++) {
+                // for test
+                //if (i == 0 || i == 1 || i == 4) {
+                //    Hexagon neighbor = hex.Hex_Neighbor(  (HexDirection)i );
+                //    Point neighbor_center = neighbor.Hex_To_Pixel(layout).ConvertToXZ();
+                //    GameObject go = GameObject.Instantiate(HexmapConstructor.Instance.SignPrefab, HexmapConstructor.Instance.clusterParentTrans);
+                //    go.transform.position = new Vector3((float)neighbor_center.x, 0, (float)neighbor_center.z);
+                //}
+
                 Point offset = hex.Hex_Corner_Offset(layout, i);
                 Point innerVertex = center + new Point(offset.x, 0, offset.y) * innerRatio;
                 Point outterVertex = center + new Point(offset.x, 0, offset.y);

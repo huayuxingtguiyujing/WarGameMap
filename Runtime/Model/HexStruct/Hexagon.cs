@@ -125,6 +125,12 @@ namespace LZ.WarGameMap.Runtime.HexStruct
             return new Point(x + layout.Origin.x, y + layout.Origin.y);
         }
 
+        public Vector2 Get_Hex_Center(Layout layout) {
+            Point center = Hex_To_Pixel(layout).ConvertToXZ();
+            Vector2 hexCenter = new Vector2((float)center.x, (float)center.z);
+            return hexCenter;
+        }
+
         public readonly Hexagon Pixel_To_Hex(Layout layout, Point point) {
             Orientation O = layout.orientation;
             Point offsetPoint = new Point(
@@ -137,8 +143,16 @@ namespace LZ.WarGameMap.Runtime.HexStruct
             return new Hexagon(Convert.ToInt32(q), Convert.ToInt32(r), Convert.ToInt32(-q - r));
         }
 
-        // 获取 六边形 指定顶点 - 顶点0在中心的左上角 - 顺时针取值
         public readonly Point Hex_Corner_Offset(Layout layout, int corner) {
+            // NOTE : 
+            //   NW / 1 \ NE
+            //    2/     \0 (corner)
+            //    |       | 
+            //  W |       | E
+            //    3\     /5
+            //      \   / 
+            //   SW   4   SE
+            corner = FixCorner(corner);
             Point size = layout.Size;
 
             double angle = 2.0 * Mathf.PI * (layout.orientation.Start_Angle + corner) / 6;
@@ -148,10 +162,11 @@ namespace LZ.WarGameMap.Runtime.HexStruct
             );
         }
 
-        public Vector2 Get_Hex_CornerPos(Layout layout, int corner) {
+        public Vector2 Get_Hex_CornerPos(Layout layout, int corner, float fix = 1.0f) {
+            corner = FixCorner(corner);
             Point center = Hex_To_Pixel(layout).ConvertToXZ();
             Point curOffset = Hex_Corner_Offset(layout, corner); // * k
-            Point curVertex = center + new Point(curOffset.x, 0, curOffset.y);   // 
+            Point curVertex = center + new Point(curOffset.x, 0, curOffset.y) * fix;   // 
 
 
             //Point innerVertex = center + new Point(offset.x * innerRatio, 0, offset.y * innerRatio);
@@ -172,6 +187,14 @@ namespace LZ.WarGameMap.Runtime.HexStruct
             return corners;
         }
 
+        private readonly int FixCorner(int corner) {
+            while (corner < 0) {
+                corner += 6;
+            }
+            corner %= 6;
+            return corner;
+        }
+
         #endregion
 
         #region get distance
@@ -187,27 +210,29 @@ namespace LZ.WarGameMap.Runtime.HexStruct
         #endregion
 
         #region get neighbor
-
-        // 顺序 邻居0是正左边的邻居 - 顺时针取值
+        // NOTE : view  HexDirection
+        // do not modify it!!!
         static List<Vector3> Hex_Directions = new List<Vector3>{
-            new Vector3(1, 0, -1),
-            new Vector3(0, 1, -1),
-            new Vector3(-1, 1, 0),
-            new Vector3(-1, 0, 1),
-            new Vector3(0, -1, 1),
-            new Vector3(1, -1, 0),
+            new Vector3(0, 1, -1),      // NE   
+            new Vector3(-1, 1, 0),      // NW
+            new Vector3(-1, 0, 1),      // W
+            new Vector3(0, -1, 1),      // SW
+            new Vector3(1, -1, 0),      // SE
+            new Vector3(1, 0, -1),      // E
         };
 
         public Hexagon Hex_Direction(HexDirection direction) {
 #if UNITY_EDITOR
             Assert.IsTrue(0 <= direction && (int)direction < 6);
 #endif
-            //direction = direction % 6;
+            
             return (Hexagon)Hex_Directions[(int)direction];
         }
 
-        // 获取该六边形 其中 一个方向的 邻居 - 邻居0在正左边 - 顺时针取值
         public Hexagon Hex_Neighbor(HexDirection direction) {
+            int dir = (int)direction;
+            dir = FixCorner(dir);
+            direction = (HexDirection)dir;
             return Hexagon_Add(this, Hex_Direction(direction));
         }
 
@@ -288,12 +313,22 @@ namespace LZ.WarGameMap.Runtime.HexStruct
     }
 
     public enum HexDirection {
-        W = 0,
+        // do not modify it!!!
+        //      
+        //   NW / 1 \ NE
+        //    2/     \0 (corner)
+        //    |       | 
+        //  W |       | E
+        //    3\     /5
+        //      \   / 
+        //   SW   4   SE
+
+        NE = 0,
         NW = 1,
-        NE = 2,
-        E = 3,
+        W = 2,
+        SW = 3,
         SE = 4,
-        SW = 5,
+        E = 5,
 
         None = 6,
     }

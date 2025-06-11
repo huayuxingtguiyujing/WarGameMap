@@ -188,7 +188,7 @@ namespace LZ.WarGameMap.Runtime
     }
 
 
-    public class PerlinNoise : IDisposable {
+    public struct PerlinNoise {
 
         struct Pixel {
             public int2 coord;
@@ -214,8 +214,8 @@ namespace LZ.WarGameMap.Runtime
         private float2 Evolution;
         private int FBMIteration;
 
-        private NativeArray<float4> colors;
-        private NativeArray<float2> noiseConstVector;
+        //private NativeArray<float4> colors;
+        //private NativeArray<float2> noiseConstVector;
 
         public PerlinNoise(int resolution, float frequency, bool isTilable, float randomSeed, Vector2 evolution, int fBMIteration = 0) {
             Resolution = resolution;
@@ -224,14 +224,10 @@ namespace LZ.WarGameMap.Runtime
             RandomSeed = randomSeed;
             Evolution = float2(evolution.x, evolution.y);
             FBMIteration = fBMIteration;
-            colors = new NativeArray<float4>(Resolution * Resolution, Allocator.Persistent);
-            noiseConstVector = new NativeArray<float2>();
+            //colors = new NativeArray<float4>(Resolution * Resolution, Allocator.Persistent);
+            //noiseConstVector = new NativeArray<float2>();
         }
 
-        public void Dispose() {
-            colors.Dispose();
-            noiseConstVector.Dispose();
-        }
 
         public float SampleNoise(Vector3 position) {
             int2 id = int2((int)position.x, (int)position.z);
@@ -262,10 +258,13 @@ namespace LZ.WarGameMap.Runtime
                 //noise /= 1.5f;
             }
 
-            colors[colorIndex] = float4(noise, noise, noise, 1);
-            return noise;
+            //colors[colorIndex] = float4(noise, noise, noise, 1);
+            Vector3 rec = new Vector4(noise, noise, noise, 1).normalized;
+            return rec.x;
+            //return noise;
             //return new Vector4(noise, noise, noise, 1);
         }
+
 
         private float GetNoiseValue(int2 id, float tile, float randomSeed) {
             int blockNumber = (int)ceil(tile);
@@ -419,5 +418,10 @@ namespace LZ.WarGameMap.Runtime
         #endregion
     }
 
+    public enum PN_ItpType {
+        E_Liner, E_Cosine, E_Cubic, E_Ease0, E_Ease1
+    };
+
+    // TODO : perlin noise 1 D
 
 }

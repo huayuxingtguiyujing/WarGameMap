@@ -2,10 +2,12 @@ using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
+using static LZ.WarGameMap.MapEditor.HexmapEditor;
 using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
 
 namespace LZ.WarGameMap.MapEditor
@@ -135,6 +137,14 @@ namespace LZ.WarGameMap.MapEditor
         #region 噪声纹理生成
 
         [FoldoutGroup("噪声纹理生成/噪声设置")]
+        [LabelText("混合起点偏移")]
+        public float startBlend = 20;
+
+        [FoldoutGroup("噪声纹理生成/噪声设置")]
+        [LabelText("混合终点偏移")]
+        public float endBlend = 50;
+
+        [FoldoutGroup("噪声纹理生成/噪声设置")]
         [LabelText("分辨率")]
         public int noiseTexResolution = 512;
 
@@ -183,29 +193,67 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
+        struct GeneratePerlinJob : IJobParallelFor {
+            [ReadOnly] public PerlinNoise perlinNoise;
+            [ReadOnly] public int noiseTexResolution;
+
+            [ReadOnly] public float startBlendX;
+            [ReadOnly] public float startBlendY;
+            [ReadOnly] public float endBlendX;
+            [ReadOnly] public float endBlendY;
+
+            [WriteOnly] public NativeArray<Color> colors;
+
+            public void Execute(int index) {
+                int i = index / noiseTexResolution;
+                int j = index % noiseTexResolution;
+
+                Vector3 vertPos = new Vector3(i, 0, j);
+                Color color = Color.white;
+
+                // NOTE : 目前在2个维度上进行修正，基本原理是通过 smoothstep对噪声进行一遍额外的处理
+                // 以产生：噪声正在过渡的效果，或许可以用于地貌的过渡
+                float tNorm1 = Mathf.InverseLerp(startBlendX, endBlendX, j);
+                float tNorm2 = Mathf.InverseLerp(startBlendY, endBlendY, i);
+                float blend = Mathf.SmoothStep(0, 2, (tNorm1 + tNorm2) / 2);
+
+                colors[index] = color * perlinNoise.SampleNoise(vertPos) * blend;
+
+            }
+
+        }
+
         private void GeneratePerlin() {
-            PerlinNoise perlinNoise = new PerlinNoise(noiseTexResolution, frequency, true, randomSpeed, new Vector2(1, 1), fbmIteration);
+            if (noiseTex != null) {
+                UnityEngine.Object.DestroyImmediate(noiseTex);
+            }
 
             noiseTex = new Texture2D(noiseTexResolution, noiseTexResolution, TextureFormat.RGB24, false);
             Color[] colors = noiseTex.GetPixels();
+            NativeArray<Color> nativeColors = new NativeArray<Color>(colors, Allocator.TempJob);
 
-            for (int i = 0; i < noiseTexResolution; i++) {
-                for (int j = 0; j < noiseTexResolution; j++) {
-                    Vector3 vertPos = new Vector3(i, 0, j);
-                    int idx;
-                    idx = j * noiseTexResolution + i;
-                    Color color = Color.white; 
-                    colors[idx] = perlinNoise.SampleNoise(vertPos) * color; 
-                }
-            }
-            noiseTex.SetPixels(colors);
+            GeneratePerlinJob generatePerlinJob = new GeneratePerlinJob {
+                perlinNoise = new PerlinNoise(noiseTexResolution, frequency, true, randomSpeed, new Vector2(1, 1), fbmIteration),
+                noiseTexResolution = noiseTexResolution, 
+                
+                startBlendX = startBlend,
+                startBlendY = startBlend,
+                endBlendX = endBlend,
+                endBlendY = endBlend,
+                colors = nativeColors,
+            };
+            JobHandle jobHandle1 = generatePerlinJob.Schedule(noiseTexResolution * noiseTexResolution, 64);
+            jobHandle1.Complete();
+
+            noiseTex.SetPixels(nativeColors.ToArray());
             noiseTex.Apply();
-            perlinNoise.Dispose();
+            nativeColors.Dispose();
+
             Debug.Log(string.Format("successfully generate noise texture, resolution : {0}, frequency : {1}, fbm : {2}", noiseTexResolution, frequency, fbmIteration));
         }
 
         private void GenerateVoronoi() {
-            // TODO : 
+            // TODO : voronoi noise!!
         }
 
 
