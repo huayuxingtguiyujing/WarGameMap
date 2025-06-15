@@ -8,7 +8,8 @@ namespace LZ.WarGameMap.MapEditor
         public override string EditorName => MapEditorEnum.PlantEditor;
 
         protected override void InitEditor() {
-            
+
+            base.InitEditor();
         }
     }
 }

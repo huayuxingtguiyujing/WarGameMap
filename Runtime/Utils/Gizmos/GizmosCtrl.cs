@@ -35,7 +35,14 @@ namespace LZ.WarGameMap.Runtime
 
         public delegate void GizmoDrawEventHandler();
 
-        public event GizmoDrawEventHandler OnDrawGizmoEvent;
+        private GizmoDrawEventHandler onDrawGizmoEvent;
+
+        public event GizmoDrawEventHandler OnDrawGizmoEvent {
+            add { onDrawGizmoEvent += value; }
+            remove { onDrawGizmoEvent -= value; }
+        }
+
+        //public event GizmoDrawEventHandler OnDrawGizmoEvent;
 
         public void RegisterGizmoEvent(GizmoDrawEventHandler handler) {
             OnDrawGizmoEvent += handler;
@@ -45,8 +52,12 @@ namespace LZ.WarGameMap.Runtime
             OnDrawGizmoEvent -= handler;
         }
 
+        public void UnregisterGizmosAll() {
+            onDrawGizmoEvent = null;
+        }
+
         private void OnDrawGizmos() {
-            OnDrawGizmoEvent?.Invoke();
+            onDrawGizmoEvent?.Invoke();
         }
 
         void OnDrawGizmosSelected() {

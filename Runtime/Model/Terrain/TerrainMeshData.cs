@@ -30,7 +30,10 @@ namespace LZ.WarGameMap.Runtime
         private int vertexPerLine;
         private int vertexPerLineFixed;
 
-        public void InitMeshData(int gridNumPerLine, int gridNumPerLineFixed, int vertexPerLine, int vertexPerLineFixed) {
+        Mesh tileMesh;
+
+        public void InitMeshData(int lodLevel, int gridNumPerLine, int gridNumPerLineFixed, int vertexPerLine, int vertexPerLineFixed) {
+            this.curLODLevel = lodLevel;
             this.vertexPerLine = vertexPerLine;
             this.vertexPerLineFixed = vertexPerLineFixed;
 
@@ -127,8 +130,7 @@ namespace LZ.WarGameMap.Runtime
 
         // TODO: 这是一个冗余的函数，要改！; TODO : 也许可以改成 JobSystem ？
         public void RecaculateBorderNormal() {
-            // TODO: 这个方法仅会重新计算边缘顶点的法线
-            // TODO: 
+            //  这个方法仅会重新计算边缘顶点的法线
             int triangleCount = triangles.Length / 3;
             for (int i = 0; i < triangleCount; i++) {
                 int normalTriangleIndex = i * 3;
@@ -188,6 +190,17 @@ namespace LZ.WarGameMap.Runtime
             return Vector3.Cross(sideAB, sideAC).normalized;
         }
 
+        public void BuildMesh(int tileIdxX, int tileIdxY) {
+            tileMesh = new Mesh();
+            tileMesh.name = string.Format("TerrainMesh_LOD{0}_Idx{1}_{2}", curLODLevel, tileIdxX, tileIdxY);
+
+            tileMesh.vertices = vertexs;
+            tileMesh.normals = normals;
+            tileMesh.triangles = triangles;
+            tileMesh.uv = uvs;
+            tileMesh.colors = colors;
+        }
+
         #endregion
 
 
@@ -238,8 +251,11 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
+        public Mesh GetMesh_LODHeight() {
+            return tileMesh;
+        }
 
-        public Mesh GetMesh(int tileIdxX, int tileIdxY, int fixDirection) {
+        public Mesh GetMesh_LODDistance(int tileIdxX, int tileIdxY, int fixDirection) {
             Mesh mesh = new Mesh();
             mesh.name = string.Format("TerrainMesh_LOD{0}_Idx{1}_{2}", curLODLevel, tileIdxX, tileIdxY);
 

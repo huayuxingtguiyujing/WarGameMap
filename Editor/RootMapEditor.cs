@@ -77,9 +77,12 @@ namespace LZ.WarGameMap.MapEditor
                 CreateWindowObj<PlantCoverEditor>(MapEditorClass.DecorateClass);
             }
 
-            // 
+            // common tools
             if (!decorateFileNames.Contains(MapEditorEnum.TextureToolEditor)) {
                 CreateWindowObj<TextureToolEditor>(MapEditorClass.ToolClass);
+            }
+            if (!decorateFileNames.Contains(MapEditorEnum.NoiseToolEditor)) {
+                CreateWindowObj<NoiseToolEditor>(MapEditorClass.ToolClass);
             }
 
             AssetDatabase.SaveAssets();
@@ -134,11 +137,19 @@ namespace LZ.WarGameMap.MapEditor
             return tree;
         }
 
-        private void Awake() {
-            if(rootMapEditorObj == null) {
-                rootMapEditorObj = new GameObject();
-                rootMapEditorObj.name = "RootMapObj";
-            }
+        #region behaviors
+
+
+        protected override void OnEnable() {
+            base.OnEnable();
+            UnityEditorManager.RegisterUpdate(EditorSceneManager.GetInstance().UpdateSceneTer);
+        }
+
+        protected override void OnDisable() {
+            base.OnDisable();
+            
+            UnityEditorManager.UnregisterUpdate(EditorSceneManager.GetInstance().UpdateSceneTer);
+            GizmosCtrl.GetInstance().UnregisterGizmosAll();
         }
 
         protected override void OnImGUI() {
@@ -146,13 +157,13 @@ namespace LZ.WarGameMap.MapEditor
 
             // 获取当前选中的菜单项
             if (this.MenuTree.Selection.Count > 0) {
-                
+
                 var selected = this.MenuTree.Selection[0];
                 if (curSelected != selected) {
                     // triger the Disable and Enable
                     if (curSelected != null) {
                         BaseMapEditor lastMapEditor = curSelected.Value as BaseMapEditor;
-                        if(lastMapEditor != null) {
+                        if (lastMapEditor != null) {
                             lastMapEditor.Disable();
                         }
                         //Debug.Log($"{curSelected.Name} disable");
@@ -175,22 +186,24 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             if (this.MenuTree.Selection.Count > 0) {
-                foreach (var window in MenuTree.Selection)
-                {
+                foreach (var window in MenuTree.Selection) {
                     BaseMapEditor editor = window.Value as BaseMapEditor;
                     editor.Destory();
                 }
             }
 
-            if(rootMapEditorObj != null) {
+            if (rootMapEditorObj != null) {
                 DestroyImmediate(rootMapEditorObj);
             }
 
             // destroy Gizmos
+            GizmosCtrl.GetInstance().UnregisterGizmosAll();
             GizmosCtrl.GetInstance().Dispose();
 
             base.OnDestroy();
         }
-    
+
+        #endregion
+
     }
 }

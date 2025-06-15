@@ -11,6 +11,8 @@ namespace LZ.WarGameMap.Runtime {
         // 地图设置
         public const string WarGameMapSettingPath = "Assets/WarGameMap/MapSetting";
 
+        public const string WarGameMapEditObjPath = "Assets/WarGameMap/MapEditObj";     // 存放编辑器时态的一些数据
+
 
         // 地形相关
         public const string TerrainRootPath = "Assets/WarGameMap/Terrain";

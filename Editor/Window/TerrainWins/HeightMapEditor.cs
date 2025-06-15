@@ -4,20 +4,21 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 using static Codice.Client.BaseCommands.BranchExplorer.Layout.BrExLayout;
 using static LZ.WarGameMap.MapEditor.TerrainEditor;
 using static UnityEngine.Awaitable;
+using Directory = System.IO.Directory;
 
 namespace LZ.WarGameMap.MapEditor
 {
     public class HeightMapEditor : BaseMapEditor {
 
         public override string EditorName => MapEditorEnum.HeightMapEditor;
-
-        protected override void InitEditor() { }
 
 
         struct TIFHeightMapInfo {
@@ -55,6 +56,10 @@ namespace LZ.WarGameMap.MapEditor
         public int compressResultSize = 64;
 
         [FoldoutGroup("高度图序列化")]
+        [LabelText("每次序列化的TIF文件数目")]
+        public int batchTIFTileNum = 15;
+
+        [FoldoutGroup("高度图序列化")]
         [LabelText("当前使用高度图集群")]
         [AssetSelector(Filter = "t:Texture")]
         public List<List<Texture>> heightMapLists;
@@ -78,14 +83,25 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             string[] heightMapPaths = Directory.GetFiles(heightMapInputPath, "*.tif", SearchOption.AllDirectories);
-            string outputName = GetOuputName(heightMapPaths.Length);
-            SerializeHeightMaps(heightMapOutputPath, outputName, heightMapPaths, compressResultSize);
+            int batches = heightMapPaths.Length / batchTIFTileNum + 1;
+            for (int i = 0; i < batches; i++) {
+                // get specify number of TIF file
+                int start = i * batchTIFTileNum;
+                int end = Mathf.Min((i + 1) * batchTIFTileNum, heightMapPaths.Length - 1);
+                int length = end - start;
+                string[] curHandleFilePaths = new string[length];
+                Array.Copy(heightMapPaths, start, curHandleFilePaths, 0, length);
+
+                // transfer them to a serialized file
+                string outputName = GetOuputName(length, i);
+                SerializeHeightMap(heightMapOutputPath, outputName, heightMapPaths, compressResultSize);
+            }
         }
 
-        private void SerializeHeightMaps(string outputPath, string outputName, string[] inputFilePaths, int size) {
+
+        private void SerializeHeightMap(string outputPath, string outputName, string[] inputFilePaths, int size) {
 
             string outputFile = AssetsUtility.GetInstance().CombinedPath(outputPath, outputName);
-
             using (FileStream fs = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write)) {
                 using (BinaryWriter writer = new BinaryWriter(fs)) {
                     // file header : fileNum, single fileSize  // Int32
@@ -93,7 +109,7 @@ namespace LZ.WarGameMap.MapEditor
                     writer.Write(size);
 
                     foreach (var inputFilePath in inputFilePaths) {
-                        string fixedFilePath = AssetsUtility.GetInstance().FixFilePath(inputFilePath);
+                        string fixedFilePath = AssetsUtility.FixFilePath(inputFilePath);
 
                         //// get tif file info from the name, such as "n33_e110_1arc_v3"
                         //string inputFileName = Path.GetFileName(fixedFilePath);
@@ -115,12 +131,12 @@ namespace LZ.WarGameMap.MapEditor
                         writer.Write(heightMapInfo.longitude);
 
                         // get height data and write to file
-                        float[,] heightMap = CompressHeightData(fixedFilePath);
-                        for (int i = 0; i < size; i++) {
-                            for (int j = 0; j < size; j++) {
-                                writer.Write(heightMap[i, j]);
-                            }
-                        }
+                        CompressAndWirteHeight(fixedFilePath, writer);
+                        //for (int i = 0; i < size; i++) {
+                        //    for (int j = 0; j < size; j++) {
+                        //        writer.Write(heightMap[i, j]);
+                        //    }
+                        //}
                     }
                 }
             }
@@ -129,18 +145,20 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log($"height map data has been set to: {outputFile}");
         }
 
-        private string GetOuputName(int fileNum) {
+        private string GetOuputName(int fileNum, int batch) {
             DateTime dateTime = DateTime.Now;
-            return string.Format("heightData_{0}files_{1}", fileNum, dateTime.Ticks);
+            return string.Format("heightData_{0}files_{1}batch_{2}", fileNum, batch, dateTime.Ticks);
         }
 
-        private float[,] CompressHeightData(string heightMapPath) {
+        private void CompressAndWirteHeight(string heightMapPath, BinaryWriter writer) {
 
-            float[,] heights = ReadHeightMapData(heightMapPath);
-            float[,] compressedHeights = new float[compressResultSize, compressResultSize];
+            float[,] heights = ReadTifData(heightMapPath);
+            Debug.Log(string.Format("read height data over, length: {0}, path: {1}", heights.Length, heightMapPath));
+
+            //float[,] compressedHeights = new float[compressResultSize, compressResultSize];   // float[,]
             if (heights == null) {
                 Debug.Log("error, do not read height data successfully!");
-                return null;
+                return;
             }
 
             int srcWsidth = heights.GetLength(0);
@@ -169,18 +187,13 @@ namespace LZ.WarGameMap.MapEditor
                     // caculate the height by the data given
                     float h = Mathf.Lerp(rx0, rx1, sy - y0);
                     float fixed_h = Mathf.Clamp(h, 0, 50);
-                    compressedHeights[i, j] = fixed_h;
+                    //compressedHeights[i, j] = fixed_h;
+
+                    writer.Write(fixed_h);
                 }
             }
 
-            return compressedHeights;
-        }
-
-        private float[,] ReadHeightMapData(string heightMapPath) {
-            // NOTE : 栈可能会炸吧
-            float[,] heights = ReadTifData(heightMapPath);
-            Debug.Log(string.Format("read height data over, length: {0}, path: {1}", heights.Length, heightMapPath));
-            return heights;
+            //return compressedHeights;
         }
 
         private float[,] ReadTifData(string path) {
@@ -220,30 +233,38 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("高度图反序列化")]
         [LabelText("当前操作的序列化文件")]
         [Tooltip("不要直接使用这个字段导入，点击下方的按钮进行导入")]
-        public UnityEngine.Object heightMapSerilzedFile;
+        public List<UnityEngine.Object> heightMapSerilzedFile;
+
+        [FoldoutGroup("高度图反序列化")]
+        [LabelText("导入位置")]
+        public string serlDataOutputPath = MapStoreEnum.HeightMapOutputPath;
 
         [FoldoutGroup("高度图反序列化")]
         [LabelText("导出位置")]
         public string deserlDataOutputPath = MapStoreEnum.HeightMapScriptableObjPath;
 
         [FoldoutGroup("高度图反序列化")]
-        [LabelText("当前操作文件位置")]
-        public string fileRelativePath = "";
-
-        [FoldoutGroup("高度图反序列化")]
-        [Button("导入序列化后的文件", ButtonSizes.Medium)]
+        [Button("导入序列化后文件", ButtonSizes.Medium)]
         private void ImportSerilizedFile() {
-            string heightMapSerlizedPath = EditorUtility.OpenFilePanel("Import Raw Heightmap", "", "");
-            if (heightMapSerlizedPath == "") {
-                Debug.LogError("you do not get the height map");
+            //string heightMapSerlizedPath = EditorUtility.OpenFilePanel("Import Raw Heightmap", "", "");
+            if (string.IsNullOrEmpty(serlDataOutputPath) || string.IsNullOrEmpty(deserlDataOutputPath)) {
+                Debug.LogError("input / output path is null!");
                 return;
             }
 
-            fileRelativePath = AssetsUtility.GetInstance().TransToAssetPath(heightMapSerlizedPath);
-            heightMapSerilzedFile = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(fileRelativePath);
-            if (heightMapSerilzedFile == null) {
-                Debug.LogError(string.Format("can not load height serialized resource from this path: {0}", fileRelativePath));
-                return;
+            string fullOutpath = AssetsUtility.AssetToFullPath(serlDataOutputPath);
+            Debug.Log(fullOutpath);
+            string[] heightMapPaths = Directory.GetFiles(fullOutpath, "*", SearchOption.AllDirectories)
+                .Where(path => !path.EndsWith(".meta")).ToArray();
+            heightMapSerilzedFile = new List<UnityEngine.Object>(heightMapPaths.Length);
+            for (int i = 0; i < heightMapPaths.Length; i++) {
+                Debug.Log(heightMapPaths[i]);
+                string fileRelativePath = AssetsUtility.TransToAssetPath(heightMapPaths[i]);
+                UnityEngine.Object fileObj = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(fileRelativePath);
+                if (fileObj == null) {
+                    Debug.LogError(string.Format("can not load height serialized resource from this path: {0}", fileRelativePath));
+                }
+                heightMapSerilzedFile.Add(fileObj);
             }
         }
 
@@ -257,24 +278,27 @@ namespace LZ.WarGameMap.MapEditor
                 Directory.CreateDirectory(deserlDataOutputPath);
             }
 
-            DeserializeHeightMaps(fileRelativePath, deserlDataOutputPath);
+            for(int i = 0; i < heightMapSerilzedFile.Count; i++) {
+                string path = AssetDatabase.GetAssetPath(heightMapSerilzedFile[i]);
+                DeserializeHeightMaps(i, path, deserlDataOutputPath);
+            }
+
         }
 
-        private void DeserializeHeightMaps(string fileRelativePath, string deserlOutputFilePath) {
+        private void DeserializeHeightMaps(int batch, string fileRelativePath, string deserlOutputFilePath) {
 
-            fileRelativePath = AssetsUtility.GetInstance().FixFilePath(fileRelativePath);
+            fileRelativePath = AssetsUtility.FixFilePath(fileRelativePath);
             //Debug.Log(deserlOutputFilePath);
 
             using (FileStream fs = new FileStream(fileRelativePath, FileMode.Open, FileAccess.Read)) {
                 using (BinaryReader reader = new BinaryReader(fs)) {
                     int fileNum = reader.ReadInt32();
                     int singleFileWidth = reader.ReadInt32();
-                    Debug.Log($"header info, num of files : {fileNum}, single file size : {singleFileWidth}");
 
                     HeightDataModel heightDataModel = ScriptableObject.CreateInstance<HeightDataModel>();
                     heightDataModel.InitHeightModel(fileNum, singleFileWidth);
                     DateTime dateTime = DateTime.Now;
-                    string modelName = string.Format("HeightModel_{0}files_{1}.asset", fileNum, dateTime.Ticks);
+                    string modelName = string.Format("HeightModel_{0}files_{1}batch_{2}.asset", fileNum, batch, dateTime.Ticks);
                     heightDataModel.name = modelName;
 
                     for (int i = 0; i < fileNum; i++) {
@@ -288,10 +312,11 @@ namespace LZ.WarGameMap.MapEditor
                                 heightDatas[q, p] = reader.ReadSingle();
                             }
                         }
-                        Debug.Log($"now add a height data n{latitude}, e{longitude}, file width {singleFileWidth}");
+                        //Debug.Log($"now add a height data n{latitude}, e{longitude}, file width {singleFileWidth}");
                         heightDataModel.AddHeightData(longitude, latitude, singleFileWidth, heightDatas);
                     }
 
+                    Debug.Log($"header info, num of files : {fileNum}, single SO file size : {singleFileWidth}");
                     string assetFullPath = AssetsUtility.GetInstance().CombinedPath(deserlOutputFilePath, modelName);
                     AssetDatabase.CreateAsset(heightDataModel, assetFullPath);
                     AssetDatabase.SaveAssets();
@@ -303,7 +328,7 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-
+        // TODO : UNCOMPLETE
         #region 根据高度图生成法线贴图
 
         [FoldoutGroup("根据高度图生成法线图")]

@@ -21,11 +21,16 @@ namespace LZ.WarGameMap.Runtime
             return fullPath;
         }
 
-        public string TransToAssetPath(string fullFilePath) {
+        public static string TransToAssetPath(string fullFilePath) {
             return "Assets" + fullFilePath.Substring(Application.dataPath.Length);
         }
 
-        public string FixFilePath(string filePath) {
+        public static string AssetToFullPath(string assetilePath) {
+            string tmp = Application.dataPath.Substring(0, Application.dataPath.Length - "/Assets".Length);
+            return tmp + "/" + assetilePath;
+        }
+
+        public static string FixFilePath(string filePath) {
             return filePath.Replace("\\", "/");
         }
 

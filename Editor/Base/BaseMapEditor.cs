@@ -6,27 +6,59 @@ using UnityEditor;
 using static TreeEditor.TextureAtlas;
 using System.IO;
 using LZ.WarGameMap.Runtime;
+using System;
+using UnityEngine.SceneManagement;
 
 namespace LZ.WarGameMap.MapEditor {
 
-    public abstract class BaseMapEditor: ScriptableObject
-    {
+    
 
+    public abstract class BaseMapEditor: ScriptableObject {
         public abstract string EditorName { get; }
 
-        protected bool notInitScene = true;
+        bool notInitScene = true;
 
-        protected abstract void InitEditor();
+        protected EditorSceneManager sceneManager;    // 即 static instance
+
+        [FoldoutGroup("配置scene", -1)]
+        [GUIColor(1f, 0f, 0f)]
+        [ShowIf("notInitScene")]
+        [LabelText("警告: 没有初始化Scene")]
+        public string warningMessage = "请点击按钮初始化!";
+
+        [FoldoutGroup("配置scene", -1)]
+        [Button("初始化地形配置", ButtonSizes.Medium)]
+        protected virtual void InitEditor() {
+            sceneManager = EditorSceneManager.GetInstance();
+            notInitScene = false;
+        }
 
         protected virtual void InitMapSetting() {
             string mapSetFolerName = AssetsUtility.GetInstance().GetFolderFromPath(MapStoreEnum.WarGameMapSettingPath);
             if (!AssetDatabase.IsValidFolder(MapStoreEnum.WarGameMapSettingPath)) {
                 AssetDatabase.CreateFolder(MapStoreEnum.WarGameMapRootPath, mapSetFolerName);
             }
-
         }
 
+        protected void FindOrCreateSO<T>(ref T so, string folderPath, string assetName) where T : ScriptableObject {
+            // assetName = "TerrainSetting_Default.asset"
+            // assetName = "HexSetting_Default.asset"
+            if (so == null) {
+                string terrainSettingPath = folderPath + "/" + assetName;
+                so = AssetDatabase.LoadAssetAtPath<T>(terrainSettingPath);
+                if (so == null) {           // create it !
+                    so = CreateInstance<T>();
+                    AssetDatabase.CreateAsset(so, terrainSettingPath);
+                    Debug.Log($"successfully create map Setting SO, path : {terrainSettingPath}");
+                }
+            }
+        }
+
+
+        #region behaviors
+
         public virtual void Enable() {
+            sceneManager = EditorSceneManager.GetInstance();
             SceneView.duringSceneGui += OnSceneGUI;
         }
 
@@ -35,9 +67,8 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
         public virtual void Destory() {
-            
-        }
 
+        }
 
         protected virtual void OnSceneGUI(SceneView sceneView) {
             Event e = Event.current;
@@ -70,6 +101,8 @@ namespace LZ.WarGameMap.MapEditor {
 
         }
 
+        #endregion
+
         protected virtual void OnMouseUp(Event e) {
         }
 
@@ -82,10 +115,6 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
         protected virtual void OnMouseDrag(Event e) {
-        }
-
-        protected virtual void OnDrawGizmos() {
-
         }
 
 

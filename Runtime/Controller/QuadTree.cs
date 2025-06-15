@@ -1,6 +1,5 @@
 
 
-using LZ.WarGameMap.MapEditor;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -297,17 +296,17 @@ namespace LZ.WarGameMap.Runtime.QuadTree {
 
 
         public void DrawScopeInGizmos() {
-            GizmosUtils.DrawRect(bound.leftDown, bound.rightUp, GizmosUtils.GetRandomColor(curDepth));
-            foreach (var child in children)
-            {
-                child.DrawScopeInGizmos();
-            }
+            //GizmosUtils.DrawRect((Vector3)bound.leftDown, (Vector3)bound.rightUp, GizmosUtils.GetRandomColor(curDepth));
+            //foreach (var child in children)
+            //{
+            //    child.DrawScopeInGizmos();
+            //}
 
-            if (isLeaf) {
-                for(int i = 0; i < objectPos.Count; i++) {
-                    GizmosUtils.DrawCube(objectPos[i], Color.black);
-                }
-            }
+            //if (isLeaf) {
+            //    for(int i = 0; i < objectPos.Count; i++) {
+            //        GizmosUtils.DrawCube(objectPos[i], Color.black);
+            //    }
+            //}
         }
 
     }

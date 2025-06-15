@@ -17,18 +17,19 @@ namespace LZ.WarGameMap.MapEditor
 
         TerrainConstructor TerrainCtor;
 
-        [FoldoutGroup("配置scene", -1)]
-        [Button("初始化地貌配置")]
         protected override void InitEditor() {
             GameObject mapRootObj = GameObject.Find(MapSceneEnum.MapRootName);
             if (mapRootObj == null) {
                 mapRootObj = new GameObject(MapSceneEnum.MapRootName);
             }
-            TerrainCtor = mapRootObj.GetComponent<TerrainConstructor>();
+            TerrainCtor = EditorSceneManager.TerrainCtor;
             if (TerrainCtor == null) {
-                Debug.LogError("unable to find TerrainCtor, please goto terrainWindow to config it");
-                return;
+                TerrainCtor = mapRootObj.GetComponent<TerrainConstructor>();
+                if(TerrainCtor == null) {
+                    Debug.LogError("unable to find TerrainCtor, please goto terrainWindow to config it");
+                }
             }
+            base.InitEditor();
         }
 
         #region 构建设置
@@ -108,7 +109,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            curLandformTexPath = AssetsUtility.GetInstance().TransToAssetPath(landformImportPath);
+            curLandformTexPath = AssetsUtility.TransToAssetPath(landformImportPath);
             curHandleLandformTex = AssetDatabase.LoadAssetAtPath<UnityEngine.Texture2D>(curLandformTexPath);
             if (curHandleLandformTex == null) {
                 curLandformTexPath = "";
@@ -150,7 +151,7 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             HeightDataManager heightDataManager = new HeightDataManager();
-            heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize);
+            heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize, null, null);
 
             // use perlin noise
             PerlinNoise perlinNoise = new PerlinNoise(ExpTexResolution, 16, true, 4, new Vector2(1, 1), 8);
@@ -230,6 +231,8 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
+
+
         [FoldoutGroup("构建地貌贴图")]
         [Button("保存当前地貌纹理", ButtonSizes.Medium)]
         private void SaveLandFormTex() {
@@ -237,6 +240,8 @@ namespace LZ.WarGameMap.MapEditor
             string texName = string.Format("landform_{0}x{0}_{1}", ExpTexResolution, dateTime.Ticks);
             TextureUtility.GetInstance().SaveTextureAsAsset(landformTexImportPath, texName, curHandleLandformTex);
         }
+
+
 
         #endregion
 
@@ -249,6 +254,13 @@ namespace LZ.WarGameMap.MapEditor
 
         #region 构建法线贴图
 
+        [FoldoutGroup("构建法线贴图")]
+        [LabelText("构建起点")]
+        public Vector2Int buildStartPos;
+
+        [FoldoutGroup("构建法线贴图")]
+        [LabelText("构建范围")]
+        public Vector2Int buildScope;
 
         [FoldoutGroup("构建法线贴图")]
         [LabelText("当前操作的法线纹理")]
@@ -271,7 +283,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            curNormalTexPath = AssetsUtility.GetInstance().TransToAssetPath(normalImportPath);
+            curNormalTexPath = AssetsUtility.TransToAssetPath(normalImportPath);
             curHandleNormalTex = AssetDatabase.LoadAssetAtPath<Texture2D>(curNormalTexPath);
             if (curHandleNormalTex == null) {
                 curNormalTexPath = "";
@@ -285,7 +297,7 @@ namespace LZ.WarGameMap.MapEditor
         private void ExportNormalTexture() {
 
             HeightDataManager heightDataManager = new HeightDataManager();
-            heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize);
+            heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize, null, null);
 
             curHandleNormalTex = new Texture2D(ExpTexResolution, ExpTexResolution, TextureFormat.RGB24, false);
             Color[] colors = curHandleNormalTex.GetPixels();
@@ -316,6 +328,25 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExpTexResolution));
         }
 
+
+        // TODO : move to landform editor
+        [FoldoutGroup("构建法线贴图")]
+        [Button("使用 TerCtor 导出法线贴图", ButtonSizes.Medium)]
+        private void BuildClusterNormal() {
+
+            if (curHandleNormalTex == null) {
+                Debug.LogError("no normal texture, so you can not build the mesh");
+                return;
+            }
+
+            for(int i = 0; i < buildScope.x; i++) {
+                for(int j = 0;  j < buildScope.y; j++) {
+                    TerrainCtor.BuildClusterNormal(buildStartPos.x + i, j, curHandleNormalTex);
+                }
+            }
+
+        }
+
         [FoldoutGroup("构建法线贴图")]
         [Button("保存当前法线纹理", ButtonSizes.Medium)]
         private void SaveNormalTexture() {
@@ -340,37 +371,26 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-        #region 混合纹理地貌
-
-        [FoldoutGroup("混合纹理地貌生成", order: 99)]
-        [LabelText("NOTE")]  // NOTE : 其实后面可能不止会用到16张地貌纹理，要考虑后续扩充
-        public string blenderTexLandformStr = "此部分用于做混合地貌方案，可以根据参数自动生成无缝的混合纹理/索引纹理";
-
-        // NOTE : 以下是打算做混合纹理地貌方案
-        [FoldoutGroup("混合纹理地貌生成", order: 99)]
-        [LabelText("当前使用的地貌纹理图集")]  // NOTE : 其实后面可能不止会用到16张地貌纹理，要考虑后续扩充
-        public List<Texture2D> curTerrainTexSplats;
-
-        [FoldoutGroup("混合纹理地貌生成")]
-        [Button("导出索引贴图", ButtonSizes.Medium)]
-        private void ExportIdxTex() {
-            // 也许不需要导出索引贴图 + 混合贴图，直接使用 color 制作？
-        }
-
-        [FoldoutGroup("混合纹理地貌生成")]
-        [Button("导出混合贴图", ButtonSizes.Medium)]
-        private void ExportMixTex() {
-
-        }
-
-        [FoldoutGroup("混合纹理地貌生成")]
-        [Button("生成最终混合地貌", ButtonSizes.Medium)]
-        private void ExportMixLandformTex() {
-
-        }
-
-
-        #endregion
+        //#region 混合纹理地貌
+        //[FoldoutGroup("混合纹理地貌生成", order: 99)]
+        //[LabelText("NOTE")]  // NOTE : 其实后面可能不止会用到16张地貌纹理，要考虑后续扩充
+        //public string blenderTexLandformStr = "此部分用于做混合地貌方案，可以根据参数自动生成无缝的混合纹理/索引纹理";
+        //// NOTE : 以下是打算做混合纹理地貌方案
+        //[FoldoutGroup("混合纹理地貌生成", order: 99)]
+        //[LabelText("当前使用的地貌纹理图集")]  // NOTE : 其实后面可能不止会用到16张地貌纹理，要考虑后续扩充
+        //public List<Texture2D> curTerrainTexSplats;
+        //[FoldoutGroup("混合纹理地貌生成")]
+        //[Button("导出索引贴图", ButtonSizes.Medium)]
+        //private void ExportIdxTex() {
+        //    // 也许不需要导出索引贴图 + 混合贴图，直接使用 color 制作？
+        //}
+        //[FoldoutGroup("混合纹理地貌生成")]
+        //[Button("导出混合贴图", ButtonSizes.Medium)]
+        //private void ExportMixTex() { }
+        //[FoldoutGroup("混合纹理地貌生成")]
+        //[Button("生成最终混合地貌", ButtonSizes.Medium)]
+        //private void ExportMixLandformTex() { }
+        //#endregion
 
 
 

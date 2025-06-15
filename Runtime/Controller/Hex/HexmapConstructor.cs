@@ -166,7 +166,7 @@ namespace LZ.WarGameMap.Runtime {
             }
             //Debug.Log("the last cluster pos is: " + poss.GetLastVal());
             if (mapGridQuadTree != null) {
-                GizmosCtrl.GetInstance().UnregisterGizmoEvent(mapGridQuadTree.DrawScopeInGizmos);
+                //GizmosCtrl.GetInstance().UnregisterGizmoEvent(mapGridQuadTree.DrawScopeInGizmos);
             }
             // caculate map size
             Vector3 leftDown = GetMapLeftDown();
@@ -176,18 +176,8 @@ namespace LZ.WarGameMap.Runtime {
                 leftDown, rightUp, 3,
                 totalGrids, poss
             );
-            GizmosCtrl.GetInstance().RegisterGizmoEvent(mapGridQuadTree.DrawScopeInGizmos);
+            //GizmosCtrl.GetInstance().RegisterGizmoEvent(mapGridQuadTree.DrawScopeInGizmos);
         }
-
-        //public Layout GetScreenLayout() {
-        //    Vector2 startPoint = new Vector2(transform.position.x, transform.position.y);
-        //    Layout layout = new Layout(
-        //        Orientation.Layout_Pointy, 
-        //        new Point(hexSet.hexGridSize, hexSet.hexGridSize), 
-        //        new Point(startPoint.x, startPoint.y), hexSet.mapHeight, hexSet.mapWidth
-        //    );
-        //    return layout;
-        //}
 
         private void CreateHexCluster(int i, int j, int clusterSize) {
 
@@ -210,7 +200,6 @@ namespace LZ.WarGameMap.Runtime {
         #region generate hex message by height info
 
         public void GenerateRawHexMap(Vector2Int startLongitudeLatitude, RawHexMapSO rawHexMapSO, HeightDataManager heightDataManager) {
-
             layout = hexSet.GetScreenLayout();
             if(hexGenerator == null || hexGenerator.HexagonIdxDic == null) {
                 Debug.LogError("do not set hexGenerator!");
@@ -219,15 +208,11 @@ namespace LZ.WarGameMap.Runtime {
 
             foreach (var pair in hexGenerator.HexagonIdxDic) {
                 Vector2Int mapIdx = pair.Key;
-                //// caculate map grid'index inside cluster
-                //Vector2Int clusterIdx = GetGridClusterIdx(mapIdx.x, mapIdx.y);
-                //Vector2Int inClusterIdx = GetGridInClusterIdx(mapIdx.x, mapIdx.y);
-
                 // trans hex center position to terrain position
                 Hexagon hex = pair.Value;
                 Point center = hex.Hex_To_Pixel(layout).ConvertToXZ();
 
-                // get height datas, then use them generate hex grid...
+                // get height datas, then use them to generate hex grid...
                 TDList<float> heights = heightDataManager.SampleScopeFromHeightData(startLongitudeLatitude, center, hexSet.hexCalcuVertScope);
                 rawHexMapSO.AddGridTerrainData(mapIdx, hex, center, heights);
             }

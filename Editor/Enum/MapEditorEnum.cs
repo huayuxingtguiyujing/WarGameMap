@@ -53,6 +53,8 @@ namespace LZ.WarGameMap.MapEditor {
         // 通用工具
         public static string TextureToolEditor = "地形纹理编辑工具";
 
+        public static string NoiseToolEditor = "噪声编辑工具";
+
     }
 
     public static class MapBrushEnum {

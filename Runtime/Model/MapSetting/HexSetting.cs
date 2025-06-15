@@ -11,9 +11,9 @@ namespace LZ.WarGameMap.Runtime
     [Serializable]
     [CreateAssetMenu(fileName = "HexSetting_Default", menuName = "WarGameMap/Set/HexSettig", order = 1)]
     public class HexSettingSO : MapSettingSO {
-        public override string MapSettingType {
+        public override string MapSettingName {
             get {
-                return "HexSetting";
+                return "HexSetting_Default.asset";
             }
         }
 

@@ -1,51 +1,13 @@
+
 using LZ.WarGameCommon;
-using LZ.WarGameMap.Runtime.HexStruct;
-using System;
-using System.Collections;
 using System.Collections.Generic;
-using Unity.Collections;
 using UnityEngine;
-using UnityEngine.UIElements;
 using static LZ.WarGameMap.Runtime.RawHexMapSO;
-using static UnityEditor.PlayerSettings;
 
 namespace LZ.WarGameMap.Runtime
 {
-    // TODO : 这个是用于 实现 NoGC结构的 HeightDataManager类，可以用在 JobSystem当中
-    public struct HeightDataManager_Blittable {
-        
-        // TODO : 层层嵌套的结构不太好！不要这样乱搞......
-        // TODO : heightDatamodel这个中间层可以消灭掉，然后把 HeightData 的高度图数据全部搬到这里
-        // TODO : 在这里实现高度图数据采样！不要放到其他地方了......
 
-        // TODO : 现在底层的高度图数据全部是 half，注意精度！
-
-        //NativeArray<HeightDataModel_Blittable> heightDataModels;
-        //public NativeArray<HeightDataModel_Blittable> HeightDataModels { get { return heightDataModels; } }
-
-        int srcWidth;
-        int srcHeight;
-
-        int terrainClusterSize;
-        int terrainClusterWidth;
-        int terrainClusterHeight;
-
-        public HeightDataManager_Blittable(List<HeightDataModel> heightDataModels, int terrainClusterSize) {
-            srcWidth = heightDataModels[0].singleHeightFileSize;
-            srcHeight = heightDataModels[0].singleHeightFileSize;
-
-            this.terrainClusterSize = terrainClusterSize;
-            terrainClusterWidth = terrainClusterSize;
-            terrainClusterHeight = terrainClusterSize;
-
-            //this.heightDataModels = new NativeArray<HeightDataModel_Blittable>(); heightDataModels;
-            // TODO : 初始化所有的数据......
-        }
-
-        // step1 : 依靠 HeightDataManager 的 heightDataModels
-        // step2 : 
-
-    }
+    // TODO : 写个支持多线程的 HeightDataManager
 
     public class HeightDataManager
     {
@@ -62,9 +24,6 @@ namespace LZ.WarGameMap.Runtime
         int srcHeight;
 
         int terrainClusterSize;
-        int terrainClusterWidth;
-        int terrainClusterHeight;
-
 
         internal enum GetHeightDir {
             Center, Up, Down, Left, Right
@@ -132,19 +91,19 @@ namespace LZ.WarGameMap.Runtime
             heightDataModels = new List<HeightDataModel>();
         }
 
-        public void InitHeightDataManager(List<HeightDataModel> heightDataModels, int terrainClusterSize) {
+        public void InitHeightDataManager(List<HeightDataModel> heightDataModels, int terrainClusterSize, HexSettingSO HexSet, RawHexMapSO RawHexMap) {
             this.heightDataModels = heightDataModels;
-
             srcWidth = heightDataModels[0].singleHeightFileSize;
             srcHeight = heightDataModels[0].singleHeightFileSize;
-
             this.terrainClusterSize = terrainClusterSize;
-            terrainClusterWidth = terrainClusterSize;
-            terrainClusterHeight = terrainClusterSize;
+            // hex set
+            // if you do not want to use the function of "sample height by hex", then set it null
+            this.HexSet = HexSet;
+            this.RawHexMap = RawHexMap;
         }
 
 
-        #region sample height
+        #region sample height, TIF heightModelData
 
         public float SampleFromHeightData(Vector2Int startLongitudeLatitude, Vector3 vertPos) {
             Vector3 clusterStartPoint = Vector3.zero;
@@ -169,8 +128,8 @@ namespace LZ.WarGameMap.Runtime
                 vertPos.z -= clusterStartPoint.z;
 
                 // resample the size of height map
-                float sx = vertPos.x / terrainClusterWidth * srcWidth;
-                float sy = vertPos.z / terrainClusterHeight * srcHeight;
+                float sx = vertPos.x / terrainClusterSize * srcWidth;
+                float sy = vertPos.z / terrainClusterSize * srcHeight;
 
                 int x0 = Mathf.FloorToInt(sx);
                 int x1 = x0 + 1;
@@ -215,8 +174,8 @@ namespace LZ.WarGameMap.Runtime
                 vertPos.z -= clusterStartPoint.z;
 
                 // resample the size of height map
-                float sx = vertPos.x / terrainClusterWidth * srcWidth;
-                float sy = vertPos.z / terrainClusterHeight * srcHeight;
+                float sx = vertPos.x / terrainClusterSize * srcWidth;
+                float sy = vertPos.z / terrainClusterSize * srcHeight;
 
                 int x0 = Mathf.FloorToInt(sx);
                 int y0 = Mathf.FloorToInt(sy);
@@ -318,12 +277,8 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-        #region sample height, but byHexMap
 
-        public void InitHexSet(HexSettingSO HexSet, RawHexMapSO RawHexMap) {
-            this.HexSet = HexSet;
-            this.RawHexMap = RawHexMap;
-        }
+        #region sample height, HexMap
 
         public float SampleFromHexMap(Vector3 vertPos) {
             if (HexSet == null || RawHexMap == null) {
@@ -433,8 +388,8 @@ namespace LZ.WarGameMap.Runtime
                 vertPos.z -= clusterStartPoint.z;
 
                 // resample the size of height map
-                float sx = vertPos.x / terrainClusterWidth * srcWidth;
-                float sy = vertPos.z / terrainClusterHeight * srcHeight;
+                float sx = vertPos.x / terrainClusterSize * srcWidth;
+                float sy = vertPos.z / terrainClusterSize * srcHeight;
 
                 int x0 = Mathf.FloorToInt(sx);
                 int x1 = x0 + 1;
@@ -456,6 +411,7 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
+
         private Vector2Int FixVertPosInCluster(Vector2Int startLongitudeLatitude, Vector3 vertPos, ref Vector3 clusterStartPoint) {
             int startLongitude = startLongitudeLatitude.x;
             int startLatitude = startLongitudeLatitude.y;
@@ -463,11 +419,11 @@ namespace LZ.WarGameMap.Runtime
             clusterStartPoint = Vector3.zero;
 
             // get the start point of cluster's which the pos on
-            int longitude = Mathf.FloorToInt(vertPos.x) / terrainClusterWidth;
-            int latitude = Mathf.FloorToInt(vertPos.z) / terrainClusterHeight;
+            int longitude = Mathf.FloorToInt(vertPos.x) / terrainClusterSize;
+            int latitude = Mathf.FloorToInt(vertPos.z) / terrainClusterSize;
 
-            clusterStartPoint.x += longitude * terrainClusterWidth;
-            clusterStartPoint.z += latitude * terrainClusterHeight;
+            clusterStartPoint.x += longitude * terrainClusterSize;
+            clusterStartPoint.z += latitude * terrainClusterSize;
 
             longitude += startLongitude;
             latitude += startLatitude;
@@ -475,7 +431,6 @@ namespace LZ.WarGameMap.Runtime
             // get the cluster idx(longitude, latitude) of the position
             return new Vector2Int(longitude, latitude);
         }
-
 
     }
 }

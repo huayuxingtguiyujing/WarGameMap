@@ -10,9 +10,9 @@ namespace LZ.WarGameMap.Runtime {
     [CreateAssetMenu(fileName = "TerrainSetting_Default", menuName = "WarGameMap/Set/TerrainSetting", order = 2)]
     public class TerrainSettingSO : MapSettingSO {
 
-        public override string MapSettingType {
+        public override string MapSettingName {
             get {
-                return "TerrainSetting";
+                return "TerrainSetting_Default.asset";
             }
         }
 
@@ -29,6 +29,10 @@ namespace LZ.WarGameMap.Runtime {
         [Tooltip("大地图规模，表示共有多少个cluster，它不必是2的倍数")]
         public Vector3Int terrainSize = new Vector3Int(10, 0, 10);
 
+        [LabelText("起始地块经纬度")]
+        [Tooltip("左下角的地块的经纬度")]
+        public Vector2Int startLL;
+
         [LabelText("cluster大小")]
         [Tooltip("cluster规模，y轴代表对高度数据的放大操作")]
         public int clusterSize = MapTerrainEnum.ClusterSize;
@@ -38,17 +42,20 @@ namespace LZ.WarGameMap.Runtime {
 
         public TerrainSetting GetTerrainSetting() {
             return new TerrainSetting(
-                LODLevel, terrainSize, clusterSize, tileSize    
+                LODLevel, terrainSize, startLL, clusterSize, tileSize    
             );
         }
 
     }
 
+    [Serializable]
     public class TerrainSetting : IBinarySerializer {
 
         public int LODLevel { get; private set; }
 
         public Vector3Int terrainSize { get; private set; }
+
+        public Vector2Int startLL;
 
         public int clusterSize { get; private set; }
 
@@ -56,9 +63,10 @@ namespace LZ.WarGameMap.Runtime {
 
         public TerrainSetting(){ }
 
-        public TerrainSetting(int lODLevel, Vector3Int terrainSize, int clusterSize, int tileSize) {
+        public TerrainSetting(int lODLevel, Vector3Int terrainSize, Vector2Int startLongitudeAndLatitude, int clusterSize, int tileSize) {
             LODLevel = lODLevel;
             this.terrainSize = terrainSize;
+            this.startLL = startLongitudeAndLatitude;
             this.clusterSize = clusterSize;
             this.tileSize = tileSize;
         }

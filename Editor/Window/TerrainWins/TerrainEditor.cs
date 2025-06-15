@@ -6,88 +6,68 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.ConstrainedExecution;
-using System.Text;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.XR;
 using Debug = UnityEngine.Debug;
+using FileMode = System.IO.FileMode;
 
 namespace LZ.WarGameMap.MapEditor
 {
-    
-    public class TerrainEditor : BaseMapEditor {
+
+    public class TerrainEditor : BrushMapEditor {
 
         public override string EditorName => MapEditorEnum.TerrainEditor;
 
-        GameObject mapRootObj;
-        GameObject heightMeshParentObj;
-
         TerrainConstructor TerrainCtor;
+        HexmapConstructor HexCtor;
+
+        MapRuntimeSetting mapSet;
+        TerrainSettingSO terSet;
+        HexSettingSO hexSet;
 
         //[FoldoutGroup("配置scene", -1)]
         //[AssetSelector(Filter = "t:Prefab")]
         //public GameObject SignPrefab;
 
-        [FoldoutGroup("配置scene", -1)]
-        [GUIColor(1f, 0f, 0f)]
-        [ShowIf("notInitScene")]
-        [LabelText("警告: 没有初始化Scene")]
-        public string warningMessage = "请点击按钮初始化!";
-
-        [FoldoutGroup("配置scene", -1)]
-        [Button("初始化地形配置")]
         protected override void InitEditor() {
-            if (mapRootObj == null) {
-                mapRootObj = GameObject.Find(MapSceneEnum.MapRootName);
-                if (mapRootObj == null) {
-                    mapRootObj = new GameObject(MapSceneEnum.MapRootName);
-                }
-            }
-            if (heightMeshParentObj == null) {
-                heightMeshParentObj = GameObject.Find(MapSceneEnum.HeightParentName);
-                if (heightMeshParentObj == null) {
-                    heightMeshParentObj = new GameObject(MapSceneEnum.HeightParentName);
-                }
-            }
-            heightMeshParentObj.transform.SetParent(mapRootObj.transform);
-
-            TerrainCtor = mapRootObj.GetComponent<TerrainConstructor>();
-            if (TerrainCtor == null) {
-                TerrainCtor = mapRootObj.AddComponent<TerrainConstructor>();
-            }
-
-            TerrainCtor.SetMapPrefab(mapRootObj.transform, heightMeshParentObj.transform);
+            TerrainCtor = EditorSceneManager.TerrainCtor;
+            HexCtor = EditorSceneManager.HexCtor;
 
             // read terrain Setting from path
             InitMapSetting();
-            notInitScene = false;
+            base.InitEditor();
         }
         
         protected override void InitMapSetting() {
             base.InitMapSetting();
-            if (terSet == null) {
-                string terrainSettingPath = MapStoreEnum.WarGameMapSettingPath + "/TerrainSetting_Default.asset";
-                terSet = AssetDatabase.LoadAssetAtPath<TerrainSettingSO>(terrainSettingPath);
-                if (terSet == null) {
-                    // create it !
-                    terSet = CreateInstance<TerrainSettingSO>();
-                    AssetDatabase.CreateAsset(terSet, terrainSettingPath);
-                    Debug.Log($"successfully create Terrain Setting, path : {terrainSettingPath}");
-                } 
-            }
+            mapSet = EditorSceneManager.mapSet;
+            FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
+
+            terSet = EditorSceneManager.terSet;
+            FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
+
+            hexSet = EditorSceneManager.hexSet;
+            FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
         }
 
-        #region 构建地形
 
-        [FoldoutGroup("构建地形", 0)]
-        [LabelText("地形设置")]
-        public TerrainSettingSO terSet;
+        #region 构建地形-高度图流程
 
-        [FoldoutGroup("构建地形", 0)]
+        [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("Ter地图材质")]
+        public Material terMaterial;
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("当前使用的高度图数据")]
+        public List<HeightDataModel> heightDataModels;
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("当前需要构建的地块索引")]    // cluster
+        public List<Vector2Int> clusterIdxList;
+
+        [FoldoutGroup("构建地形-高度图流程", 0)]
         [Button("初始化地形", ButtonSizes.Medium)]
         private void GenerateTerrain() {
-
             int tileNumARow = terSet.clusterSize / terSet.tileSize;
 
             Debug.Log($"the map size is : {terSet.terrainSize}");
@@ -98,56 +78,11 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            TerrainCtor.InitHeightCons(terSet.GetTerrainSetting(), heightDataModels);
+            TerrainCtor.InitTerrainCons(mapSet, terSet.GetTerrainSetting(), hexSet, heightDataModels, rawHexMapSO, terMaterial);
         }
 
-        [FoldoutGroup("构建地形", 0)]
-        [Button("更新地形", ButtonSizes.Medium)]
-        private void ShowTerrain() {
-
-            if (TerrainCtor == null) {
-                Debug.LogError("terrian ctor is null!");
-                return;
-            }
-
-            TerrainCtor.UpdateTerrain();
-
-        }
-
-        [FoldoutGroup("构建地形", 0)]
-        [Button("清空地形", ButtonSizes.Medium)]
-        private void ClearHeightMesh() {
-            if (TerrainCtor == null) {
-                Debug.LogError("do not init height ctor!");
-                return;
-            }
-
-            TerrainCtor.ClearClusterObj();
-        }
-
-
-        [FoldoutGroup("懒构建地形")]
-        [LabelText("当前使用的高度图数据")]
-        public List<HeightDataModel> heightDataModels;
-
-        [FoldoutGroup("懒构建地形")]
-        [LabelText("当前使用的法线纹理")]    // 一个cluster对应一张法线纹理
-        public Texture2D curHandleNormalTex;
-
-        [FoldoutGroup("懒构建地形")]
-        [LabelText("当前操作的cluster索引")]
-        public Vector2Int clusterIdx;
-
-        [FoldoutGroup("懒构建地形")]
-        [LabelText("当前使用的经度")]
-        public int longitude;
-
-        [FoldoutGroup("懒构建地形")]
-        [LabelText("当前使用的纬度")]
-        public int latitude;
-
-        [FoldoutGroup("懒构建地形")]
-        [Button("构建对应cluster的Mesh", ButtonSizes.Medium)]
+        [FoldoutGroup("构建地形-高度图流程")]
+        [Button("构建地块Mesh", ButtonSizes.Medium)]
         private void BuildCluster() {
             if (heightDataModels == null) {
                 Debug.LogError("you do not set the heightDataModel");
@@ -158,52 +93,155 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            foreach (var model in heightDataModels) {
-                if (model.ExistHeightData(longitude, latitude)) {
-                    //HeightData heightData = model.GetHeightData(longitude, latitude);
-                    TerrainCtor.BuildCluster(clusterIdx.x, clusterIdx.y, longitude, latitude);
-                    return;
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            foreach (var clusterIdx in clusterIdxList) {
+                int longitude = terSet.startLL.x + clusterIdx.x;
+                int latitude = terSet.startLL.y + clusterIdx.y;
+                foreach (var model in heightDataModels) {
+                    // TODO : 此处可能有bug
+                    if (model.ExistHeightData(longitude, latitude)) {
+                        //HeightData heightData = model.GetHeightData(longitude, latitude);
+                        // 手动设置 longitude ?
+                        TerrainCtor.BuildCluster(clusterIdx.x, clusterIdx.y);
+                        break;
+                    } else {
+                        Debug.LogError($"unable to find heightdata, longitude : {longitude}, latitude : {latitude}");
+                    }
                 }
+                Debug.Log($"construct cluster mesh : {longitude}, {latitude}");
             }
 
-            Debug.LogError($"unable to find heightdata, longitude : {longitude}, latitude : {latitude}");
-
+            TerrainCtor.UpdateTerrain();
+            stopwatch.Stop();
+            Debug.Log($"build over, build {clusterIdxList.Count} clusters, cost {stopwatch.ElapsedMilliseconds} ms");
         }
 
-        [FoldoutGroup("懒构建地形")]
-        [Button("构建对应cluster的法线", ButtonSizes.Medium)]
-        private void BuildClusterNormal() {
-
-            if (curHandleNormalTex == null) {
-                Debug.LogError("no normal texture, so you can not build the mesh");
+        [FoldoutGroup("构建地形-高度图流程", 0)]
+        [Button("刷新地形", ButtonSizes.Medium)]
+        private void ShowTerrain() {
+            if (TerrainCtor == null) {
+                Debug.LogError("terrian ctor is null!");
                 return;
             }
 
-            TerrainCtor.BuildClusterNormal(clusterIdx.x, clusterIdx.y, curHandleNormalTex);
+            TerrainCtor.UpdateTerrain();
+        }
+
+        [FoldoutGroup("构建地形-高度图流程", 0)]
+        [Button("清空地形", ButtonSizes.Medium)]
+        private void ClearHeightMesh() {
+            if (TerrainCtor == null) {
+                Debug.LogError("do not init height ctor!");
+                return;
+            }
+
+            TerrainCtor.ClearClusterObj();
         }
 
         #endregion
 
 
-        #region 使用Hex构建地形
+        #region 构建地形-Hex流程
 
-        [FoldoutGroup("使用Hex构建地形")]
-        [LabelText("地图配置")]
-        public HexSettingSO hexSet;
-
-        [FoldoutGroup("使用Hex构建地形")]
-        [LabelText("当前使用的HexMapSO")]
-        [Tooltip("必须使用 hexSet 对应生成的 rawHexMapSO！否则会出错")]
+        [FoldoutGroup("构建地形-Hex流程")]
+        [LabelText("当前操作Hex地图对象")]
         public RawHexMapSO rawHexMapSO;
 
-        [FoldoutGroup("使用Hex构建地形")]
+        [FoldoutGroup("构建地形-Hex流程")]
+        [LabelText("当前Hex地图材质")]
+        public Material hexMaterial;
+
+        [FoldoutGroup("构建地形-Hex流程")]
+        [LabelText("当前Hex地图纹理")]
+        public Texture2D rawHexMapTexture;
+
+        [FoldoutGroup("构建地形-Hex流程")]
+        [LabelText("导出位置")]
+        public string exportHexMapSOPath = MapStoreEnum.TerrainHexMapPath;
+
+        [FoldoutGroup("构建地形-Hex流程")]
+        [LabelText("起始经纬度")]
+        public Vector2Int startLongitudeLatitude = new Vector2Int(109, 32);
+
+        [FoldoutGroup("构建地形-Hex流程")]
         [LabelText("当前操作的cluster索引")]
         public Vector2Int curClusterIdx_Hex;
 
-        [FoldoutGroup("使用Hex构建地形")]
+
+        [FoldoutGroup("构建地形-Hex流程")]
+        [Button("生成RawHexMapSO", ButtonSizes.Medium)]
+        private void GenerateRawHexMap() {
+
+            HeightDataManager heightDataManager = new HeightDataManager();
+            heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize, hexSet, rawHexMapSO);
+
+            rawHexMapSO = CreateInstance<RawHexMapSO>();
+            rawHexMapSO.InitRawHexMap(EditorSceneManager.hexSet.mapWidth, EditorSceneManager.hexSet.mapHeight);
+            HexCtor.GenerateRawHexMap(startLongitudeLatitude, rawHexMapSO, heightDataManager);
+
+        }
+
+        [FoldoutGroup("构建地形-Hex流程")]
+        [Button("生成RawHexMap纹理", ButtonSizes.Medium)]
+        private void GenerateRawHexTexture() {
+            if (rawHexMapSO == null) {
+                Debug.LogError("rawHexMapSO is null!");
+                return;
+            }
+
+            rawHexMapTexture = new Texture2D(rawHexMapSO.width, rawHexMapSO.height);
+            foreach (var gridTerrainData in rawHexMapSO.HexMapGridTersList) {
+                Vector2Int pos = gridTerrainData.GetHexPos();
+                Color color = gridTerrainData.GetTerrainColor();
+                // TODO : 下面的生成步骤还是有问题！没有照顾到 hex 坐标的特性
+                //Vector2Int fixed_pos = new Vector2Int(rawHexMapTexture.width - pos.x, rawHexMapTexture.height - pos.y);
+                //Vector2Int fixed_pos = new Vector2Int(pos.x, rawHexMapTexture.height - pos.y);
+                //Vector2Int fixed_pos = new Vector2Int(rawHexMapTexture.width - pos.x, pos.y);
+                //Vector2Int fixed_pos = new Vector2Int(pos.y, pos.x);
+                Vector2Int fixed_pos = new Vector2Int(pos.x, pos.y);
+                rawHexMapTexture.SetPixel(fixed_pos.x, fixed_pos.y, color);
+            }
+            Debug.Log($"generate hex texture : {rawHexMapTexture.width}x{rawHexMapTexture.height}");
+        }
+
+        [FoldoutGroup("构建地形-Hex流程")]
+        [Button("保存RawHexMapSO", ButtonSizes.Medium)]
+        private void SaveRawHexMap() {
+
+            CheckExportPath();
+            string soName = $"RawHexMap_{rawHexMapSO.width}x{rawHexMapSO.height}_{UnityEngine.Random.Range(0, 100)}.asset";
+            string RawHexPath = exportHexMapSOPath + $"/{soName}";
+            AssetDatabase.CreateAsset(rawHexMapSO, RawHexPath);
+            Debug.Log($"successfully create Hex Map, path : {RawHexPath}");
+        }
+
+        [FoldoutGroup("构建地形-Hex流程")]
+        [Button("保存RawHexMap纹理", ButtonSizes.Medium)]
+        private void SaveRawHexTexture() {
+            if (rawHexMapTexture == null) {
+                Debug.LogError("rawHexMapTexture is null!");
+                return;
+            }
+
+            CheckExportPath();
+            string textureName = $"hexTexture_{rawHexMapTexture.width}x{rawHexMapTexture.height}_{UnityEngine.Random.Range(0, 100)}";
+            TextureUtility.GetInstance().SaveTextureAsAsset(exportHexMapSOPath, textureName, rawHexMapTexture);
+        }
+
+        private void CheckExportPath() {
+            string mapSOFolerName = AssetsUtility.GetInstance().GetFolderFromPath(exportHexMapSOPath);
+            if (!AssetDatabase.IsValidFolder(exportHexMapSOPath)) {
+                AssetDatabase.CreateFolder(MapStoreEnum.TerrainRootPath, mapSOFolerName);
+            }
+        }
+
+
+        [FoldoutGroup("构建地形-Hex流程")]
         [Button("生成Hex版本Terrain", ButtonSizes.Medium)]
         private void GenerateTerrainByHex() {
-            if (hexSet == null) {
+            if (EditorSceneManager.hexSet == null) {
                 Debug.LogError("hex Set is null!");
                 return;
             }
@@ -215,9 +253,12 @@ namespace LZ.WarGameMap.MapEditor
                 Debug.LogError("TerrainCtor is null!");
                 return;
             }
+            //if () {
+            //}
+
             rawHexMapSO.UpdateGridTerrainData();
-            TerrainCtor.InitHexCons(hexSet, rawHexMapSO);
-            TerrainCtor.BuildCluster(curClusterIdx_Hex.x, curClusterIdx_Hex.y, -1, -1);
+            //TerrainCtor.InitHexCons(EditorSceneManager.hexSet, rawHexMapSO);      // change to hex mat
+            TerrainCtor.BuildCluster(curClusterIdx_Hex.x, curClusterIdx_Hex.y); // ?
             // Terrain的size和hexmap的size不一定要对应
             // 第一步：继续按TerrainCtor的方式去生成 TerrainMesh（cluster-tile的结构）
             // 第二步：遍历生成mesh的时候，找到该点对应的hex格子
@@ -227,6 +268,7 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
+        // TODO : UNCOMPLETE
         #region 地形网格持久化
 
 
@@ -244,7 +286,7 @@ namespace LZ.WarGameMap.MapEditor
 
 
         [FoldoutGroup("地形网格持久化")]
-        [Button("导出地形为网格", ButtonSizes.Medium)]
+        [Button("导出当前地形为网格", ButtonSizes.Medium)]
         private void ExportTerrainAsMesh() {
             if (TerrainCtor == null) {
                 Debug.LogError("terrian ctor is null!");
@@ -257,17 +299,28 @@ namespace LZ.WarGameMap.MapEditor
             TDList<TerrainCluster> clusters = TerrainCtor.ClusterList;
             int terrainWidth = clusters.GetLength(1);
             int terrainHeight = clusters.GetLength(0);
-            int clusterNums = clusters.GetLength(0) * clusters.GetLength(1);
 
-            string outputFile = AssetsUtility.GetInstance().CombinedPath(exportHandleMeshPath,
-                GetMeshDataName(terrainWidth, terrainHeight, clusterNums));
+            int exportClusterNum = 0;
+            for (int i = 0; i < terrainWidth; i++) {
+                for (int j = 0; j < terrainHeight; j++) {
+                    TerrainCluster cluster = clusters[i, j];
+                    if (!cluster.IsLoaded) {
+                        continue;
+                    }
 
-            // NOTE : 用这个方法导出的文件一个cluster有100mb，引以为戒
-            //ExportTerrainAsMesh_Obj(outputFile);
-            ExportTerrainAsMesh_Binary(outputFile);
+                    Vector2Int LL = new Vector2Int(cluster.longitude, cluster.latitude);
+                    string outputFile = AssetsUtility.GetInstance().CombinedPath(exportHandleMeshPath,
+                        GetMeshDataName(terrainWidth, terrainHeight, LL));
+
+                    // NOTE : 用这个方法导出的文件一个cluster有80mb，引以为戒
+                    //ExportTerrainAsMesh_Obj(outputFile);
+                    ExportTerrainAsMesh_Binary(i, j, cluster, outputFile);
+                    exportClusterNum++;
+                }
+            }
 
             stopwatch.Stop();
-            Debug.Log($"terrain mesh data has been added to: {outputFile}, cost : {stopwatch.ElapsedMilliseconds} ms");
+            Debug.Log($"{exportClusterNum} cluster terrain mesh has been exported to: {exportHandleMeshPath}, cost : {stopwatch.ElapsedMilliseconds} ms");
         }
 
         private void ExportTerrainAsMesh_Obj(string outputFile) {
@@ -290,7 +343,7 @@ namespace LZ.WarGameMap.MapEditor
 
                 for (int i = 0; i < terrainWidth; i++) {
                     for (int j = 0; j < terrainHeight; j++) {
-                        if (!clusters[i, j].IsValid) {
+                        if (!clusters[i, j].IsLoaded) {
                             continue;
                         }
 
@@ -320,7 +373,7 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
-        private void ExportTerrainAsMesh_Binary(string outputFile) {
+        private void ExportTerrainAsMesh_Binary(int i, int j, TerrainCluster cluster, string outputFile) {
 
             using (FileStream fs = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write))
             using (BufferedStream bufferedStream = new BufferedStream(fs))
@@ -333,34 +386,31 @@ namespace LZ.WarGameMap.MapEditor
                 // write cur terrainSetting to file
                 terSet.GetTerrainSetting().WriteToBinary(writer);
 
-                int validClusterNum = TerrainCtor.GetValidClusterNum();
+                // NOTE : 当需要修改每个文件的cls数目时，操作这里
+                //int validClusterNum = TerrainCtor.GetValidClusterNum();
+                int validClusterNum = 1;
                 writer.Write(validClusterNum);
 
                 TDList<TerrainCluster> clusters = TerrainCtor.ClusterList;
                 int terrainWidth = clusters.GetLength(1);
                 int terrainHeight = clusters.GetLength(0);
 
-                for (int i = 0; i < terrainWidth; i++) {
-                    for (int j = 0; j < terrainHeight; j++) {
-                        // write cluster setting to file
-                        clusters[i, j].WriteToBinary(writer);
-                        TerrainCtor.ImportClusterToBinary(i, j, writer);
-                        writer.Flush();
-                    }
-                }
+                cluster.WriteToBinary(writer);
+                TerrainCtor.ImportClusterToBinary(i, j, writer);
+                writer.Flush();
             }
             AssetDatabase.Refresh();
         }
 
-        private string GetMeshDataName(int terrainWidth, int terrainHeight, int clusterNum) {
+        private string GetMeshDataName(int terrainWidth, int terrainHeight, Vector2Int LL) {
             DateTime dateTime = DateTime.Now;
             long timeSign = dateTime.Ticks / 1000;
-            return string.Format("TerrainMesh_{0}x{1}_{2}Clusters_{3}", terrainWidth, terrainHeight, clusterNum, timeSign);
+            return string.Format("ClusterMesh_n{0}_e{1}_MapSize{2}x{3}_{4}", LL.x, LL.y, terrainWidth, terrainHeight, timeSign);
         }
 
 
         [FoldoutGroup("地形网格持久化")]
-        [Button("导入网格到地形", ButtonSizes.Medium)]
+        [Button("导入网格到当前地形", ButtonSizes.Medium)]
         private void ImportMeshToTerrain() {
             if (TerrainCtor == null) {
                 Debug.LogError("terrian ctor is null!");
@@ -397,7 +447,8 @@ namespace LZ.WarGameMap.MapEditor
                 int terrainWidth = trSet.terrainSize.x;
                 int terrainHeight = trSet.terrainSize.z;
 
-                TerrainCtor.InitHeightCons(trSet, heightDataModels);
+                // TODO : hexSet 也要从 持久化文件里面读取
+                TerrainCtor.InitTerrainCons(mapSet, trSet, hexSet, heightDataModels, rawHexMapSO, terMaterial);
 
                 int validClusterNum = reader.ReadInt32();
                 for (int i = 0; i < validClusterNum; i++) {
@@ -422,7 +473,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            curHandleMeshPath = AssetsUtility.GetInstance().TransToAssetPath(meshPath);
+            curHandleMeshPath = AssetsUtility.TransToAssetPath(meshPath);
             curHandleTerrainMeshDatas = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(curHandleMeshPath);
             if (curHandleTerrainMeshDatas == null) {
                 Debug.LogError(string.Format("can not load terrain mesh data from this path: {0}", curHandleMeshPath));
@@ -452,6 +503,7 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
+        // TODO : UNCOMPLETE
         #region 地形减面
 
         [FoldoutGroup("地形减面")]

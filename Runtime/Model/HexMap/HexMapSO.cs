@@ -11,6 +11,7 @@ namespace LZ.WarGameMap.Runtime
 {
     [Serializable]
     public class RawHexMapSO : ScriptableObject {
+        // RawHexMapSO : 用于编辑 六边形的地图，它会根据输入的高度图来构建Hex地图各个格子的数据，再用于制作地形
 
         public int width;
 
