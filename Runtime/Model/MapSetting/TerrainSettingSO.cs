@@ -71,13 +71,10 @@ namespace LZ.WarGameMap.Runtime {
             this.tileSize = tileSize;
         }
 
-        public override string ToString() {
-            return $"{LODLevel},{terrainSize.ToStringFixed()},{clusterSize},{tileSize}";
-        }
-
         public void WriteToBinary(BinaryWriter writer) {
             writer.Write(LODLevel);
             writer.Write(terrainSize.ToStringFixed());
+            writer.Write(startLL.ToStringFixed());
             writer.Write(clusterSize);
             writer.Write(tileSize);
         }
@@ -85,9 +82,28 @@ namespace LZ.WarGameMap.Runtime {
         public void ReadFromBinary(BinaryReader reader) {
             LODLevel = reader.ReadInt32();
             terrainSize = reader.ReadString().ToVector3Int();
+            startLL = reader.ReadString().ToVector2Int();
             clusterSize = reader.ReadInt32();
             tileSize = reader.ReadInt32();
         }
+
+
+        public override string ToString() {
+            return $"{LODLevel},{terrainSize.ToStringFixed()},{startLL.ToStringFixed()},{clusterSize},{tileSize}";
+        }
+
+        public static bool operator ==(TerrainSetting x, TerrainSetting y) {
+            return (x.LODLevel == y.LODLevel)
+                && (x.terrainSize == y.terrainSize)
+                && (x.startLL == y.startLL)
+                && (x.clusterSize == y.clusterSize)
+                && (x.tileSize == y.tileSize);
+        }
+
+        public static bool operator !=(TerrainSetting x, TerrainSetting y) {
+            return !(x == y);
+        }
+
 
     }
 }

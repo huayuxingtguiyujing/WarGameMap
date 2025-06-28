@@ -1,14 +1,17 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace LZ.WarGameMap.Runtime
 {
 
-    public class TerrainMeshData : IBinarySerializer {
+    public class TerrainMeshData : IBinarySerializer, IDisposable {
 
+        public int tileIdxX { get; private set; }
+        public int tileIdxY { get; private set; }
         public int curLODLevel { get; private set; }
 
         Vector3[] vertexs = new Vector3[1];
@@ -25,6 +28,8 @@ namespace LZ.WarGameMap.Runtime
         private Vector3[] fixedVertexs = new Vector3[1];
         private Vector3[] fixedOutMeshVertexs = new Vector3[1];
 
+        List<int> edgeVertIdxs;                             // storage the vertex indice on egde
+
         private int triangleIndex = 0;
         private int outOfMeshTriangleIndex = 0;
         private int vertexPerLine;
@@ -32,7 +37,11 @@ namespace LZ.WarGameMap.Runtime
 
         Mesh tileMesh;
 
-        public void InitMeshData(int lodLevel, int gridNumPerLine, int gridNumPerLineFixed, int vertexPerLine, int vertexPerLineFixed) {
+
+        public void InitMeshData(int tileIdxX, int tileIdxY, int lodLevel, int gridNumPerLine, int gridNumPerLineFixed, int vertexPerLine, int vertexPerLineFixed) {
+            this.tileIdxX = tileIdxX;
+            this.tileIdxY = tileIdxY;
+
             this.curLODLevel = lodLevel;
             this.vertexPerLine = vertexPerLine;
             this.vertexPerLineFixed = vertexPerLineFixed;
@@ -50,6 +59,14 @@ namespace LZ.WarGameMap.Runtime
 
             triangleIndex = 0;
             outOfMeshTriangleIndex = 0;
+        }
+
+        public void Dispose() {
+#if UNITY_EDITOR
+            UnityEngine.Object.DestroyImmediate(tileMesh);
+#else
+            UnityEngine.Object.Destroy(tileMesh);
+#endif
         }
 
 
@@ -78,6 +95,12 @@ namespace LZ.WarGameMap.Runtime
                 outOfMeshTriangles[outOfMeshTriangleIndex + 2] = c;
                 outOfMeshTriangleIndex += 3;
             } else {
+                if (triangleIndex == 391684 || triangleIndex == 391680 || triangleIndex == 391681 || triangleIndex == 391682 || triangleIndex == 391683) {
+                    int test = 1;
+                }
+                if (triangleIndex == 1533) {
+                    int test = 1;
+                }
                 triangles[triangleIndex] = a;
                 triangles[triangleIndex + 1] = b;
                 triangles[triangleIndex + 2] = c;
@@ -190,9 +213,15 @@ namespace LZ.WarGameMap.Runtime
             return Vector3.Cross(sideAB, sideAC).normalized;
         }
 
-        public void BuildMesh(int tileIdxX, int tileIdxY) {
-            tileMesh = new Mesh();
-            tileMesh.name = string.Format("TerrainMesh_LOD{0}_Idx{1}_{2}", curLODLevel, tileIdxX, tileIdxY);
+        public void BuildOriginMesh() {
+            if(tileMesh == null) {
+                tileMesh = new Mesh();
+                tileMesh.name = string.Format("TerrainMesh_LOD{0}_Idx{1}_{2}", curLODLevel, tileIdxX, tileIdxY);
+
+                if (vertexs.Length >= UInt16.MaxValue) {
+                    tileMesh.indexFormat = IndexFormat.UInt32;
+                }
+            }
 
             tileMesh.vertices = vertexs;
             tileMesh.normals = normals;
@@ -204,11 +233,21 @@ namespace LZ.WarGameMap.Runtime
         #endregion
 
 
+        public void SetMesh(Mesh mesh) {
+            GameObject.DestroyImmediate(tileMesh);
+            tileMesh = mesh;
+        }
+
+
         #region mesh data get/set
 
-        public void GetEdgeVertInfo(ref List<int> edgeVertIdxs, ref List<Vector3> edgeRawNormals) {
-            edgeVertIdxs = new List<int>();
-            edgeRawNormals = new List<Vector3>();
+        public void UpdateEdgeVertInfoByOrigin(List<Vector3> edgeRawNormals) {
+            if(edgeVertIdxs != null) {
+                return;
+            }
+
+            edgeVertIdxs = new List<int>(); 
+            edgeRawNormals = new List<Vector3>();       // NOTE : 不需要传入 normal数组
 
             // firstly, we caculate the contribute of the outOfVert to the edgeNormals
             int borderTriangleCount = outOfMeshTriangles.Length / 3;
@@ -249,6 +288,14 @@ namespace LZ.WarGameMap.Runtime
                 edgeRawNormals.Add(rawNormals[vertexIndiceMap[1, i]]);
                 edgeRawNormals.Add(rawNormals[vertexIndiceMap[width - 2, i]]);
             }
+        }
+
+        public List<int> GetEdgeVertInfo() {
+            return this.edgeVertIdxs;
+        }
+
+        public void SetEdgeVertInfo(List<int> edgeVertIdxs) {
+            this.edgeVertIdxs = edgeVertIdxs;
         }
 
         public Mesh GetMesh_LODHeight() {

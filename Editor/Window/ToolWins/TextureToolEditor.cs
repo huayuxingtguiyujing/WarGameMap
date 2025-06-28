@@ -6,8 +6,11 @@ using System.ComponentModel;
 using System.IO;
 using Unity.Collections;
 using Unity.Jobs;
+using UnityEditor;
 using UnityEngine;
+using static Codice.CM.WorkspaceServer.WorkspaceTreeDataStore;
 using static LZ.WarGameMap.MapEditor.HexmapEditor;
+using MeshUtility = LZ.WarGameMap.Runtime.MeshUtility;
 using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
 
 namespace LZ.WarGameMap.MapEditor
@@ -15,6 +18,10 @@ namespace LZ.WarGameMap.MapEditor
     public class TextureToolEditor : BaseMapEditor {
         public override string EditorName => MapEditorEnum.TextureToolEditor;
 
+        protected override void InitEditor() {
+            base.InitEditor();
+            TerrainCtor = EditorSceneManager.TerrainCtor;
+        }
 
         #region 纹理图集生成
 
@@ -161,6 +168,42 @@ namespace LZ.WarGameMap.MapEditor
             // TODO : save to asset path
         }
 
+        #endregion
+
+        #region 地形mesh处理
+
+        TerrainConstructor TerrainCtor;
+
+        [FoldoutGroup("地形网格持久化")]
+        [LabelText("导出文件路径")]
+        public string exportTerMeshPath = MapStoreEnum.TerrainMeshAssetPath;
+
+        [FoldoutGroup("地形网格持久化")]
+        [Button("存储地块0x0-0x0的mesh文件", ButtonSizes.Medium)]
+        private void SaveMesh0_0() {
+            if (TerrainCtor == null) {
+                Debug.LogError("terrian ctor is null!");
+                return;
+            }
+
+            Mesh mesh = TerrainCtor.GetTerTileMesh(5, 0, 0, 0, 0);
+            if (mesh == null) {
+                Debug.LogError("can not create, mesh is null!");
+                return;
+            }
+
+            string meshName = "mesh_lod5_0x0_0x0.asset";
+            AssetDatabase.CreateAsset(mesh, $"{exportTerMeshPath}/{meshName}");
+
+            string txtName = "mesh_lod5_0x0_0x0.obj";
+            string fullPath = AssetsUtility.AssetToFullPath($"{exportTerMeshPath}/{txtName}");
+            Directory.CreateDirectory(Path.GetDirectoryName(fullPath));
+            File.WriteAllText(fullPath, MeshUtility.MeshToString(mesh, meshName));
+
+            AssetDatabase.Refresh();
+            Debug.Log($"create mesh and obj txt over!");
+        }
+        
         #endregion
 
     }

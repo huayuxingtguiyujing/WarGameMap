@@ -29,7 +29,7 @@ namespace LZ.WarGameMap.MapEditor {
         [FoldoutGroup("配置scene", -1)]
         [Button("初始化地形配置", ButtonSizes.Medium)]
         protected virtual void InitEditor() {
-            sceneManager = EditorSceneManager.GetInstance();
+            //sceneManager = EditorSceneManager.GetInstance();
             notInitScene = false;
         }
 

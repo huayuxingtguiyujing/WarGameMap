@@ -76,7 +76,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("Editor 场景配置")]
         [LabelText("Terrain Mesh 文件夹路径")]
-        public string clsMeshDataPath = MapStoreEnum.TerrainMeshPath;
+        public string clsMeshDataPath = MapStoreEnum.TerrainMeshSerializedPath;
 
         [FoldoutGroup("Editor 场景配置")]
         [Button("一键导入所有 Terrain Mesh 数据", ButtonSizes.Medium)]

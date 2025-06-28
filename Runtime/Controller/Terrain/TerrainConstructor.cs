@@ -2,6 +2,7 @@ using LZ.WarGameCommon;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using UnityEditor.PackageManager;
 using UnityEngine;
 using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
 
@@ -121,6 +122,13 @@ namespace LZ.WarGameMap.Runtime
         public void ClearClusterObj() {
             terrainWidth = 0;
             terrainHeight = 0;
+
+            if(clusterList != null) {
+                foreach (var cluster in clusterList) {
+                    cluster.Dispose();
+                }
+            }
+            
             heightClusterParent.ClearObjChildren();
             hasInit = false;    // clear 之后回归未初始化状态
         }
@@ -187,7 +195,7 @@ namespace LZ.WarGameMap.Runtime
 
         #region runtime updating
 
-        public Vector2Int preCameraIdx = new Vector2Int(-100, -100);   // TODO : 初值可能出问题
+        public Vector3Int preCameraIdx = new Vector3Int(-100, 0, -100);   // NOTE : x z is idx, y is the curLODLevel
 
         public HashSet<Vector2Int> preClusterIdxSet = new HashSet<Vector2Int>();
 
@@ -196,16 +204,20 @@ namespace LZ.WarGameMap.Runtime
                 Debug.LogError("cons do not init!");
                 return; 
             }
+            if (clusterList == null) {
+                Debug.LogError("cluster list is null!");
+                return;
+            }
 
             Vector3 cameraPos = Camera.main.transform.position;
             int cameraIdxX = (int)(cameraPos.x / terSet.clusterSize);
             int cameraIdxY = (int)(cameraPos.z / terSet.clusterSize);
-            Vector2Int curCameraIdx = new Vector2Int(cameraIdxX, cameraIdxY);
+            // get the current LOD level
+            float ratio = cameraPos.y / mapSet.MeshFadeDistance;
+            int distanceLevel = (int)(terSet.LODLevel * ratio);
+            int curLODLevel = terSet.LODLevel - distanceLevel - 1;
 
-            if(clusterList == null) {
-                Debug.LogError("cluster list is null!");
-                return;
-            }
+            Vector3Int curCameraIdx = new Vector3Int(cameraIdxX, curLODLevel, cameraIdxY);
             if (curCameraIdx == preCameraIdx && preClusterIdxSet != null && preClusterIdxSet.Count > 0) {
                 // if camera-cluster do not change and pre cls is not null, then return
                 return;
@@ -215,7 +227,7 @@ namespace LZ.WarGameMap.Runtime
             HashSet<Vector2Int> newScopeCls = new HashSet<Vector2Int>();
 
             for (int i = Mathf.Max(0, curCameraIdx.x - aoiScope); i <= Mathf.Min(terrainWidth - 1, curCameraIdx.x + aoiScope); i++) {
-                for (int j = Mathf.Max(0, curCameraIdx.y - aoiScope); j <= Mathf.Min(terrainHeight - 1, curCameraIdx.y + aoiScope); j++) {
+                for (int j = Mathf.Max(0, curCameraIdx.z - aoiScope); j <= Mathf.Min(terrainHeight - 1, curCameraIdx.z + aoiScope); j++) {
                     newScopeCls.Add(new Vector2Int(i, j));
                 }
             }
@@ -242,30 +254,30 @@ namespace LZ.WarGameMap.Runtime
                     clusterList[idx.x, idx.y].HideTerrainCluster();
                 }
             }
-                
+
             // show all cluster in list
-            foreach (var idx in shouldShowIdxs) {
+            foreach (var idx in newScopeCls) {
                 if (idx.x < 0 || idx.x >= terrainHeight || idx.y < 0 || idx.y >= terrainWidth) {
                     continue;
                 }
                 TerrainCluster cluster = clusterList[idx.x, idx.y];
                 if (cluster.IsLoaded) {
                     if(mapSet.lodSwitchMethod == LODSwitchMethod.Height) {
-                        UpdateTerrain_LODHeight(cameraPos.y, cluster);
+                        UpdateTerrain_LODHeight(curLODLevel, cluster);
                     } else if (mapSet.lodSwitchMethod == LODSwitchMethod.Distance) {
                         UpdateTerrain_LODDistance(cameraPos, cluster);
                     }
                 }
             }
+            // do not delete!
+            //DebugHashSet(newScopeCls, "new-scope");
+            //DebugHashSet(preClusterIdxSet, "pre-scope");
+            //DebugHashSet(shouldHideIdxs, "hide");
+            //DebugHashSet(shouldShowIdxs, "show");
 
-            DebugHashSet(newScopeCls, "new-scope");
-            DebugHashSet(preClusterIdxSet, "pre-scope");
-            DebugHashSet(shouldHideIdxs, "hide");
-            DebugHashSet(shouldShowIdxs, "show");
-
-            preCameraIdx = new Vector2Int(cameraIdxX, cameraIdxY);
+            preCameraIdx = new Vector3Int(cameraIdxX, curLODLevel, cameraIdxY);
             preClusterIdxSet = newScopeCls;
-            Debug.Log(string.Format("cur camera cls idx : {0}, hide cluster : {1}, show cluster {2}, load cluster {3}", curCameraIdx, shouldHideIdxs.Count, shouldShowIdxs.Count, 0));
+            Debug.Log(string.Format("cur camera cls idx : {0}, cur LOD : {1}, hide cluster : {2}, show cluster {3}, load cluster {4}", curCameraIdx, curLODLevel, shouldHideIdxs.Count, shouldShowIdxs.Count, 0));
         }
 
         private void DebugHashSet(HashSet<Vector2Int> sets, string name) {
@@ -277,43 +289,55 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log($"{name} hashSet content : {stringBuilder.ToString()}");
         }
 
-        private void UpdateTerrain_LODHeight(float cameraHeight, TerrainCluster cluster) {
+        private int UpdateTerrain_LODHeight(int curLODLevel, TerrainCluster cluster) {
             int x = cluster.idxX;
             int y = cluster.idxY;
-            cluster.UpdateTerrainCluster_LODHeight(cameraHeight, mapSet.MeshFadeDistance, terSet.LODLevel);
+            return cluster.UpdateTerrainCluster_LODHeight(curLODLevel, terSet.LODLevel);
         }
 
         private void UpdateTerrain_LODDistance(Vector3 cameraPos, TerrainCluster cluster) {
             int x = cluster.idxX;
             int y = cluster.idxY;
 
-            int leftIdx = x - 1;
-            int rightIdx = x + 1;
-            int upIdx = y + 1;
-            int downIdx = y - 1;
-
-            int[,] direction = new int[4, 2]{
-                    {leftIdx, y},{rightIdx, y}, {x, upIdx}, {x, downIdx}
-                };
-
+            //int leftIdx = x - 1;
+            //int rightIdx = x + 1;
+            //int upIdx = y + 1;
+            //int downIdx = y - 1;
+            //int[,] direction = new int[4, 2]{
+            //    {leftIdx, y},{rightIdx, y}, {x, upIdx}, {x, downIdx}
+            //};
             //  find neighbours, the sequence is : left, right, up, down;
-            List<TerrainCluster> terrainClusters = new List<TerrainCluster>(4) { null, null, null, null };
-            for (int i = 0; i < 4; i++) {
-                int neighborX = direction[i, 0];
-                int neighborY = direction[i, 1];
-                if (clusterList.IsValidIndex(neighborX, neighborY) && clusterList[neighborX, neighborY].IsLoaded) {
-                    terrainClusters[i] = clusterList[neighborX, neighborY];
-                }
-            }
+            //List<TerrainCluster> terrainClusters = new List<TerrainCluster>(4) { null, null, null, null };
+            //for (int i = 0; i < 4; i++) {
+                //int neighborX = direction[i, 0];
+                //int neighborY = direction[i, 1];
+                //if (clusterList.IsValidIndex(neighborX, neighborY) && clusterList[neighborX, neighborY].IsLoaded) {
+                    //terrainClusters[i] = clusterList[neighborX, neighborY];
+                //}
+            //}
             // TODO : fullLodLevelMap 
-            TDList<int> fullLodLevelMap = clusterList[x, y].GetFullLODLevelMap(cameraPos,
-                terrainClusters[0], terrainClusters[1], terrainClusters[2], terrainClusters[3]);
+            TDList<int> fullLodLevelMap = clusterList[x, y].GetFullLODLevelMap(cameraPos);
+            // i dont know why there need clusters as params
+            // , terrainClusters[0], terrainClusters[1], terrainClusters[2], terrainClusters[3]
             cluster.UpdateTerrainCluster_LODDistance(fullLodLevelMap);
         }
 
         #endregion
 
+        public Mesh GetTerTileMesh(int lodLevel, int clusterX, int clusterY, int tileX, int tileY) {
+            TerrainCluster cluster = GetTerrainCluster(clusterX, clusterY);
+            if(cluster == null) {
+                Debug.LogError("can not get cluster!");
+                return null;
+            }
+            return cluster.GetTileMesh(lodLevel, tileX, tileY);
+        }
+
         public TerrainCluster GetTerrainCluster(int i, int j) {
+            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
+                Debug.LogError($"wrong index when get cluster : {i}, {j}");
+                return null;
+            }
             return clusterList[i, j];
         }
 

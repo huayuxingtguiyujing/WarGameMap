@@ -2,11 +2,13 @@ using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
+using System.Diagnostics;
+using System.Threading.Tasks;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEditor;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
 
 namespace LZ.WarGameMap.MapEditor
@@ -144,11 +146,16 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         [FoldoutGroup("构建地貌贴图")]
-        [Button("导出地貌纹理图", ButtonSizes.Medium)]
+        [Button("导出地貌纹理图_加速版本", ButtonSizes.Medium)]
         private void ExportLandFormTex() {
             if(curHandleLandformTex != null) {
                 UnityEngine.Object.DestroyImmediate(curHandleLandformTex);
             }
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            Debug.Log("now start generate landform texture");
 
             HeightDataManager heightDataManager = new HeightDataManager();
             heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize, null, null);
@@ -160,35 +167,37 @@ namespace LZ.WarGameMap.MapEditor
             curHandleLandformTex = new Texture2D(ExpTexResolution, ExpTexResolution, TextureFormat.RGB24, false);
             Color[] colors = curHandleLandformTex.GetPixels();
 
-            // TODO : 如果超出，就生成多张地貌图！（每个cluster要对应一张贴图，后面还可以用来做 VT）
-            for (int i = 0; i < ExpTexResolution; i++) {
-                for (int j = 0; j < ExpTexResolution; j++) {
-                    Vector3 vertPos = new Vector3(i, 0, j);
-
-                    if (openNoise) {
-                        float noise = (perlinNoise.SampleNoise(vertPos) - noiseOffset);
-                        vertPos = new Vector3(vertPos.x, 0, vertPos.z);
-                        vertPos.x += (int)(noise * noiseIntense);
-                        vertPos.z += (int)(noise * noiseIntense);
-                    }
-
-                    vertPos.y = heightDataManager.SampleFromHeightData(startLongitudeLatitude, vertPos);
-
-                    int idx;
-                    if (ExportFlipVertically) {
-                        idx = j * ExpTexResolution + i;
-                    } else {
-                        idx = i * ExpTexResolution + j;
-                    }
-                    Color color = GetColorByHeight(vertPos.y);
-                    idx = Mathf.Clamp(idx, 0, ExpTexResolution * ExpTexResolution - 1);
-                    colors[idx] = color;
+            Action<int> exeLanformPlant = (idx) => {
+                int i;
+                int j;
+                if (ExportFlipVertically) {
+                    i = idx % ExpTexResolution;
+                    j = idx / ExpTexResolution;
+                } else {
+                    j = idx % ExpTexResolution;
+                    i = idx / ExpTexResolution;
                 }
-            }
+
+                Vector3 vertPos = new Vector3(i, 0, j);
+
+                if (openNoise) {
+                    float noise = (perlinNoise.SampleNoise(vertPos) - noiseOffset);
+                    vertPos = new Vector3(vertPos.x, 0, vertPos.z);
+                    vertPos.x += (int)(noise * noiseIntense);
+                    vertPos.z += (int)(noise * noiseIntense);
+                }
+
+                vertPos.y = heightDataManager.SampleFromHeightData(startLongitudeLatitude, vertPos);
+
+                Color color = GetColorByHeight(vertPos.y);
+                idx = Mathf.Clamp(idx, 0, ExpTexResolution * ExpTexResolution - 1);
+                colors[idx] = color;
+            };
+
+            Parallel.For(0, ExpTexResolution * ExpTexResolution, exeLanformPlant);
 
             NativeArray<Color> originColors = new NativeArray<Color>(colors, Allocator.TempJob);
             NativeArray<Color> targetColors = new NativeArray<Color>(ExpTexResolution * ExpTexResolution, Allocator.TempJob);
-
             if (openLerp) {
                 // 额外的平滑处理
                 LerpLandformJob lerpLandformJob = new LerpLandformJob() {
@@ -208,7 +217,11 @@ namespace LZ.WarGameMap.MapEditor
             originColors.Dispose();
             targetColors.Dispose();
 
-            Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}", ExpTexResolution));
+            stopwatch.Stop();
+            Debug.Log(string.Format("successfully generate texture, resolution : {0}x{0}, cost {1} ms", ExpTexResolution, stopwatch.ElapsedMilliseconds));
+            
+            // it cant work!
+            //LightThreadPool.ScheduleTask(16, ExpTexResolution * ExpTexResolution, exeLanformPlant, exelerp);
         }
 
         private Color GetColorByHeight(float height) {

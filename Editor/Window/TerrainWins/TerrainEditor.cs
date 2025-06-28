@@ -30,12 +30,12 @@ namespace LZ.WarGameMap.MapEditor
         //public GameObject SignPrefab;
 
         protected override void InitEditor() {
+            base.InitEditor();
             TerrainCtor = EditorSceneManager.TerrainCtor;
             HexCtor = EditorSceneManager.HexCtor;
 
             // read terrain Setting from path
             InitMapSetting();
-            base.InitEditor();
         }
         
         protected override void InitMapSetting() {
@@ -138,6 +138,7 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             TerrainCtor.ClearClusterObj();
+            Debug.Log("clear ter cluster over");
         }
 
         #endregion
@@ -282,7 +283,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("地形网格持久化")]
         [LabelText("导出地形Mesh的路径")]
-        public string exportHandleMeshPath = MapStoreEnum.TerrainMeshPath;
+        public string exportHandleMeshPath = MapStoreEnum.TerrainMeshSerializedPath;    // TerrainMeshAssetPath
 
 
         [FoldoutGroup("地形网格持久化")]
@@ -524,7 +525,7 @@ namespace LZ.WarGameMap.MapEditor
         private void ExeMeshReduction() {
             // NOTE : qem: https://zhuanlan.zhihu.com/p/547256817
             if (TerrainCtor == null) {
-                Debug.LogError("terrian ctor is null!");
+                Debug.LogError($"terrian ctor is null, static ctor statu: {EditorSceneManager.TerrainCtor != null}!");
                 return;
             }
             TerrainCtor.ExeSimplify(simplifyClsIdx.x, simplifyClsIdx.y, simplifyTileIdx.x, simplifyTileIdx.y, simplifyTarget);

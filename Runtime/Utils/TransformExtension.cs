@@ -16,10 +16,18 @@ namespace LZ.WarGameMap.Runtime {
         public static string ToStringFixed(this Vector3Int target) {
             return $"{target.x},{target.y},{target.z}";
         }
+        public static string ToStringFixed(this Vector2Int target) {
+            return $"{target.x},{target.y}";
+        }
 
         public static Vector3Int ToVector3Int(this string target) {
             string[] strs = target.Split(',');
             return new Vector3Int(Convert.ToInt32(strs[0]), Convert.ToInt32(strs[1]) , Convert.ToInt32(strs[2]));
+        }
+
+        public static Vector2Int ToVector2Int(this string target) {
+            string[] strs = target.Split(',');
+            return new Vector2Int(Convert.ToInt32(strs[0]), Convert.ToInt32(strs[1]));
         }
 
         public static string ToStringFixed(this Vector2 target) {

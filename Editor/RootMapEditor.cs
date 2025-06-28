@@ -78,10 +78,10 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             // common tools
-            if (!decorateFileNames.Contains(MapEditorEnum.TextureToolEditor)) {
+            if (!toolFileNames.Contains(MapEditorEnum.TextureToolEditor)) {
                 CreateWindowObj<TextureToolEditor>(MapEditorClass.ToolClass);
             }
-            if (!decorateFileNames.Contains(MapEditorEnum.NoiseToolEditor)) {
+            if (!toolFileNames.Contains(MapEditorEnum.NoiseToolEditor)) {
                 CreateWindowObj<NoiseToolEditor>(MapEditorClass.ToolClass);
             }
 
@@ -197,9 +197,9 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             // destroy Gizmos
-            GizmosCtrl.GetInstance().UnregisterGizmosAll();
+            //GizmosCtrl.GetInstance().UnregisterGizmosAll();
             GizmosCtrl.GetInstance().Dispose();
-
+            EditorSceneManager.Dispose();
             base.OnDestroy();
         }
 

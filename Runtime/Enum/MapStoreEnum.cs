@@ -17,7 +17,9 @@ namespace LZ.WarGameMap.Runtime {
         // 地形相关
         public const string TerrainRootPath = "Assets/WarGameMap/Terrain";
 
-        public const string TerrainMeshPath = "Assets/WarGameMap/Terrain/TerrainMeshs";
+        public const string TerrainMeshSerializedPath = "Assets/WarGameMap/Terrain/TerrainMeshsSerl";
+
+        public const string TerrainMeshAssetPath = "Assets/WarGameMap/Terrain/TerrainMeshs";
 
         public const string TerrainTexArrayPath = "Assets/WarGameMap/Terrain/Texture/Terrain";
 

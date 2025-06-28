@@ -1,8 +1,11 @@
-﻿using NUnit.Framework;
+﻿using Codice.Client.Common;
+using NUnit.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
+using static Codice.Client.Common.WebApi.WebApiEndpoints;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -57,10 +60,10 @@ namespace LZ.WarGameMap.Runtime
         // data to help get mesh
         HashSet<int> edgeVertMap;   // to judge whether a vert is edge vert
         HashSet<string> hasAddThisPairMap;     // to judge whether a vert pair has been added
-        Dictionary<int, Vector3> edgeVert_normals_dict;
+        //Dictionary<int, Vector3> edgeVert_normals_dict;
 
 
-        public void InitSimplifyer(Mesh mesh, List<int> edgeVerts, List<Vector3> edgeNormals, float simplifyTarget, Vector3 clusterStartPoint, int clusterSize) {
+        public void InitSimplifyer(Mesh mesh, List<int> edgeVerts, List<Vector3> edgeNormals, int targetVertCnt, Vector3 clusterStartPoint, int clusterSize) {
             this.clusterSize = clusterSize;
             this.clusterStartPoint = clusterStartPoint;
 
@@ -70,7 +73,7 @@ namespace LZ.WarGameMap.Runtime
 
             // NOTE : simplifyTarget 40% : end util 40% vertex
             vertCnt = vertexs.Length;
-            targetCnt = (int)(vertexs.Length * simplifyTarget);
+            targetCnt = targetVertCnt;
 
             // init vertex's data
             int vertNum = vertexs.Length;
@@ -130,11 +133,11 @@ namespace LZ.WarGameMap.Runtime
 
             // set edge vert's message
             edgeVertMap = new HashSet<int>(edgeVerts.Count);
-            edgeVert_normals_dict = new Dictionary<int, Vector3>(edgeVerts.Count);
+            //edgeVert_normals_dict = new Dictionary<int, Vector3>(edgeVerts.Count);
             for(int i = 0; i < edgeVerts.Count; i++) {
                 edgeVertMap.Add(edgeVerts[i]);
                 // init egde normals, so that in the last we can easily get correct edge normal
-                edgeVert_normals_dict.Add(edgeVerts[i], edgeNormals[i]);
+                //edgeVert_normals_dict.Add(edgeVerts[i], edgeNormals[i]);
             }
 
             // init vert pair, add them to heap;
@@ -211,16 +214,18 @@ namespace LZ.WarGameMap.Runtime
             while(curCnt > targetCnt && iterCnt < maxIter) {
 
                 iterCnt++;
-                if (iterCnt >= maxIter) {
-                    Debug.LogError("simplify end because iterCnt has reach its limit");
+                if (iterCnt >= maxIter * 2) {
+                    Debug.LogError($"simplify end because iterCnt has reach its limit : {maxIter}");
                 }
 
                 VectorPair pair = qemMinHeap.GetTop();
                 if (pair == null) {
-                    throw new Exception($"pair is null, so heap is null, iterCnt: {iterCnt}, curVer: {curCnt}, startCnt: {vertCnt}, targetCnt: {targetCnt}");
+                    //throw new Exception($"pair is null, so heap is null, iterCnt: {iterCnt}, curVer: {curCnt}, startCnt: {vertCnt}, targetCnt: {targetCnt}");
+                    //Debug.LogError($"pair is null, so heap is null, iterCnt: {iterCnt}, curVer: {curCnt}, startCnt: {vertCnt}, targetCnt: {targetCnt}");
+                    continue;
                 }
 
-                Vector3 newV = pair.GetMergedPosition();
+                Vector3 newV = pair.GetMergedPosition_Optimal();
                 Matrix4x4 newM = SimplifyHelper.AddMatrices(pair.Q1, pair.Q2);
                 int idx1 = pair.v1Idx;
                 int idx2 = pair.v2Idx;
@@ -247,28 +252,36 @@ namespace LZ.WarGameMap.Runtime
                 int length2 = vertex_pair_dict[idx2].Count;
                 for(int i = length2 - 1; i >= 0; i--) {
                     var idx2_pair = vertex_pair_dict[idx2][i];
-                    if (pair.Equals(idx2_pair) || pair == idx2_pair) {
+                    if (pair.EqualTo(idx2_pair) || pair == idx2_pair) {
                         vertex_pair_dict[idx2].RemoveAt(i);
                         continue;
                     }
-                    // TODO : 因为在init的时候，防止同样的顶点堆加入两次，导致了在处理了一次顶点对之后，就会丢失pair的引用
+                    // 同样的顶点对加入两次
                     idx2_pair.UpdatePair(idx2, idx1, newV, newM);
-                    qemMinHeap.UpdatePair(idx2_pair, iterCnt);
+                    qemMinHeap.UpdatePair(idx2_pair, $"{iterCnt}_idx2_update");
                 }
 
                 int length1 = vertex_pair_dict[idx1].Count;
                 for (int i = length1 - 1; i >= 0; i--) {
                     var idx1_pair = vertex_pair_dict[idx1][i];
-                    if (pair.Equals(idx1_pair) || pair == idx1_pair) {
+                    if (pair.EqualTo(idx1_pair) || pair == idx1_pair) {
                         vertex_pair_dict[idx1].RemoveAt(i);
                         continue;
                     }
 
                     idx1_pair.UpdatePair(idx1, idx1, newV, newM);
-                    //idx1_pair.UpdatePair(idx2, idx1, newV, newM);
-                    qemMinHeap.UpdatePair(idx1_pair, iterCnt);
+                    qemMinHeap.UpdatePair(idx1_pair, $"{iterCnt}_idx1_update");
                 }
 
+                // ensure to not add the same vertex pair
+                HashSet<int> vertex_pair_idx1_set = new HashSet<int>();
+                foreach (var idx1_pair in vertex_pair_dict[idx1]) {
+                    if (idx1_pair.v1Idx == idx1) {
+                        vertex_pair_idx1_set.Add(idx1_pair.v2Idx);
+                    } else if (idx1_pair.v2Idx == idx1) {
+                        vertex_pair_idx1_set.Add(idx1_pair.v1Idx);
+                    }
+                }
 
                 // add all v2's vertex pair to v1
                 foreach (var idx2_pair in vertex_pair_dict[idx2]) {
@@ -276,14 +289,20 @@ namespace LZ.WarGameMap.Runtime
                         Debug.LogError($"不应该出现的情况，idx1 没有设置正确 * 2 ：{idx2_pair.v1Idx},{idx2_pair.v2Idx},{idx1},{idx2},iterCnt: {iterCnt}");
                         //continue;
                     }
-                    vertex_pair_dict[idx1].Add(idx2_pair);
+
+                    bool noExistSamePair = (idx2_pair.v1Idx == idx1 && !vertex_pair_idx1_set.Contains(idx2_pair.v2Idx));
+                    noExistSamePair = noExistSamePair || (idx2_pair.v2Idx == idx1 && !vertex_pair_idx1_set.Contains(idx2_pair.v1Idx));
+
+                    if (noExistSamePair) {
+                        vertex_pair_dict[idx1].Add(idx2_pair);
+                    } 
+                    //else {
+                    //  idx2_pair.IsValid = false;
+                    //}
                 }
+                vertex_pair_dict[idx2].Clear();
 
-
-                // TODO : 有问题！
-                // ERROR! : 1.边缘的面被去除了，所以边缘的顶点对被加入了，为什么？
-                //          2.减面后只有一个顶点的三角型随之移动，另一个没有，在哪里少了操作？
-                // update all triangle that link to idx2, replace them to idx1
+                // update all triangle that linked to idx2, replace them to idx1
                 int commonTriCnt = 0;
                 foreach (var triIdx in vertex_link_triangle_dict[idx2]) {
                     if (!triangle_valid[triIdx]) {
@@ -314,7 +333,7 @@ namespace LZ.WarGameMap.Runtime
                 }
 
                 if (commonTriCnt != 2 && commonTriCnt != 0) {
-                    Debug.LogError($"不应该出现的情况！检测到共边三角型 ：{commonTriCnt}");
+                    Debug.LogError($"不应该出现的情况！检测到当前vertpair的共边三角型 ：{commonTriCnt}");
                 }
 
                 curCnt--;
@@ -359,7 +378,7 @@ namespace LZ.WarGameMap.Runtime
             if (triangle_contains_vert_dict[triIdx][0] == oldIdx) {
                 triangles[tri_vert_start] = newIdx;
                 triangle_contains_vert_dict[triIdx][0] = newIdx;
-            } 
+            }
             if (triangle_contains_vert_dict[triIdx][1] == oldIdx) {
                 triangles[tri_vert_start + 1] = newIdx;
                 triangle_contains_vert_dict[triIdx][1] = newIdx;
@@ -370,16 +389,15 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        public Mesh EndSimplify() {
+        public Mesh EndSimplify(ref List<int> newEdgeVerts) {
 
             Debug.Log("now we end simplify, and you can get the mesh");
             Mesh mesh = new Mesh();
             mesh.name = meshName;
-            //mesh.vertices = vertexs;
-            //mesh.triangles = triangles;
-            //mesh.RecalculateBounds();
-            //mesh.RecalculateNormals();
-            //return mesh;
+
+            if(vertexs.Length >= UInt16.MaxValue) {
+                mesh.indexFormat = IndexFormat.UInt32;
+            }
 
             DebugSimplifyResult();
 
@@ -394,15 +412,20 @@ namespace LZ.WarGameMap.Runtime
                 }
 
                 int newIdx = i - curOffset;
-                // old idx 是较大的数，new idx 是较小的数，所以不会发生冲突
-                foreach (var triIdx in vertex_link_triangle_dict[i])
-                {
-                    UpdateTriangleVert(i, newIdx, triIdx);
+
+                // if this vert is used to be edge vert, then keep it
+                if (edgeVertMap.Contains(i)) {
+                    newEdgeVerts.Add(newIdx);
                 }
 
+                // old idx 是较大的数，new idx 是较小的数，所以不会发生冲突
+                foreach (var triIdx in vertex_link_triangle_dict[i]) {
+                    UpdateTriangleVert(i, newIdx, triIdx);
+                }
                 newVerts.Add(vertexs[i]);
             }
 
+            // TODO : 为什么？？？！！！
             // 去掉 不合法的 tris
             List<int> newTriangles = new List<int>();
             int triIdxNum = triangles.Length;
@@ -435,6 +458,7 @@ namespace LZ.WarGameMap.Runtime
             mesh.vertices = newVerts.ToArray();
             mesh.triangles = newTriangles.ToArray();
             mesh.uv = newUvs.ToArray();
+            
             mesh.RecalculateBounds();
             //mesh.RecalculateNormals();
             return mesh;
@@ -458,7 +482,7 @@ namespace LZ.WarGameMap.Runtime
             //Debug.Log($"start tri : {triangles.Length / 3} end valid num : {triValidCnt}");
             Debug.Log($"reduced vert cnt: {reducedVertCnt}, reduced tri cnt: {reducedTriCnt}");
             if(reducedVertCnt * 2 != reducedTriCnt) {
-                Debug.Log($"wrong vert-tri relation, should have {reducedVertCnt * 2} reduced tri");
+                Debug.LogError($"wrong vert-tri relation, should have {reducedVertCnt * 2} reduced tri");
             }
         }
 
@@ -466,6 +490,10 @@ namespace LZ.WarGameMap.Runtime
 
     // ERROR : 当前计算误差度量值，也是有问题的！
     internal class VectorPair {
+
+        public int idxHeap { get; private set; }
+        public void SetHeapIdx(int idx) {  idxHeap = idx; }
+
         public int v1Idx { get; private set; }
         public int v2Idx { get; private set; }
         public Vector3 v1 { get; private set; }
@@ -494,28 +522,30 @@ namespace LZ.WarGameMap.Runtime
         public void UpdatePair(int oldIdx, int newIdx, Vector3 newV, Matrix4x4 newQ) {
             if (v1Idx == v2Idx) {
                 Debug.LogError($"不应该出现的状况！顶点对的两个顶点一样，{v1Idx}, {v2Idx}, 传入顶点：{oldIdx}，{newIdx}");
+                IsValid = false;
                 return;
             } else if ((v1Idx == oldIdx && v2Idx == newIdx) || (v2Idx == oldIdx && v1Idx == newIdx) && (oldIdx != newIdx)) {
+                // TODO : 到底什么时候会发出这个错误？？？
                 Debug.LogError($"不应该出现的状况！新顶点和另一个顶点一样，{v1Idx}, {v2Idx}, 传入顶点：{oldIdx}，{newIdx}");
+                //IsValid = false;
                 return;
             }
-
 
             if (oldIdx == v1Idx) {
                 v1Idx = newIdx;
                 v1 = newV;
                 Q1 = newQ;
-                Error = ComputePairError();
             } else if(oldIdx == v2Idx) {
                 v2Idx = newIdx;
                 v2 = newV;
                 Q2 = newQ;
-                Error = ComputePairError();
             }
+
+            Error = ComputePairError();
         }
 
         public float ComputePairError() {
-            Vector3 vOptimal = GetMergedPosition();
+            Vector3 vOptimal = GetMergedPosition_Optimal();
             Vector4 vH = new Vector4(vOptimal.x, vOptimal.y, vOptimal.z, 1);
             Matrix4x4 Q = SimplifyHelper.AddMatrices(Q1, Q2);
             return Vector4.Dot(vH, Q * vH);
@@ -523,12 +553,10 @@ namespace LZ.WarGameMap.Runtime
 
         public Vector3 GetMergedPosition_Optimal() {
             Matrix4x4 Q = SimplifyHelper.AddMatrices(Q1, Q2);
-
             Matrix4x4 A = new Matrix4x4();
             A.SetRow(0, new Vector4(Q.m00, Q.m01, Q.m02, 0));
             A.SetRow(1, new Vector4(Q.m10, Q.m11, Q.m12, 0));
             A.SetRow(2, new Vector4(Q.m20, Q.m21, Q.m22, 0));
-
             Vector3 b = new Vector3(-Q.m03, -Q.m13, -Q.m23);
 
             // 求 A 的行列式，判断是否可逆
@@ -545,16 +573,16 @@ namespace LZ.WarGameMap.Runtime
             return (v1 + v2) / 2;
         }
 
-        public override bool Equals(object obj) {
-            if (obj is VectorPair other) {
-                return (v1Idx == other.v1Idx && v2Idx == other.v2Idx) || (v1Idx == other.v2Idx && v2Idx == other.v1Idx);
-            }
-            return false;
+        public bool EqualTo(VectorPair other) {
+            return (v1Idx == other.v1Idx && v2Idx == other.v2Idx) || (v1Idx == other.v2Idx && v2Idx == other.v1Idx);
         }
 
-        public override int GetHashCode() {
-            return v1Idx.GetHashCode() ^ v2Idx.GetHashCode();
-        }
+        //public override int GetHashCode() {
+        //    int min = Mathf.Min(v1Idx, v2Idx);
+        //    int max = Mathf.Max(v1Idx, v2Idx);
+        //    return (int)Mathf.Pow(min, max);
+        //    //return (int)Mathf.Pow(v1Idx.GetHashCode(), v2Idx.GetHashCode());
+        //}
 
     }
 
@@ -563,8 +591,6 @@ namespace LZ.WarGameMap.Runtime
     internal class QEMMinHeap {
         
         List<VectorPair> heap = new List<VectorPair>();
-
-        Dictionary<VectorPair, int> heap_idx_dict = new Dictionary<VectorPair, int>();
 
         public int Count => heap.Count;
 
@@ -578,11 +604,13 @@ namespace LZ.WarGameMap.Runtime
             return 2 * i + 2;
         }
 
+        private int primerCnt = 0;
 
         public void Insert(VectorPair pair) {
+            pair.SetHeapIdx(primerCnt);
             heap.Add(pair);
-            heap_idx_dict.Add(pair, -1);
             HeapifyUp(heap.Count - 1);
+            primerCnt++;
         }
 
         public VectorPair GetTop() {
@@ -590,42 +618,54 @@ namespace LZ.WarGameMap.Runtime
                 return null;
             }
 
-            VectorPair min = heap[0];
-            heap[0] = heap[heap.Count - 1];
+            while (heap.Count > 0 && !heap[0].IsValid) {
+                Pop();
+            }
 
-            heap_idx_dict.Remove(min);
-            heap_idx_dict[heap[0]] = 0;
-            heap.RemoveAt(heap.Count - 1);
-
-            HeapifyDown(0);
-            min.IsValid = false;
+            if (heap.Count == 0) {
+                return null;
+            }
+            VectorPair min = Pop();
             return min;
         }
 
-        // ERROR : 目前有问题，要修！
-        public void UpdatePair(VectorPair pair, int itTime = 0) {
-            if (!heap_idx_dict.ContainsKey(pair)) {
-                Debug.LogError($"pair 未找到: {pair.v1Idx}, {pair.v2Idx}, {itTime}" );
+        public VectorPair Pop() {
+            VectorPair tmp = heap[0];
+            heap[0] = heap[heap.Count - 1];
+            heap.RemoveAt(heap.Count - 1);
+            HeapifyDown(0);
+            tmp.IsValid = false;
+            return tmp;
+        }
+
+
+        public void UpdatePair(VectorPair pair, string logMes) {
+            if (!pair.IsValid) {
                 return;
             }
 
-            int idx = heap_idx_dict[pair];
-
             // fix the error
+            int idx = pair.idxHeap;
+            int idxRec = idx;
             if (idx < 0 || idx >= heap.Count) {
-                for(int i = 0; i < heap.Count; i++) {
-                    if (heap[i].v1Idx == pair.v1Idx && heap[i].v2Idx == pair.v2Idx) {
-                        idx = i;
-                        heap_idx_dict[pair] = idx;
+                Debug.LogError($"错误的 pair idx : {pair.idxHeap}, {pair.v1Idx}, {pair.v2Idx}, {logMes}");
+                for (int i = 0; i < heap.Count; i++) {
+                    heap[i].SetHeapIdx(i);
+                    if (heap[i] == pair) {
+                        idx = pair.idxHeap;
                         break;
                     }
                 }
             }
 
-            heap[idx] = pair;
+            if(idxRec == idx) {
+                // TODO : 这一步是关键！！！！
+                pair.IsValid = false;
+                return;
+            }
+
             HeapifyUp(idx);
             HeapifyDown(idx);
-
         }
 
 
@@ -654,11 +694,11 @@ namespace LZ.WarGameMap.Runtime
         }
 
         private void Swap(int i, int j) {
+            heap[i].SetHeapIdx(j);
+            heap[j].SetHeapIdx(i);
             (heap[i], heap[j]) = (heap[j], heap[i]);
-            heap_idx_dict[heap[i]] = i;
-            heap_idx_dict[heap[j]] = j;
         }
-    
+
     }
 
 

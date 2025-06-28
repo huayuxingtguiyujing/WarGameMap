@@ -16,10 +16,17 @@ namespace LZ.WarGameMap.MapEditor
         static EditorSceneManager Instance;
 
         public static EditorSceneManager GetInstance() {
+            GetSetSO();
+            InitScene();
+            InitCtor();
             if (Instance == null) {
                 Instance = new EditorSceneManager();
             }
             return Instance;
+        }
+
+        public static void DisposeInstance() {
+            Instance = null;
         }
 
 
@@ -36,19 +43,17 @@ namespace LZ.WarGameMap.MapEditor
         #region 初始化Editor的Scene内容
 
         static EditorSceneManager() {
-            GetSetSO();
-            InitScene();
-            InitCtor();
-
-            EditorSceneManager.GetInstance().InitTerScene();
-            EditorSceneManager.GetInstance().InitHexScene();
-            Debug.Log("update editor scene over, terSet : {terSet != null}, hexSet : {hexSet != null}");
+            if (!EditorApplication.isPlayingOrWillChangePlaymode && !Application.isPlaying) {
+                GetSetSO();
+                InitScene();
+                InitCtor();
+                EditorSceneManager.GetInstance().InitTerScene();
+                EditorSceneManager.GetInstance().InitHexScene();
+                //Debug.Log($"update editor scene over, terSet : {terSet != null}, hexSet : {hexSet != null}");
+            }
         }
 
         public EditorSceneManager() {
-            GetSetSO();
-            InitScene();
-            InitCtor();
 
             // this init just prepare light data, and do not load mesh data
             InitTerScene();
@@ -82,17 +87,7 @@ namespace LZ.WarGameMap.MapEditor
             //FindSO<HexSettingSO>(hexSet, "HexSetting_Default.asset");
             //FindSO<MapRuntimeSetting>(mapSet, "TerrainRuntimeSet_Default.asset");
 
-            Debug.Log($"SO load statu : {terSet != null}, {hexSet != null}, {mapSet != null}");
-        }
-
-        private static void FindSO<T>(T so, string assetName) where T : ScriptableObject {
-            if (so == null) {
-                string terrainSettingPath = MapStoreEnum.WarGameMapSettingPath + "/" + assetName;
-                so = AssetDatabase.LoadAssetAtPath<T>(terrainSettingPath);
-                if (so == null) {
-                    Debug.Log($"Terrain Setting not found in path : {terrainSettingPath}");
-                }
-            }
+            //Debug.Log($"SO load statu : {terSet != null}, {hexSet != null}, {mapSet != null}");
         }
 
         private static void InitScene() {
@@ -105,18 +100,23 @@ namespace LZ.WarGameMap.MapEditor
 
         private static void InitCtor() {
             // init terrain cons
-            TerrainCtor = mapScene.mapRootObj.GetComponent<TerrainConstructor>();
-            if (TerrainCtor == null) {
-                TerrainCtor = mapScene.mapRootObj.AddComponent<TerrainConstructor>();
+            if(TerrainCtor == null) {
+                TerrainCtor = mapScene.mapRootObj.GetComponent<TerrainConstructor>();
+                if (TerrainCtor == null) {
+                    TerrainCtor = mapScene.mapRootObj.AddComponent<TerrainConstructor>();
+                }
+                TerrainCtor.SetMapPrefab(mapScene.mapRootObj.transform, mapScene.heightMeshParentObj.transform);
             }
-            TerrainCtor.SetMapPrefab(mapScene.mapRootObj.transform, mapScene.heightMeshParentObj.transform);
-
+            
             // init hex cons
-            HexCtor = mapScene.mapRootObj.GetComponent<HexmapConstructor>();
-            if (HexCtor == null) {
-                HexCtor = mapScene.mapRootObj.AddComponent<HexmapConstructor>();
+            if(HexCtor == null) {
+                HexCtor = mapScene.mapRootObj.GetComponent<HexmapConstructor>();
+                if (HexCtor == null) {
+                    HexCtor = mapScene.mapRootObj.AddComponent<HexmapConstructor>();
+                }
+                HexCtor.SetHexSetting(hexSet, mapScene.hexClusterParentObj.transform, null);
             }
-            HexCtor.SetHexSetting(hexSet, mapScene.hexClusterParentObj.transform, null);
+            
         }
 
 
@@ -126,6 +126,7 @@ namespace LZ.WarGameMap.MapEditor
 
             // TODO : 销毁所有scene里头的物体
             mapScene.Dispose();
+            Instance = null;
         }
 
         #endregion
@@ -135,7 +136,7 @@ namespace LZ.WarGameMap.MapEditor
 
         static bool ShowingHex = false;
 
-        private double updateTimeInterval = 3.0f;
+        private double updateTimeInterval = 0.5f;
 
         private double lastUpdateTime = 0;
 
@@ -197,16 +198,8 @@ namespace LZ.WarGameMap.MapEditor
 
             TerrainCtor.UpdateTerrain();
 
-            //Camera curCamera = Camera.main;
-            //curCamera.transform.position = new Vector3(0, 0, 0);
-
-            // update terrain lod and show statu when camera changes
-            // TODO : 在这里更新 terrain tile
-
-
             // 1.要先判断当前 camera 位于的cluster序号
             // 2.在camera所处的 3*3 格子内进行加载，如果发现没有在内存 就尝试读取文件，如果没有文件就放弃
-
 
             // TODO : 
             // 根据传入的scope，初始化摄像机周围一圈scope内的地块...
@@ -303,6 +296,12 @@ namespace LZ.WarGameMap.MapEditor
                 trSet.ReadFromBinary(reader);
                 int terrainWidth = trSet.terrainSize.x;
                 int terrainHeight = trSet.terrainSize.z;
+                if(trSet != terSet.GetTerrainSetting()) {
+                    Debug.LogError($"this meshFile'setting is not equal to cur terSet : {trSet.ToString()}");
+                    return Vector2Int.zero;
+                }
+
+                // TODO : hex set should also read from the file
 
                 // todo : 这部分有问题！！！
                 int validClusterNum = reader.ReadInt32();
