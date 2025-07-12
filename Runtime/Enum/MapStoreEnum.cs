@@ -28,6 +28,8 @@ namespace LZ.WarGameMap.Runtime {
 
         public const string TerrainHexMapPath = "Assets/WarGameMap/Terrain/HexMap";
 
+        public const string TerrainHexmapDataPath = "Assets/WarGameMap/Terrain/HexmapData";
+
 
         // 高度图相关
         public const string HeightMapInputPath = "Assets/WarGameMap/HeightMap/Origin";

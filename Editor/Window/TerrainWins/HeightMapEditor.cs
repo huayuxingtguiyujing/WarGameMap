@@ -455,6 +455,7 @@ namespace LZ.WarGameMap.MapEditor
                 // save normalTex as unity asset
                 string normalName = GetNormalOutputName(200, 200, normalMapSize, -1);
                 TextureUtility.GetInstance().SaveTextureAsAsset(normalTexOutputPath, normalName, normalTex);
+            GameObject.DestroyImmediate(normalTex);
             //}
 
             Debug.Log($"generate normal map, path : {normalTexOutputPath}");

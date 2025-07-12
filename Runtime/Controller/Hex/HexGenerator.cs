@@ -24,10 +24,10 @@ namespace LZ.WarGameMap.Runtime
             private set => hexagonIdxDic = value;
         }
 
-        public Dictionary<uint, Hexagon> HexagonNumDic {
-            get => hexagonNumDic;
-            private set => hexagonNumDic = value;
-        }
+        //public Dictionary<uint, Hexagon> HexagonNumDic {
+        //    get => hexagonNumDic;
+        //    private set => hexagonNumDic = value;
+        //}
 
 
         #region 不同的生成方法
@@ -105,13 +105,30 @@ namespace LZ.WarGameMap.Runtime
                 for (int q = left - r_offset; q < right - r_offset; q++) {
                     Hexagon hexagon = new Hexagon(q, r, -q - r);
                     hexagonIdxDic.Add(new Vector2Int(j, i) , hexagon);
-                    hexagonNumDic.Add((uint)count, hexagon);
+                    //hexagonNumDic.Add((uint)count, hexagon);  // NOTE : ID - hex 暂时不再使用
                     count++;
                     j++;
                 }
                 i++;
                 j = 0;
             }
+        }
+
+        public static Dictionary<Vector2Int, Hexagon> GenerateRectangleHexData(int down, int up, int left, int right) {
+            int i = 0, j = 0;
+            Dictionary<Vector2Int, Hexagon> hexagonIdxDic = new Dictionary<Vector2Int, Hexagon>();
+            for (int r = down; r < up; r++) { // pointy top
+                //执行横向的偏移
+                int r_offset = (int)Mathf.Floor(r / 2); // or r>>1
+                for (int q = left - r_offset; q < right - r_offset; q++) {
+                    Hexagon hexagon = new Hexagon(q, r, -q - r);
+                    hexagonIdxDic.Add(new Vector2Int(j, i), hexagon);
+                    j++;
+                }
+                i++;
+                j = 0;
+            }
+            return hexagonIdxDic;
         }
 
         #endregion

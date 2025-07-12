@@ -16,8 +16,8 @@ namespace LZ.WarGameMap.MapEditor
         public static void RegisterUpdate(CallbackFunction unityAction) {
             if (!IsEditorUpdating) {
                 IsEditorUpdating = true;
-                EditorApplication.update += unityAction;
             }
+            EditorApplication.update += unityAction;
         }
 
         public static void UnregisterUpdate(CallbackFunction unityAction) {

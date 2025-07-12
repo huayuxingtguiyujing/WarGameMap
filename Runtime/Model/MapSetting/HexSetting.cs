@@ -39,6 +39,17 @@ namespace LZ.WarGameMap.Runtime
         [Tooltip("在通过terrain生成初版hex数据时，会根据hex中心范围内的一定vert确定该hex的地形（平原、丘陵、高地、山脉）")]
         public int hexCalcuVertScope = 3;
 
+        [LabelText("动态加载时Hex的AOI范围")]
+        [Tooltip("根据周围距离加载 x * x 的HexCluster, 只能是奇数")]
+        public int hexAOIScope = 5;
+
+        [LabelText("动态加载时Hex的AOI范围")]
+        [Tooltip("根据周围距离加载 x * x 的HexCluster, 只能是奇数")]
+        public int mapHexClusterNumLimit = 25;
+
+        [LabelText("hex地图偏移")]
+        [Tooltip("HexMap 的原点相较于 terrain 的原点的偏移")]
+        public Vector3 originOffset = new Vector3(50, 0, 50);
 
         public Layout GetScreenLayout() {
             Vector2 startPoint = new Vector2(0, 0);

@@ -406,6 +406,17 @@ namespace LZ.WarGameMap.MapEditor
         //#endregion
 
 
+        public override void Destory() {
+            if(curHandleLandformTex != null) {
+                GameObject.DestroyImmediate(curHandleLandformTex);
+                curHandleLandformTex = null;
+            }
+            if (curHandleNormalTex != null) {
+                GameObject.DestroyImmediate(curHandleNormalTex);
+                curHandleNormalTex = null;
+            }
+        }
+
 
     }
 }

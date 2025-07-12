@@ -142,6 +142,7 @@ namespace LZ.WarGameMap.MapEditor
 
         protected override void OnEnable() {
             base.OnEnable();
+            UnityEditorManager.RegisterUpdate(EditorSceneManager.GetInstance().UpdateSceneHex);
             UnityEditorManager.RegisterUpdate(EditorSceneManager.GetInstance().UpdateSceneTer);
         }
 
@@ -149,6 +150,7 @@ namespace LZ.WarGameMap.MapEditor
             base.OnDisable();
             
             UnityEditorManager.UnregisterUpdate(EditorSceneManager.GetInstance().UpdateSceneTer);
+            UnityEditorManager.UnregisterUpdate(EditorSceneManager.GetInstance().UpdateSceneHex);
             GizmosCtrl.GetInstance().UnregisterGizmosAll();
         }
 
@@ -180,6 +182,8 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         protected override void OnDestroy() {
+            // OdinMenuEditorWindow will call this function when it is closed
+
             if (curSelected != null) {
                 BaseMapEditor editor = curSelected.Value as BaseMapEditor;
                 editor.Disable();

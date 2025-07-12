@@ -27,6 +27,11 @@ namespace LZ.WarGameMap.MapEditor {
         public string warningMessage = "请点击按钮初始化!";
 
         [FoldoutGroup("配置scene", -1)]
+        [LabelText("锁定SceneView")]
+        [Tooltip("仅在锁定后，才可以进行绘制操作")]
+        public bool lockSceneView = true;
+
+        [FoldoutGroup("配置scene", -1)]
         [Button("初始化地形配置", ButtonSizes.Medium)]
         protected virtual void InitEditor() {
             //sceneManager = EditorSceneManager.GetInstance();
@@ -71,14 +76,16 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
         protected virtual void OnSceneGUI(SceneView sceneView) {
+            if (!lockSceneView) {
+                return;
+            }
+
             Event e = Event.current;
             var eventType = Event.current.type;
             if (e.button == 0) {
-
-                //var controlID = GUIUtility.GetControlID(FocusType.Passive);
-                //GUIUtility.hotControl = controlID;
+                var controlID = GUIUtility.GetControlID(FocusType.Passive);
+                GUIUtility.hotControl = controlID;
                 //var eventType = Event.current.GetTypeForControl(controlID);
-
                 switch (eventType) {
                     case EventType.MouseDrag:
                         OnMouseDrag(e);
@@ -94,11 +101,10 @@ namespace LZ.WarGameMap.MapEditor {
                         break;
                 }
 
-                //GUIUtility.hotControl = 0;
+                GUIUtility.hotControl = 0;
             } else if (e.button == 1) {
 
             }
-
         }
 
         #endregion
@@ -110,7 +116,6 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
         protected virtual void OnMouseMove(Event e) {
-
             SceneView.RepaintAll();
         }
 
@@ -118,23 +123,70 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
 
-        protected Vector2 GetMousePos(Event e) {
-
-            Vector2 mousePosition = e.mousePosition;
-            Ray ray = HandleUtility.GUIPointToWorldRay(mousePosition);
-            if (ray.direction.z != 0) {
-                float t = -ray.origin.z / ray.direction.z;
-                Vector3 worldPosition = ray.origin + t * ray.direction;
-                return worldPosition;
-            }
+        protected Vector3 GetMousePos(Event e) {
+            //Vector2 mousePosition = e.mousePosition;
+            //Ray ray = HandleUtility.GUIPointToWorldRay(mousePosition);
+            //if (ray.direction.z != 0) {
+            //    float t = -ray.origin.z / ray.direction.z;
+            //    Vector3 worldPosition = ray.origin + t * ray.direction;
+            //    return worldPosition;
+            //}
             return Vector2.zero;
+
+            //SceneView sceneView = SceneView.lastActiveSceneView;
+            //if (sceneView == null || sceneView.camera == null) {
+            //    Debug.LogError("SceneView camera not available.");
+            //    return Vector3.zero;
+            //}
+
+            //Vector2 guiMousePos = Event.current.mousePosition;
+            //guiMousePos.y = sceneView.position.height - guiMousePos.y;
+
+            //Vector3 screenPos = new Vector3(guiMousePos.x, guiMousePos.y, depthFromCamera);
+            //return sceneView.camera.ScreenToWorldPoint(screenPos);
         }
 
+        public bool GetMousePosOnGround(Event e, out Vector3 worldPoint) {
+            worldPoint = Vector3.zero;
 
+            SceneView sceneView = SceneView.lastActiveSceneView;
+            if (sceneView == null || sceneView.camera == null) {
+                Debug.LogError("SceneView camera not available.");
+                return false;
+            }
 
+            Camera cam = sceneView.camera;
+            Vector2 guiPos = e.mousePosition;
+            guiPos.y = sceneView.position.height - guiPos.y;
+
+            // create a ray
+            Ray ray = cam.ScreenPointToRay(guiPos);
+            Plane ground = new Plane(Vector3.up, Vector3.zero);
+            if (ground.Raycast(ray, out float enter)) {
+                worldPoint = ray.GetPoint(enter);
+                return true;
+            }
+            return false;
+        }
+
+        public static Vector3 GetMousePosToScene(Event e) {
+            SceneView sceneView = SceneView.currentDrawingSceneView;
+            //当前屏幕坐标,左上角(0,0)右下角(camera.pixelWidth,camera.pixelHeight)
+            Vector2 mousePos = e.mousePosition;
+            //retina 屏幕需要拉伸值
+            float mult = 1;
+#if UNITY_5_4_OR_NEWER
+            mult = EditorGUIUtility.pixelsPerPoint;
+#endif
+            //转换成摄像机可接受的屏幕坐标,左下角是(0,0,0);右上角是(camera.pixelWidth,camera.pixelHeight,0)
+            mousePos.y = sceneView.camera.pixelHeight - mousePos.y * mult;
+            mousePos.x *= mult;
+            //近平面往里一些,才能看到摄像机里的位置
+            Vector3 fakePoint = mousePos;
+            fakePoint.z = 20;
+            Vector3 point = sceneView.camera.ScreenToWorldPoint(fakePoint);
+            return point;
+        }
 
     }
-
-
-
 }

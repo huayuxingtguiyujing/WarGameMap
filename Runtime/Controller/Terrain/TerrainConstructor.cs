@@ -201,11 +201,11 @@ namespace LZ.WarGameMap.Runtime
 
         public void UpdateTerrain() {
             if(!hasInit) {
-                Debug.LogError("cons do not init!");
+                //Debug.LogError("cons do not init!");
                 return; 
             }
             if (clusterList == null) {
-                Debug.LogError("cluster list is null!");
+                //Debug.LogError("cluster list is null!");
                 return;
             }
 

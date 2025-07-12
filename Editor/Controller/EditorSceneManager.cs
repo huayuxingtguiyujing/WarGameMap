@@ -105,18 +105,18 @@ namespace LZ.WarGameMap.MapEditor
                 if (TerrainCtor == null) {
                     TerrainCtor = mapScene.mapRootObj.AddComponent<TerrainConstructor>();
                 }
-                TerrainCtor.SetMapPrefab(mapScene.mapRootObj.transform, mapScene.heightMeshParentObj.transform);
             }
-            
+            TerrainCtor.SetMapPrefab(mapScene.mapRootObj.transform, mapScene.heightMeshParentObj.transform);
+
             // init hex cons
-            if(HexCtor == null) {
+            if (HexCtor == null) {
                 HexCtor = mapScene.mapRootObj.GetComponent<HexmapConstructor>();
                 if (HexCtor == null) {
                     HexCtor = mapScene.mapRootObj.AddComponent<HexmapConstructor>();
                 }
-                HexCtor.SetHexSetting(hexSet, mapScene.hexClusterParentObj.transform, null);
             }
-            
+            HexCtor.SetHexSetting(hexSet, mapScene.hexClusterParentObj.transform, null);
+
         }
 
 
@@ -136,9 +136,13 @@ namespace LZ.WarGameMap.MapEditor
 
         static bool ShowingHex = false;
 
-        private double updateTimeInterval = 0.5f;
+        private double updateTimeInterval_Ter = 0.5f;
 
-        private double lastUpdateTime = 0;
+        private double lastUpdateTime_Ter = 0;
+
+        private double updateTimeInterval_Hex = 0.3f;
+
+        private double lastUpdateTime_Hex = 0;
 
         // call it to decide whether show Ter Scene
         public void UpdateSceneView(bool showTer, bool showHex) {
@@ -155,9 +159,9 @@ namespace LZ.WarGameMap.MapEditor
             // TODO : show hex / gizmos ...
             if (ShowingHex != showHex) {
                 if (showHex) {
-
+                    GizmosCtrl.GetInstance().RegisterGizmoEvent(DrawHexMes);
                 } else {
-
+                    GizmosCtrl.GetInstance().UnregisterGizmoEvent(DrawHexMes);
                 }
                 ShowingHex = showHex;
             }
@@ -191,27 +195,48 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             double now = EditorApplication.timeSinceStartup;
-            if (now - lastUpdateTime < updateTimeInterval) {
+            if (now - lastUpdateTime_Ter < updateTimeInterval_Ter) {
                 return;
             }
-            lastUpdateTime = now;
+            lastUpdateTime_Ter = now;
 
             TerrainCtor.UpdateTerrain();
+        }
 
-            // 1.要先判断当前 camera 位于的cluster序号
-            // 2.在camera所处的 3*3 格子内进行加载，如果发现没有在内存 就尝试读取文件，如果没有文件就放弃
+        public void LoadHexScene(Material hexMat) {
+            // TODO : 加载之前的对Hex的编辑结果进入 Scene 里面
+            // TODO : hex 编辑结果 放到一张大纹理里面，考虑到 全地图的 HexGrid 一共 3000 x 3000，所以应该可以放得下
 
-            // TODO : 
-            // 根据传入的scope，初始化摄像机周围一圈scope内的地块...
-            // 要在 TerrainEditor 中生成 地形Mesh，然后再应用到这里的实时加载！
-            // MeshData 要通过 TerrainCons的方法传入Cons里面，Cons封装所有对地形 Mesh的操作
-            // 如果没有地形Mesh 资源，那么无法加载！
+            InitHexScene();
+            HexCtor.InitHexConsRectangle(hexMat);
+        }
+
+        public void ClearHexScene() {
+            HexCtor.ClearClusterObj();
+        }
+
+        public void UpdateSceneHex() {
+            if (!ShowingHex) {
+                return;
+            }
+
+            //Debug.Log("now update scene hex!");
+
+            double now = EditorApplication.timeSinceStartup;
+            if (now - lastUpdateTime_Hex < updateTimeInterval_Hex) {
+                return;
+            }
+            lastUpdateTime_Hex = now;
+
+            HexCtor.UpdateHex();
+
+            //Debug.Log("update scene hex over!");
         }
 
 
         #region Scene Terrain 场景构建
 
-        int fontSize = 10;
+        int terFontSize = 10;
 
         TerMeshGenMethod meshGenMethod;
 
@@ -282,7 +307,7 @@ namespace LZ.WarGameMap.MapEditor
             {
                 string clusterTxt = $"地块_{info.LL.x}_{info.LL.y}_LOD{info.curLODLevel}";
                 GizmosUtils.DrawRect(info.leftDown, info.rightUp, GizmosUtils.GetRandomColor(info.LL.x + info.LL.y));
-                GizmosUtils.DrawText(new Vector3(info.center.x, 0, info.center.y), clusterTxt, fontSize, Color.black);
+                GizmosUtils.DrawText(new Vector3(info.center.x, 0, info.center.y), clusterTxt, terFontSize, Color.black);
             }
         }
 
@@ -321,11 +346,94 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-        // TODO : load hex message....
-        public void InitHexScene() {
+        #region Scene Hex 场景构建
+
+        int hexFontSize = 8;
+
+        public struct ClusterBound {
+            public int clusterIdxX { get; private set; }
+            public int clusterIdxY { get; private set; }
+
+            public Vector2 leftDown, rightDown;
+            public Vector2 leftUp, rightUp;
+            public Vector2 center;
+
+            public float width, height;
+
+            public ClusterBound(int i, int j, int hexSize, int clusterSize) {
+                this.clusterIdxX = i;
+                this.clusterIdxY = j;
+                // NOTE : 目前的 Hex 生成方式是第二行向左偏移 (OffsetHexCoord)
+                // 左边界：第一行Hex格子的左边
+                // 右边界：第一行Hex格子的右边
+                // 下边界：第一行Hex格子的底
+                // 上边界：最上行Hex格子的左上角/右上角
+
+                float left = i * (Mathf.Sqrt(3) * hexSize * clusterSize);
+                float right = (i + 1) * (Mathf.Sqrt(3) * hexSize * clusterSize);
+                float up, down;
+                if (clusterSize % 2 == 0) {
+                    up = (j + 1) * (hexSize * 3 * clusterSize / 2);
+                    down = j * (hexSize * 3 * clusterSize / 2);
+                } else {
+                    // cluster size can not be odd
+                    up = (j + 1) * (hexSize * 3 * clusterSize / 2 + hexSize);
+                    down = j * (hexSize * 3 * clusterSize / 2 + hexSize);
+                }
+
+                width = right - left;
+                height = up - right;
+
+                leftDown = new Vector2(left, down);
+                rightDown = new Vector2(right, down);
+                leftUp = new Vector2(left, up);
+                rightUp = new Vector2(right, up);
+                center = (leftDown + rightUp) / 2;
+            }
 
         }
 
+        Dictionary<Vector2Int, ClusterBound> clusterIdxBoundDict;
+
+
+        // TODO : load hex message....
+        public void InitHexScene() {
+            // TODO : 这里放置 Hex Scene 的 Gizmos 数据
+            clusterIdxBoundDict = new Dictionary<Vector2Int, ClusterBound>();
+        }
+
+        private void DrawHexMes() {
+
+            // NOTE : 有潜在风险，这里需要与 HexCons 的UpdateHex 处进行同步
+            Vector3 cameraPos = Camera.main.transform.position;
+            Vector2Int clsIdx = ClusterSize.GetClusterIdxByPos(cameraPos);
+            
+            clusterIdxBoundDict.Clear();
+
+            // hex scope is small, so the data is small
+            int hexScope = hexSet.hexAOIScope / 2;
+            for (int i = -hexScope + clsIdx.x; i <= hexScope + clsIdx.x; i++) {
+                for (int j = -hexScope + clsIdx.y; j <= hexScope + clsIdx.y; j++) {
+                    // not valid hex cluster index
+                    if (i < 0 || i > hexSet.mapWidth - 1 || j < 0 || j > hexSet.mapHeight - 1) {
+                        continue;
+                    }
+
+                    var curIdx = new Vector2Int(i, j);
+                    ClusterBound clusterBound = new ClusterBound(i, j, hexSet.hexGridSize, hexSet.clusterSize);
+                    clusterIdxBoundDict.Add(curIdx, clusterBound);
+                }
+            }
+
+            foreach (var info in clusterIdxBoundDict.Values)
+            {
+                string clusterTxt = $"六边形群_{info.clusterIdxX}_{info.clusterIdxY}";
+                GizmosUtils.DrawRect(info.leftDown, info.rightUp, GizmosUtils.GetRandomColor(info.clusterIdxX + info.clusterIdxY));
+                GizmosUtils.DrawText(new Vector3(info.center.x, 0, info.center.y), clusterTxt, hexFontSize, Color.black);
+            }
+        }
+
+        #endregion
     }
 
     [Serializable]
@@ -337,6 +445,8 @@ namespace LZ.WarGameMap.MapEditor
         public GameObject heightMeshParentObj { get; private set; }
 
         public GameObject hexClusterParentObj { get; private set; }
+
+        public GameObject hexTextureParentObj { get; private set; }
 
         public void Dispose() {
             GameObject.DestroyImmediate(hexClusterParentObj);
@@ -368,6 +478,13 @@ namespace LZ.WarGameMap.MapEditor
             }
             hexClusterParentObj.transform.parent = mapRootObj.transform;
 
+            if (hexTextureParentObj == null) {
+                hexTextureParentObj = GameObject.Find(MapSceneEnum.HexTextureParentName);
+                if (hexTextureParentObj == null) {
+                    hexTextureParentObj = new GameObject(MapSceneEnum.HexTextureParentName);
+                }
+            }
+            hexTextureParentObj.transform.parent = mapRootObj.transform;
         }
 
     }

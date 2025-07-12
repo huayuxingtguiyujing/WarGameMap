@@ -151,5 +151,16 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
+        public override void Destory() {
+            if (noiseTex != null) {
+                GameObject.DestroyImmediate(noiseTex);
+                noiseTex = null;
+            }
+        }
+
+        private void OnDisable() {
+           
+        }
+
     }
 }

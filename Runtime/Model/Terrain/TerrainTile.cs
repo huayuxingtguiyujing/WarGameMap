@@ -535,7 +535,7 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            meshData.RecaculateNormal();
+            meshData.RecaculateNormal_Origin();
             meshData.BuildOriginMesh();
         }
 
@@ -640,7 +640,7 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            meshData.RecaculateNormal();
+            meshData.RecaculateNormal_Origin();
             meshData.BuildOriginMesh();
         }
 
@@ -695,10 +695,14 @@ namespace LZ.WarGameMap.Runtime
 
                 // get new mesh and new edge verts
                 List<int> newEdgeVerts = new List<int>();
-                mesh = terrainSimplifier.EndSimplify(ref newEdgeVerts);
+                List<int> newOutOfMeshTris = LODMeshes[curLODLevel].GetOutOfMeshTris();
+                mesh = terrainSimplifier.EndSimplify(ref newEdgeVerts, ref newOutOfMeshTris);
+
                 ReplaceMesh(mesh, null);
                 LODMeshes[curLODLevel].SetEdgeVertInfo(newEdgeVerts);
+                LODMeshes[curLODLevel].SetOutOfMeshTris(newOutOfMeshTris);
             }
+            LODMeshes[curLODLevel].RecaculateNormal_Mesh(mesh);
         }
 
 

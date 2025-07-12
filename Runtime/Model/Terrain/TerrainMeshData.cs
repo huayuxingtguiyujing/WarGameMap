@@ -1,9 +1,14 @@
+using NUnit.Framework.Internal;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+using Unity.Collections;
+using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.UIElements;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -108,8 +113,98 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
+
+        struct InnerTriangleNormalJob : IJobParallelFor {
+
+            [NativeDisableParallelForRestriction]
+            public NativeArray<Vector3> newNormals;
+
+            [NativeDisableParallelForRestriction]
+            [ReadOnly] public NativeArray<int> triangles;
+
+            [NativeDisableParallelForRestriction]
+            [ReadOnly] public NativeArray<Vector3> vertexs;
+
+            public void Execute(int i) {
+                int normalTriangleIndex = i * 3;
+                int vertexIndexA = triangles[normalTriangleIndex];
+                int vertexIndexB = triangles[normalTriangleIndex + 1];
+                int vertexIndexC = triangles[normalTriangleIndex + 2];
+
+                Vector3 triangleNormal = SurfaceNormalFromIndices_Mesh(vertexIndexA, vertexIndexB, vertexIndexC);
+
+                newNormals[vertexIndexA] += triangleNormal;
+                newNormals[vertexIndexB] += triangleNormal;
+                newNormals[vertexIndexC] += triangleNormal;
+            }
+
+            private Vector3 SurfaceNormalFromIndices_Mesh(int indexA, int indexB, int indexC) {
+                Vector3 pointA = vertexs[indexA];
+                Vector3 pointB = vertexs[indexB];
+                Vector3 pointC = vertexs[indexC];
+
+                Vector3 sideAB = pointB - pointA;
+                Vector3 sideAC = pointC - pointA;
+                return Vector3.Cross(sideAB, sideAC).normalized;
+            }
+
+        }
+
+        struct OutterTriangleNormalJob : IJobParallelFor {
+            [NativeDisableParallelForRestriction]
+            public NativeArray<Vector3> newNormals;
+
+            [NativeDisableParallelForRestriction]
+            [ReadOnly] public NativeArray<int> outOfMeshTriangles;
+
+            [NativeDisableParallelForRestriction]
+            [ReadOnly] public NativeArray<Vector3> outofMeshVertexs;
+
+            [NativeDisableParallelForRestriction]
+            [ReadOnly] public NativeArray<Vector3> vertexs;
+
+            public void Execute(int i) {
+                int normalTriangleIndex = i * 3;
+                int vertexIndexA = outOfMeshTriangles[normalTriangleIndex];
+                int vertexIndexB = outOfMeshTriangles[normalTriangleIndex + 1];
+                int vertexIndexC = outOfMeshTriangles[normalTriangleIndex + 2];
+
+                Vector3 triangleNormal = SurfaceNormalFromIndices_Mesh(vertexIndexA, vertexIndexB, vertexIndexC);
+
+                if (vertexIndexA >= 0) {
+                    newNormals[vertexIndexA] += triangleNormal;
+                }
+                if (vertexIndexB >= 0) {
+                    newNormals[vertexIndexB] += triangleNormal;
+                }
+                if (vertexIndexC >= 0) {
+                    newNormals[vertexIndexC] += triangleNormal;
+                }
+            }
+
+            private Vector3 SurfaceNormalFromIndices_Mesh(int indexA, int indexB, int indexC) {
+                Vector3 pointA = (indexA < 0) ? outofMeshVertexs[-indexA - 1] : vertexs[indexA];
+                Vector3 pointB = (indexB < 0) ? outofMeshVertexs[-indexB - 1] : vertexs[indexB];
+                Vector3 pointC = (indexC < 0) ? outofMeshVertexs[-indexC - 1] : vertexs[indexC];
+
+                Vector3 sideAB = pointB - pointA;
+                Vector3 sideAC = pointC - pointA;
+                return Vector3.Cross(sideAB, sideAC).normalized;
+            }
+
+        }
+
+        struct NormalizeJob : IJobParallelFor {
+            //[NativeDisableParallelForRestriction]
+            public NativeArray<Vector3> newNormals;
+
+            public void Execute(int index) {
+                newNormals[index].Normalize();
+            }
+        }
+
         // 此处代码参考：Procedural-Landmass-Generation-master\Proc Gen E21
-        public void RecaculateNormal() {
+        public void RecaculateNormal_Origin() {
 
             int triangleCount = triangles.Length / 3;
             for (int i = 0; i < triangleCount; i++) {
@@ -151,23 +246,76 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        // TODO: 这是一个冗余的函数，要改！; TODO : 也许可以改成 JobSystem ？
-        public void RecaculateBorderNormal() {
-            //  这个方法仅会重新计算边缘顶点的法线
-            int triangleCount = triangles.Length / 3;
+        public void RecaculateNormal_Mesh(Mesh mesh) {
+
+            int vertCnt = mesh.vertices.Length;
+
+            NativeArray<Vector3> newNormals = new NativeArray<Vector3>(vertCnt, Allocator.TempJob);
+
+            NativeArray<Vector3> vertexs_job = new NativeArray<Vector3>(mesh.vertices, Allocator.TempJob);
+            NativeArray<int> triangles_job = new NativeArray<int>(mesh.triangles, Allocator.TempJob);
+
+            NativeArray<Vector3> outofMeshVertexs_job = new NativeArray<Vector3>(outofMeshVertexs, Allocator.TempJob);
+            NativeArray<int> outofMeshTriangles_job = new NativeArray<int>(outOfMeshTriangles, Allocator.TempJob);
+
+            // caculate inner triangle normals by job
+            int triangleCount = mesh.triangles.Length / 3;
+            InnerTriangleNormalJob innerTriangleNormalJob = new InnerTriangleNormalJob() {
+                newNormals = newNormals,
+                triangles = triangles_job,
+                vertexs = vertexs_job,
+            };
+            JobHandle jobHandle1 = innerTriangleNormalJob.Schedule(triangleCount, 64);
+            jobHandle1.Complete();
+
+            // NOTE : the outOfMeshTriangles never change
+            // caculate outter triangle normals by job
+            int borderTriangleCount = outOfMeshTriangles.Length / 3;
+            OutterTriangleNormalJob outterTriangleNormalJob = new OutterTriangleNormalJob() {
+                newNormals = newNormals,
+                outofMeshVertexs = outofMeshVertexs_job,
+                outOfMeshTriangles = outofMeshTriangles_job,
+                vertexs = vertexs_job,
+            };
+            JobHandle jobHandle2 = outterTriangleNormalJob.Schedule(borderTriangleCount, 64);
+            jobHandle2.Complete();
+
+            // normalize the newNormal
+            NormalizeJob normalizeJob = new NormalizeJob() {
+                newNormals = newNormals,
+            };
+            JobHandle jobHandle3 = normalizeJob.Schedule(vertCnt, 64);
+            jobHandle3.Complete();
+
+            //for (int i = 0; i < newNormals.Length; i++) {
+            //    newNormals[i].Normalize();
+            //}
+
+            mesh.SetNormals(newNormals);
+        }
+
+        [Obsolete]
+        public void RecaculateNormal_Mesh_v1(Mesh mesh) {
+            // this function will set a normal for current mesh
+
+            int vertCnt = mesh.vertices.Length;
+            Vector3[] newNormals = new Vector3[vertCnt];
+
+            int triangleCount = mesh.triangles.Length / 3;
             for (int i = 0; i < triangleCount; i++) {
                 int normalTriangleIndex = i * 3;
-                int vertexIndexA = triangles[normalTriangleIndex];
-                int vertexIndexB = triangles[normalTriangleIndex + 1];
-                int vertexIndexC = triangles[normalTriangleIndex + 2];
+                int vertexIndexA = mesh.triangles[normalTriangleIndex];
+                int vertexIndexB = mesh.triangles[normalTriangleIndex + 1];
+                int vertexIndexC = mesh.triangles[normalTriangleIndex + 2];
 
-                Vector3 triangleNormal = SurfaceNormalFromIndices_Fixed(vertexIndexA, vertexIndexB, vertexIndexC);
-                normals[vertexIndexA] += triangleNormal;
-                normals[vertexIndexB] += triangleNormal;
-                normals[vertexIndexC] += triangleNormal;
+                Vector3 triangleNormal = SurfaceNormalFromIndices_Mesh(vertexIndexA, vertexIndexB, vertexIndexC, mesh);
+                //Vector3 triangleNormal = SurfaceNormalFromIndices_Fixed(vertexIndexA, vertexIndexB, vertexIndexC);
+                newNormals[vertexIndexA] += triangleNormal;
+                newNormals[vertexIndexB] += triangleNormal;
+                newNormals[vertexIndexC] += triangleNormal;
             }
 
-            // border triangle, caculate their value to normal
+            // NOTE : the outOfMeshTriangles never change
             int borderTriangleCount = outOfMeshTriangles.Length / 3;
             for (int i = 0; i < borderTriangleCount; i++) {
                 int normalTriangleIndex = i * 3;
@@ -175,21 +323,23 @@ namespace LZ.WarGameMap.Runtime
                 int vertexIndexB = outOfMeshTriangles[normalTriangleIndex + 1];
                 int vertexIndexC = outOfMeshTriangles[normalTriangleIndex + 2];
 
-                Vector3 triangleNormal = SurfaceNormalFromIndices_Fixed(vertexIndexA, vertexIndexB, vertexIndexC);
+                Vector3 triangleNormal = SurfaceNormalFromIndices_Mesh(vertexIndexA, vertexIndexB, vertexIndexC, mesh);
+                //Vector3 triangleNormal = SurfaceNormalFromIndices_Fixed(vertexIndexA, vertexIndexB, vertexIndexC);
                 if (vertexIndexA >= 0) {
-                    normals[vertexIndexA] += triangleNormal;
+                    newNormals[vertexIndexA] += triangleNormal;
                 }
                 if (vertexIndexB >= 0) {
-                    normals[vertexIndexB] += triangleNormal;
+                    newNormals[vertexIndexB] += triangleNormal;
                 }
                 if (vertexIndexC >= 0) {
-                    normals[vertexIndexC] += triangleNormal;
+                    newNormals[vertexIndexC] += triangleNormal;
                 }
             }
 
-            for (int i = 0; i < normals.Length; i++) {
-                normals[i].Normalize();
+            for (int i = 0; i < newNormals.Length; i++) {
+                newNormals[i].Normalize();
             }
+            mesh.SetNormals(newNormals);
         }
 
         private Vector3 SurfaceNormalFromIndices(int indexA, int indexB, int indexC) {
@@ -197,6 +347,23 @@ namespace LZ.WarGameMap.Runtime
             Vector3 pointA = (indexA < 0) ? outofMeshVertexs[-indexA - 1] : vertexs[indexA];
             Vector3 pointB = (indexB < 0) ? outofMeshVertexs[-indexB - 1] : vertexs[indexB];
             Vector3 pointC = (indexC < 0) ? outofMeshVertexs[-indexC - 1] : vertexs[indexC];
+
+            Vector3 sideAB = pointB - pointA;
+            Vector3 sideAC = pointC - pointA;
+            return Vector3.Cross(sideAB, sideAC).normalized;
+        }
+
+        [Obsolete]
+        private Vector3 SurfaceNormalFromIndices_Mesh(int indexA, int indexB, int indexC, Mesh mesh) {
+            // caculate cross, but use mesh
+            if (-indexA - 1 >= outofMeshVertexs.Length || -indexB - 1 >= outofMeshVertexs.Length || -indexC - 1 >= outofMeshVertexs.Length) {
+                Debug.Log(111);
+                return Vector3.zero;
+            }
+
+            Vector3 pointA = (indexA < 0) ? outofMeshVertexs[-indexA - 1] : mesh.vertices[indexA];  // ！！！
+            Vector3 pointB = (indexB < 0) ? outofMeshVertexs[-indexB - 1] : mesh.vertices[indexB];
+            Vector3 pointC = (indexC < 0) ? outofMeshVertexs[-indexC - 1] : mesh.vertices[indexC];
 
             Vector3 sideAB = pointB - pointA;
             Vector3 sideAC = pointC - pointA;
@@ -240,6 +407,14 @@ namespace LZ.WarGameMap.Runtime
 
 
         #region mesh data get/set
+
+        public List<int> GetOutOfMeshTris() {
+            return outOfMeshTriangles.ToList();
+        }
+
+        public void SetOutOfMeshTris(List<int> outOfMeshTriangles) {
+            this.outOfMeshTriangles = outOfMeshTriangles.ToArray();
+        }
 
         public void UpdateEdgeVertInfoByOrigin(List<Vector3> edgeRawNormals) {
             if(edgeVertIdxs != null) {

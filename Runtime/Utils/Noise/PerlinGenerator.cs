@@ -45,7 +45,7 @@ namespace LZ.WarGameMap.Runtime
     }
 
     // 这个似乎不是无缝的，请使用  PerlinNoise
-    public class PerlinGenerator {
+    public class PerlinGenerator : IDisposable {
         private int texWidth;
         private int texHeight;
 
@@ -103,6 +103,13 @@ namespace LZ.WarGameMap.Runtime
             float v = (position.z % texHeight) / texHeight;
             Color color = mapTex.GetPixelBilinear(u, v);
             return new Vector4(color.r, color.g, color.b, color.a);
+        }
+
+        public void Dispose() {
+            if(mapTex != null) {
+                GameObject.DestroyImmediate(mapTex);
+                mapTex = null;
+            }
         }
     }
 

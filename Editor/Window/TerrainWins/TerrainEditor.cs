@@ -22,8 +22,8 @@ namespace LZ.WarGameMap.MapEditor
         HexmapConstructor HexCtor;
 
         MapRuntimeSetting mapSet;
-        TerrainSettingSO terSet;
-        HexSettingSO hexSet;
+        //TerrainSettingSO terSet;
+        //HexSettingSO hexSet;
 
         //[FoldoutGroup("配置scene", -1)]
         //[AssetSelector(Filter = "t:Prefab")]
@@ -146,6 +146,10 @@ namespace LZ.WarGameMap.MapEditor
 
         #region 构建地形-Hex流程
 
+        // TODO : 下面一整块在后续都会被去除掉！！不再使用高度图来构建 Hex 的地图，可能仅会通过高度图确定某个地区的地形
+        // 然后再用新的类cv的流程去构建地图
+
+
         [FoldoutGroup("构建地形-Hex流程")]
         [LabelText("当前操作Hex地图对象")]
         public RawHexMapSO rawHexMapSO;
@@ -178,6 +182,7 @@ namespace LZ.WarGameMap.MapEditor
             HeightDataManager heightDataManager = new HeightDataManager();
             heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize, hexSet, rawHexMapSO);
 
+            // TODO : 不应该使用 高度图生成 RawHexMapSO
             rawHexMapSO = CreateInstance<RawHexMapSO>();
             rawHexMapSO.InitRawHexMap(EditorSceneManager.hexSet.mapWidth, EditorSceneManager.hexSet.mapHeight);
             HexCtor.GenerateRawHexMap(startLongitudeLatitude, rawHexMapSO, heightDataManager);
@@ -532,6 +537,14 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         #endregion
+
+
+        public override void Destory() {
+            if (rawHexMapTexture != null) {
+                GameObject.DestroyImmediate(rawHexMapTexture);
+                rawHexMapTexture = null;
+            }
+        }
 
     }
 

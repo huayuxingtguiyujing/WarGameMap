@@ -64,7 +64,11 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("Editor 场景配置")]
         [LabelText("ter材质")]
-        public Material material;
+        public Material terMaterial;
+
+        [FoldoutGroup("Editor 场景配置")]
+        [LabelText("hex材质")]
+        public Material hexMaterial;
 
         [FoldoutGroup("Editor 场景配置")]
         [LabelText("Terrain Mesh 数据")]    // serialized file data
@@ -89,7 +93,6 @@ namespace LZ.WarGameMap.MapEditor
             terAssetBinder.LoadAsset(filePaths);
         }
 
-        // 
         [FoldoutGroup("Editor 场景配置")]
         [Button("清空 Ter Scene", ButtonSizes.Medium)]
         private void ClearTerScene() {
@@ -103,12 +106,26 @@ namespace LZ.WarGameMap.MapEditor
             System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
             stopwatch.Start();
 
-            EditorSceneManager.GetInstance().LoadTerScene(5, terAssetBinder.MeshBinderList, heightDataModels, material);
+            EditorSceneManager.GetInstance().LoadTerScene(5, terAssetBinder.MeshBinderList, heightDataModels, terMaterial);
+
+            EditorSceneManager.GetInstance().LoadHexScene(hexMaterial);
 
             stopwatch.Stop();
             Debug.Log($"init scene manager ter scene successfully! cost {stopwatch.ElapsedMilliseconds} ms");
         }
 
+
+        [FoldoutGroup("Editor 场景配置")]
+        [Button("清空 Hex Scene", ButtonSizes.Medium)]
+        private void ClearHexScene() {
+            EditorSceneManager.GetInstance().ClearHexScene();
+        }
+
+        [FoldoutGroup("Editor 场景配置")]
+        [Button("初始化 Hex Scene", ButtonSizes.Medium)]
+        private void InitSceneManagerHex() {
+
+        }
 
         #endregion
 

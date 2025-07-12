@@ -12,6 +12,8 @@ namespace LZ.WarGameMap.MapEditor
 
         public static string HexClusterParentName = "hexClusters";
 
+        public static string HexTextureParentName = "hexTexture";
+
         public static string HexSignParentName = "hexSigns";
 
 

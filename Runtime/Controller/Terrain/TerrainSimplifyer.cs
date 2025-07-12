@@ -63,6 +63,7 @@ namespace LZ.WarGameMap.Runtime
         //Dictionary<int, Vector3> edgeVert_normals_dict;
 
 
+
         public void InitSimplifyer(Mesh mesh, List<int> edgeVerts, List<Vector3> edgeNormals, int targetVertCnt, Vector3 clusterStartPoint, int clusterSize) {
             this.clusterSize = clusterSize;
             this.clusterStartPoint = clusterStartPoint;
@@ -247,7 +248,6 @@ namespace LZ.WarGameMap.Runtime
                 vertexs[idx2] = newV;   // 不应该有这步的...
                 vertex_valid[idx2] = false;
 
-
                 // update all pair that link to idx2, idx1
                 int length2 = vertex_pair_dict[idx2].Count;
                 for(int i = length2 - 1; i >= 0; i--) {
@@ -389,8 +389,7 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        public Mesh EndSimplify(ref List<int> newEdgeVerts) {
-
+        public Mesh EndSimplify(ref List<int> newEdgeVerts, ref List<int> outOfMeshTriangles) {
             Debug.Log("now we end simplify, and you can get the mesh");
             Mesh mesh = new Mesh();
             mesh.name = meshName;
@@ -403,8 +402,12 @@ namespace LZ.WarGameMap.Runtime
 
             // 去掉所有 not valid 的顶点的vertex
             int vertNum = vertexs.Length;
-            List<Vector3> newVerts = new List<Vector3>();
             int curOffset = 0;
+
+            // record the origin idx in triangle to new idx(after simplify)
+            List<Vector3> newVerts = new List<Vector3>();
+            Dictionary<int, int> originVertIdx_NewIdx_Dict = new Dictionary<int, int>(vertNum);
+
             for (int i = 0; i < vertNum; i++) {
                 if (!vertex_valid[i]) {
                     curOffset++;
@@ -423,9 +426,18 @@ namespace LZ.WarGameMap.Runtime
                     UpdateTriangleVert(i, newIdx, triIdx);
                 }
                 newVerts.Add(vertexs[i]);
+                originVertIdx_NewIdx_Dict.Add(i, newIdx);
             }
 
-            // TODO : 为什么？？？！！！
+            // 把 out triangle 里的idx 换成对应的新 idx
+            for (int i = 0; i < outOfMeshTriangles.Count; i++) {
+                int idx = outOfMeshTriangles[i];
+                if (idx >= 0) {
+                    outOfMeshTriangles[i] = originVertIdx_NewIdx_Dict[idx];
+                }
+            }
+
+
             // 去掉 不合法的 tris
             List<int> newTriangles = new List<int>();
             int triIdxNum = triangles.Length;
@@ -447,6 +459,9 @@ namespace LZ.WarGameMap.Runtime
             }
 
             // NOTE : 法线改用法线贴图了
+            for (int i = 0; i < newVerts.Count; i++) {
+                
+            }
 
             // TODO : 为每个顶点重新计算一下 uv
             List<Vector2> newUvs = new List<Vector2>();

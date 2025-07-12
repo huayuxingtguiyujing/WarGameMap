@@ -5,6 +5,7 @@ using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Threading;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEditor;
@@ -56,9 +57,9 @@ namespace LZ.WarGameMap.MapEditor
         public Material hexMaterial;
 
         [FoldoutGroup("初始化地图")]
-        [Button("绘制矩形网格", ButtonSizes.Medium)]
+        [Button("初始化Hex地图", ButtonSizes.Medium)]
         private void DrawRectangleGrid() {
-            HexCtor.InitHexConsRectangle();
+            HexCtor.InitHexConsRectangle(null);
         }
 
         [FoldoutGroup("初始化地图")]
@@ -570,9 +571,6 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-
-
-
         private MapGrid curMapGrid;
 
         private List<MapGrid> curGridsInScope;
@@ -586,6 +584,22 @@ namespace LZ.WarGameMap.MapEditor
         public override void Disable() {
             //GizmosCtrl.GetInstance().UnregisterGizmoEvent(ShowCurChooseGrid);
             base.Disable();
+        }
+
+        public override void Destory() {
+            base.Destory();
+            if (curHexLandformIdxTex != null) {
+                GameObject.DestroyImmediate(curHexLandformIdxTex);
+                curHexLandformIdxTex = null;
+            }
+            if (curHexLandformBlendTex != null) {
+                GameObject.DestroyImmediate(curHexLandformBlendTex);
+                curHexLandformBlendTex = null;
+            }
+            if (curHexLandformResult != null) {
+                GameObject.DestroyImmediate(curHexLandformResult);
+                curHexLandformResult = null;
+            }
         }
 
         protected override void OnMouseDrag(Event e) {
