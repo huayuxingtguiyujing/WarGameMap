@@ -25,10 +25,17 @@ namespace LZ.WarGameMap.Runtime {
 
         public const string TerrainTexOutputPath = "Assets/WarGameMap/Terrain/Texture/Output";
 
-
+        // 地形 - Hex
         public const string TerrainHexMapPath = "Assets/WarGameMap/Terrain/HexMap";
 
         public const string TerrainHexmapDataPath = "Assets/WarGameMap/Terrain/HexmapData";
+
+        // 地形 - 河流 山脉
+        public const string RiverDataPath = "Assets/WarGameMap/Terrain/River";
+
+        public const string RiverTexDataPath = "Assets/WarGameMap/Terrain/River/RvTexture";
+
+        public const string MountainDataPath = "Assets/WarGameMap/Terrain/Mountain";
 
 
         // 高度图相关

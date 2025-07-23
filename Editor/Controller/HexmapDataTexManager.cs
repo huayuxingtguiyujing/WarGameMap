@@ -9,31 +9,20 @@ using UnityEngine;
 namespace LZ.WarGameMap.MapEditor
 {
 
+    public struct PaintHexDataTextureJob : IJobParallelFor {
+
+        [ReadOnly] public Color fillColor;
+        [WriteOnly] public NativeArray<Color> datas;
+
+        public void Execute(int index) {
+            datas[index] = fillColor;
+        }
+    }
+
     // only valid in UNITY_EDITOR
     // this class is to help manager the texture that storage the hex map data
     public class HexmapDataTexManager : IDisposable
     {
-
-        struct FillHexDataTextureJob : IJobParallelFor {
-            // it seems useless
-            [ReadOnly] public Color fillColor;
-            [WriteOnly] Color[] datas;
-
-            public void Execute(int index) {
-                datas[index] = fillColor;
-            }
-        }
-
-        struct PaintHexDataTextureJob : IJobParallelFor {
-
-            [ReadOnly] public Color fillColor;
-            [WriteOnly] public NativeArray<Color> datas;
-
-            public void Execute(int index) {
-                datas[index] = fillColor;
-            }
-        }
-
         int mapWdith;
         int mapHeight;
         int scale; 

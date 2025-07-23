@@ -10,14 +10,17 @@ namespace LZ.WarGameMap.MapEditor
         // go in the hierarchy!
         public static string MapRootName = "mapRoot";
 
+
+        public static string TerrainParentName = "terrainClusters";
+
         public static string HexClusterParentName = "hexClusters";
 
         public static string HexTextureParentName = "hexTexture";
 
+        public static string RiverDataParentName = "riverDatas";
+
+
         public static string HexSignParentName = "hexSigns";
-
-
-        public static string HeightParentName = "heightClusters";
 
         public static string HeightSignParentName = "heightSigns";
 

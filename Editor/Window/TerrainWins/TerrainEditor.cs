@@ -21,7 +21,6 @@ namespace LZ.WarGameMap.MapEditor
         TerrainConstructor TerrainCtor;
         HexmapConstructor HexCtor;
 
-        MapRuntimeSetting mapSet;
         //TerrainSettingSO terSet;
         //HexSettingSO hexSet;
 
@@ -38,17 +37,9 @@ namespace LZ.WarGameMap.MapEditor
             InitMapSetting();
         }
         
-        protected override void InitMapSetting() {
-            base.InitMapSetting();
-            mapSet = EditorSceneManager.mapSet;
-            FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
-
-            terSet = EditorSceneManager.terSet;
-            FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
-
-            hexSet = EditorSceneManager.hexSet;
-            FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
-        }
+        //protected override void InitMapSetting() {
+        //    base.InitMapSetting();
+        //}
 
 
         #region 构建地形-高度图流程

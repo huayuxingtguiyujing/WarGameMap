@@ -1,9 +1,6 @@
-
-
 using LZ.WarGameCommon;
 using System;
 using UnityEngine;
-
 
 namespace LZ.WarGameMap.Runtime {
 
@@ -107,4 +104,10 @@ namespace LZ.WarGameMap.Runtime {
 
     }
 
+    public static class VectorExtension {
+
+        public static Vector3 TransToXZ(this Vector2 v2) {
+            return new Vector3(v2.x, 0, v2.y);
+        }
+    }
 }

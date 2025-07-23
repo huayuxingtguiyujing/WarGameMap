@@ -1,7 +1,14 @@
 using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector.Editor;
+using Sirenix.Utilities;
+using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Unity.Plastic.Antlr3.Runtime.Tree;
+using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEditor;
+using UnityEditor.VersionControl;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
@@ -23,7 +30,6 @@ namespace LZ.WarGameMap.MapEditor
 
             string mapsetPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.MapSetClass;
             string terrainPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.TerrainClass;
-            string buildingPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.BuildingsClass;
             string decoratePath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.DecorateClass;
             string gameplayPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.GamePlayClass;
             string toolPath = MapStoreEnum.MapWindowPath + "/" + MapEditorClass.ToolClass;
@@ -32,9 +38,6 @@ namespace LZ.WarGameMap.MapEditor
             }
             if (!AssetDatabase.IsValidFolder(terrainPath)) {
                 AssetDatabase.CreateFolder(MapStoreEnum.MapWindowPath, MapEditorClass.TerrainClass);
-            }
-            if (!AssetDatabase.IsValidFolder(buildingPath)) {
-                AssetDatabase.CreateFolder(MapStoreEnum.MapWindowPath, MapEditorClass.BuildingsClass);
             }
             if (!AssetDatabase.IsValidFolder(decoratePath)) {
                 AssetDatabase.CreateFolder(MapStoreEnum.MapWindowPath, MapEditorClass.DecorateClass);
@@ -49,7 +52,6 @@ namespace LZ.WarGameMap.MapEditor
             // get HashSet(window objs name) in folders
             HashSet<string> mapsetFileNames = AssetsUtility.GetInstance().GetFileNames(mapsetPath);
             HashSet<string> terrainFileNames = AssetsUtility.GetInstance().GetFileNames(terrainPath);
-            HashSet<string> buildingFileNames = AssetsUtility.GetInstance().GetFileNames(buildingPath);
             HashSet<string> decorateFileNames = AssetsUtility.GetInstance().GetFileNames(decoratePath);
             HashSet<string> gameplayFileNames = AssetsUtility.GetInstance().GetFileNames(gameplayPath);
             HashSet<string> toolFileNames = AssetsUtility.GetInstance().GetFileNames(toolPath);
@@ -62,19 +64,50 @@ namespace LZ.WarGameMap.MapEditor
             if (!terrainFileNames.Contains(MapEditorEnum.TerrainEditor)) {
                 CreateWindowObj<TerrainEditor>(MapEditorClass.TerrainClass);
             }
+            if (!terrainFileNames.Contains(MapEditorEnum.HexMapEditor)) {
+                CreateWindowObj<HexmapEditor>(MapEditorClass.TerrainClass);
+            }
             if (!terrainFileNames.Contains(MapEditorEnum.LandformEditor)) {
                 CreateWindowObj<LandformEditor>(MapEditorClass.TerrainClass);
             }
             if (!terrainFileNames.Contains(MapEditorEnum.HeightMapEditor)) {
                 CreateWindowObj<HeightMapEditor>(MapEditorClass.TerrainClass);
             }
-            if (!terrainFileNames.Contains(MapEditorEnum.HexMapEditor)) {
-                CreateWindowObj<HexmapEditor>(MapEditorClass.TerrainClass);
+            if (!terrainFileNames.Contains(MapEditorEnum.RiverEditor)) {
+                CreateWindowObj<RiverEditor>(MapEditorClass.TerrainClass);
+            }
+            if (!terrainFileNames.Contains(MapEditorEnum.MountainEditor)) {
+                CreateWindowObj<MountainEditor>(MapEditorClass.TerrainClass);
             }
 
-            // TODO : river edit
-            if (!decorateFileNames.Contains(MapEditorEnum.PlantEditor)) {
+
+            // 装饰编辑
+            if (!decorateFileNames.Contains(MapEditorEnum.PlantEditor)) 
+            {
                 CreateWindowObj<PlantCoverEditor>(MapEditorClass.DecorateClass);
+            }
+            if (!decorateFileNames.Contains(MapEditorEnum.WarFogEditor))
+            {
+                CreateWindowObj<WarFogEditor>(MapEditorClass.DecorateClass);
+            }
+
+
+            // gameplay
+            if (!gameplayFileNames.Contains(MapEditorEnum.CountryEditor))
+            {
+                CreateWindowObj<CountryEditor>(MapEditorClass.GamePlayClass);
+            }
+            if (!gameplayFileNames.Contains(MapEditorEnum.FactionEditor))
+            {
+                CreateWindowObj<FactionEditor>(MapEditorClass.GamePlayClass);
+            }
+            if (!gameplayFileNames.Contains(MapEditorEnum.PeopleEditor))
+            {
+                CreateWindowObj<PeopleEditor>(MapEditorClass.GamePlayClass);
+            }
+            if (!gameplayFileNames.Contains(MapEditorEnum.ResourceEditor))
+            {
+                CreateWindowObj<ResourceEditor>(MapEditorClass.GamePlayClass);
             }
 
             // common tools
@@ -89,6 +122,14 @@ namespace LZ.WarGameMap.MapEditor
             AssetDatabase.Refresh();
 
             Debug.Log("成功初始化 MapEditor, 现在可以打开编辑器!");
+        }
+
+        static string GetWinAssetPath(string winClass, string winAssetName, bool addAsset = true) {
+            if (addAsset) {
+                return MapStoreEnum.MapWindowPath + "/" + winClass + "/" + winAssetName + ".asset";
+            } else {
+                return MapStoreEnum.MapWindowPath + "/" + winClass + "/" + winAssetName;
+            }
         }
 
         static HashSet<string> GetFileNames(string folderPath) {
@@ -112,6 +153,10 @@ namespace LZ.WarGameMap.MapEditor
             AssetDatabase.CreateAsset(asset, path);
         }
 
+        static void GetWindowObj<MapEditor>(string windowClass) where MapEditor : BaseMapEditor {
+
+        }
+
 
         [MenuItem("GameMap/OpenMapEditor")]
         static void OpenMapEditor() {
@@ -129,12 +174,37 @@ namespace LZ.WarGameMap.MapEditor
             var tree = new OdinMenuTree();
             tree.DefaultMenuStyle = OdinMenuStyle.TreeViewStyle;
             tree.AddAllAssetsAtPath(MapEditorClass.MapSetClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.MapSetClass, typeof(BaseMapEditor), true);
-            tree.AddAllAssetsAtPath(MapEditorClass.TerrainClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.TerrainClass, typeof(BaseMapEditor), true);
-            tree.AddAllAssetsAtPath(MapEditorClass.BuildingsClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.BuildingsClass, typeof(BaseMapEditor), true);
+            //tree.AddAllAssetsAtPath(MapEditorClass.TerrainClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.TerrainClass, typeof(BaseMapEditor), true);
+            
+            var terrainWinGroup = new OdinMenuItem(tree, MapEditorClass.TerrainClass, null);
+            tree.MenuItems.Add(terrainWinGroup);
+            AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.TerrainEditor);
+            AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.HexMapEditor);
+            AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.LandformEditor);
+            AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.HeightMapEditor);
+            AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.RiverEditor);
+            AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.MountainEditor);
+
             tree.AddAllAssetsAtPath(MapEditorClass.DecorateClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.DecorateClass, typeof(BaseMapEditor), true);
-            tree.AddAllAssetsAtPath(MapEditorClass.GamePlayClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.GamePlayClass, typeof(BaseMapEditor), true);
+            
+            var gamePlayWinGroup = new OdinMenuItem(tree, MapEditorClass.GamePlayClass, null);
+            tree.MenuItems.Add(gamePlayWinGroup);
+            AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.CountryEditor);
+            AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.FactionEditor);
+            AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.PeopleEditor);
+            AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.ResourceEditor);
+
             tree.AddAllAssetsAtPath(MapEditorClass.ToolClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.ToolClass, typeof(BaseMapEditor), true);
+
             return tree;
+        }
+
+        static void AddWinEditorAsMenuItem(OdinMenuTree tree, OdinMenuItem terrainWinGroup, string winClassName,  string winEditorName) {
+            string winEditorMenuPath = MapStoreEnum.MapWindowPath + "/" + winClassName + "/" + winEditorName;
+            string winEditorAssetPath = MapStoreEnum.MapWindowPath + "/" + winClassName + "/" + winEditorName + ".asset";
+            BaseMapEditor winEditorObj = (BaseMapEditor)AssetDatabase.LoadAssetAtPath(winEditorAssetPath, typeof(BaseMapEditor));
+            var terrainWin = new OdinMenuItem(tree, winEditorName, winEditorObj);
+            terrainWinGroup.ChildMenuItems.Add(terrainWin);
         }
 
         #region behaviors
@@ -186,7 +256,9 @@ namespace LZ.WarGameMap.MapEditor
 
             if (curSelected != null) {
                 BaseMapEditor editor = curSelected.Value as BaseMapEditor;
-                editor.Disable();
+                if (editor != null) {
+                    editor.Disable();
+                }
             }
 
             if (this.MenuTree.Selection.Count > 0) {

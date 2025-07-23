@@ -2,6 +2,7 @@ using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector;
 using System;
 using UnityEditor;
+using UnityEditor.VersionControl;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
@@ -13,6 +14,20 @@ namespace LZ.WarGameMap.MapEditor
         protected HexSettingSO hexSet;
 
         protected TerrainSettingSO terSet;
+
+        protected MapRuntimeSetting mapSet;
+
+        protected override void InitMapSetting() {
+            base.InitMapSetting();
+            mapSet = EditorSceneManager.mapSet;
+            FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
+
+            terSet = EditorSceneManager.terSet;
+            FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
+
+            hexSet = EditorSceneManager.hexSet;
+            FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+        }
 
         #region 地图信息配置
 
@@ -124,6 +139,9 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("涂刷Hexmap纹理")]
         [Button("存储Hex数据纹理", ButtonSizes.Medium)]
         private void SaveHexmapDataTexture() {
+
+            // TODO : 这里是不是有问题？真的存到了吗？
+
             RenderTexture rt = hexmapDataTexManager.GetHexDataTexture();
             TextureFormat fmt = rt.format == RenderTextureFormat.ARGBHalf ? TextureFormat.RGBAHalf :
                                 rt.format == RenderTextureFormat.ARGBFloat ? TextureFormat.RGBAFloat :
@@ -159,6 +177,7 @@ namespace LZ.WarGameMap.MapEditor
         public override void Disable() { 
             base.Disable();
             sceneManager.UpdateSceneView(false, false);
+            lockSceneView = false;
         }
 
         protected override void OnMouseDown(Event e) {
@@ -166,17 +185,20 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            // paint texture!!!
-            // NOTE : TODO : 可能有问题！
-            //Vector3 worldPos = GetMousePos(e);
+            // only valid when lock scene view
             Vector3 worldPos = GetMousePosToScene(e);
-
-            // GetMousePosToScene
-
-            //Vector3 worldPos = Vector3.zero;
-            //GetMousePosOnGround(e, out worldPos);
             hexmapDataTexManager.PaintHexDataTexture(worldPos, brushScope, brushColor);
+            SceneView.RepaintAll();
+        }
 
+        protected override void OnMouseDrag(Event e) {
+            if (!enableBrush) {
+                return;
+            }
+
+            // only valid when lock scene view
+            Vector3 worldPos = GetMousePosToScene(e);
+            hexmapDataTexManager.PaintHexDataTexture(worldPos, brushScope, brushColor);
             SceneView.RepaintAll();
         }
 

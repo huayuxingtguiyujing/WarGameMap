@@ -623,14 +623,14 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         private void DetectCurChooseGrid(Event e) {
-            Vector2 CurPos = GetMousePos(e);
-            MapGrid grid = HexCtor.GetClosestMapGrid(CurPos);
-            if (grid != null) {
-                //if (curMapGrid != grid) {
-                //    curMapGrid = grid;
-                //    curGridsInScope = HexCtor.GetMapGrid_HexScope(curMapGrid.mapIdx.x, curMapGrid.mapIdx.y, BrushScope);
-                //}
-            }
+            //Vector2 CurPos = GetMousePos(e);
+            //MapGrid grid = HexCtor.GetClosestMapGrid(CurPos);
+            //if (grid != null) {
+            //    //if (curMapGrid != grid) {
+            //    //    curMapGrid = grid;
+            //    //    curGridsInScope = HexCtor.GetMapGrid_HexScope(curMapGrid.mapIdx.x, curMapGrid.mapIdx.y, BrushScope);
+            //    //}
+            //}
         }
 
 

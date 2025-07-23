@@ -41,7 +41,7 @@ namespace LZ.WarGameMap.Runtime
 
         const int baseResolution = 2048;
 
-        [MenuItem("GameMap/地形贴图图集/正常导出")]
+        //[MenuItem("GameMap/地形贴图图集/正常导出")]
         public static void ShowWindow() {
             EditorWindow.GetWindowWithRect((typeof(ExportTerrainTexture_Export)), new Rect(0, 0, 600, 500));
         }

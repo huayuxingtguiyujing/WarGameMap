@@ -448,6 +448,8 @@ namespace LZ.WarGameMap.MapEditor
 
         public GameObject hexTextureParentObj { get; private set; }
 
+        public GameObject riverDataParentObj { get; private set; }
+
         public void Dispose() {
             GameObject.DestroyImmediate(hexClusterParentObj);
             GameObject.DestroyImmediate(heightMeshParentObj);
@@ -463,9 +465,9 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             if (heightMeshParentObj == null) {
-                heightMeshParentObj = GameObject.Find(MapSceneEnum.HeightParentName);
+                heightMeshParentObj = GameObject.Find(MapSceneEnum.TerrainParentName);
                 if (heightMeshParentObj == null) {
-                    heightMeshParentObj = new GameObject(MapSceneEnum.HeightParentName);
+                    heightMeshParentObj = new GameObject(MapSceneEnum.TerrainParentName);
                 }
             }
             heightMeshParentObj.transform.SetParent(mapRootObj.transform);
@@ -485,6 +487,14 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
             hexTextureParentObj.transform.parent = mapRootObj.transform;
+
+            if (riverDataParentObj == null) {
+                riverDataParentObj = GameObject.Find(MapSceneEnum.RiverDataParentName);
+                if (riverDataParentObj == null) {
+                    riverDataParentObj = new GameObject(MapSceneEnum.RiverDataParentName);
+                }
+            }
+            riverDataParentObj.transform.parent = mapRootObj.transform;
         }
 
     }

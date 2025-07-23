@@ -29,7 +29,20 @@ namespace LZ.WarGameMap.MapEditor {
         [FoldoutGroup("配置scene", -1)]
         [LabelText("锁定SceneView")]
         [Tooltip("仅在锁定后，才可以进行绘制操作")]
+        [OnValueChanged("OnLockSceneViewValueChanged")]
         public bool lockSceneView = true;
+
+        private void OnLockSceneViewValueChanged() {
+
+            // set orthographic if lock
+            if (SceneView.lastActiveSceneView != null) {
+                var sv = SceneView.lastActiveSceneView;
+                Undo.RecordObject(sv, "Set Scene View Orthographic");
+                sv.orthographic = lockSceneView;
+                sv.Repaint();
+            }
+        }
+
 
         [FoldoutGroup("配置scene", -1)]
         [Button("初始化地形配置", ButtonSizes.Medium)]
@@ -65,15 +78,23 @@ namespace LZ.WarGameMap.MapEditor {
         public virtual void Enable() {
             sceneManager = EditorSceneManager.GetInstance();
             SceneView.duringSceneGui += OnSceneGUI;
+            // if lock scene view in some editor window, the editor will not work
+            lockSceneView = false;
         }
 
         public virtual void Disable() {
             SceneView.duringSceneGui -= OnSceneGUI;
+            lockSceneView = false;
         }
 
         public virtual void Destory() {
 
         }
+
+
+        private int curDragTriggerTime = 0;
+
+        private int dragInterval = 5;
 
         protected virtual void OnSceneGUI(SceneView sceneView) {
             if (!lockSceneView) {
@@ -88,6 +109,12 @@ namespace LZ.WarGameMap.MapEditor {
                 //var eventType = Event.current.GetTypeForControl(controlID);
                 switch (eventType) {
                     case EventType.MouseDrag:
+                        curDragTriggerTime++;
+                        if (curDragTriggerTime < dragInterval) {
+                            return;
+                        }
+                        curDragTriggerTime = 0;
+
                         OnMouseDrag(e);
                         break;
                     case EventType.MouseUp:
@@ -103,8 +130,9 @@ namespace LZ.WarGameMap.MapEditor {
 
                 GUIUtility.hotControl = 0;
             } else if (e.button == 1) {
-
             }
+
+            HandleSceneDraw();
         }
 
         #endregion
@@ -116,60 +144,17 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
         protected virtual void OnMouseMove(Event e) {
-            SceneView.RepaintAll();
+            //SceneView.RepaintAll();
         }
 
         protected virtual void OnMouseDrag(Event e) {
         }
 
-
-        protected Vector3 GetMousePos(Event e) {
-            //Vector2 mousePosition = e.mousePosition;
-            //Ray ray = HandleUtility.GUIPointToWorldRay(mousePosition);
-            //if (ray.direction.z != 0) {
-            //    float t = -ray.origin.z / ray.direction.z;
-            //    Vector3 worldPosition = ray.origin + t * ray.direction;
-            //    return worldPosition;
-            //}
-            return Vector2.zero;
-
-            //SceneView sceneView = SceneView.lastActiveSceneView;
-            //if (sceneView == null || sceneView.camera == null) {
-            //    Debug.LogError("SceneView camera not available.");
-            //    return Vector3.zero;
-            //}
-
-            //Vector2 guiMousePos = Event.current.mousePosition;
-            //guiMousePos.y = sceneView.position.height - guiMousePos.y;
-
-            //Vector3 screenPos = new Vector3(guiMousePos.x, guiMousePos.y, depthFromCamera);
-            //return sceneView.camera.ScreenToWorldPoint(screenPos);
+        protected virtual void HandleSceneDraw() {
         }
 
-        public bool GetMousePosOnGround(Event e, out Vector3 worldPoint) {
-            worldPoint = Vector3.zero;
 
-            SceneView sceneView = SceneView.lastActiveSceneView;
-            if (sceneView == null || sceneView.camera == null) {
-                Debug.LogError("SceneView camera not available.");
-                return false;
-            }
-
-            Camera cam = sceneView.camera;
-            Vector2 guiPos = e.mousePosition;
-            guiPos.y = sceneView.position.height - guiPos.y;
-
-            // create a ray
-            Ray ray = cam.ScreenPointToRay(guiPos);
-            Plane ground = new Plane(Vector3.up, Vector3.zero);
-            if (ground.Raycast(ray, out float enter)) {
-                worldPoint = ray.GetPoint(enter);
-                return true;
-            }
-            return false;
-        }
-
-        public static Vector3 GetMousePosToScene(Event e) {
+        protected Vector3 GetMousePosToScene(Event e) {
             SceneView sceneView = SceneView.currentDrawingSceneView;
             //当前屏幕坐标,左上角(0,0)右下角(camera.pixelWidth,camera.pixelHeight)
             Vector2 mousePos = e.mousePosition;
@@ -181,7 +166,6 @@ namespace LZ.WarGameMap.MapEditor {
             //转换成摄像机可接受的屏幕坐标,左下角是(0,0,0);右上角是(camera.pixelWidth,camera.pixelHeight,0)
             mousePos.y = sceneView.camera.pixelHeight - mousePos.y * mult;
             mousePos.x *= mult;
-            //近平面往里一些,才能看到摄像机里的位置
             Vector3 fakePoint = mousePos;
             fakePoint.z = 20;
             Vector3 point = sceneView.camera.ScreenToWorldPoint(fakePoint);
