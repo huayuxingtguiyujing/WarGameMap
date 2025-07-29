@@ -9,6 +9,7 @@ using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.UIElements;
+using static UnityEngine.Mesh;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -203,8 +204,8 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        // 此处代码参考：Procedural-Landmass-Generation-master\Proc Gen E21
-        public void RecaculateNormal_Origin() {
+        // code ref: Procedural-Landmass-Generation-master\Proc Gen E21
+        private void RecaculateNormal_Origin() {
 
             int triangleCount = triangles.Length / 3;
             for (int i = 0; i < triangleCount; i++) {
@@ -380,8 +381,27 @@ namespace LZ.WarGameMap.Runtime
             return Vector3.Cross(sideAB, sideAC).normalized;
         }
 
+        public void ApplyRiverEffect(RiverDataManager riverDataManager)
+        {
+            int len = vertexs.Length;
+            for (int i = 0; i < len; i++)
+            {
+                Vector3 point = vertexs[i];
+                bool IsEffectByRiver;
+                float offset = riverDataManager.SampleRiverRatio(point, out IsEffectByRiver);
+                if (IsEffectByRiver)
+                {
+                    vertexs[i] = new Vector3(point.x, -offset, point.z);
+                }
+            }
+
+        }
+
+        // this function build a terrain tile mesh (tiled mesh)
         public void BuildOriginMesh() {
-            if(tileMesh == null) {
+            RecaculateNormal_Origin();
+
+            if (tileMesh == null) {
                 tileMesh = new Mesh();
                 tileMesh.name = string.Format("TerrainMesh_LOD{0}_Idx{1}_{2}", curLODLevel, tileIdxX, tileIdxY);
 

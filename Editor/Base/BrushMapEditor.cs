@@ -70,7 +70,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("Í¿Ë¢HexmapÎÆÀí", -9)]
         [LabelText("Í¿Ë¢ÑÕÉ«")]
-        public Color brushColor = Color.red;
+        public Color brushColor = Color.blue;
 
         [FoldoutGroup("Í¿Ë¢HexmapÎÆÀí", -9)]
         [LabelText("ÎÆÀí³ß´ç")]

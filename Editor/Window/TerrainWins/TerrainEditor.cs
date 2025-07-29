@@ -49,6 +49,10 @@ namespace LZ.WarGameMap.MapEditor
         public Material terMaterial;
 
         [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("River数据")]
+        public MapRiverData mapRvData;
+
+        [FoldoutGroup("构建地形-高度图流程")]
         [LabelText("当前使用的高度图数据")]
         public List<HeightDataModel> heightDataModels;
 
@@ -69,7 +73,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            TerrainCtor.InitTerrainCons(mapSet, terSet.GetTerrainSetting(), hexSet, heightDataModels, rawHexMapSO, terMaterial);
+            TerrainCtor.InitTerrainCons(mapSet, terSet.GetTerrainSetting(), hexSet, heightDataModels, rawHexMapSO, terMaterial, mapRvData);
         }
 
         [FoldoutGroup("构建地形-高度图流程")]
@@ -445,7 +449,7 @@ namespace LZ.WarGameMap.MapEditor
                 int terrainHeight = trSet.terrainSize.z;
 
                 // TODO : hexSet 也要从 持久化文件里面读取
-                TerrainCtor.InitTerrainCons(mapSet, trSet, hexSet, heightDataModels, rawHexMapSO, terMaterial);
+                TerrainCtor.InitTerrainCons(mapSet, trSet, hexSet, heightDataModels, rawHexMapSO, terMaterial, null);
 
                 int validClusterNum = reader.ReadInt32();
                 for (int i = 0; i < validClusterNum; i++) {

@@ -7,20 +7,39 @@ using UnityEditor;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine.Experimental.Rendering;
-using System.Security.Cryptography;
-using static LZ.WarGameMap.MapEditor.RiverEditor;
-using static Codice.Client.BaseCommands.BranchExplorer.Layout.BrExLayout;
 using ReadOnlyAttribute = Sirenix.OdinInspector.ReadOnlyAttribute;
+using Unity.Mathematics;
 using System.ComponentModel;
 //using LZ.WarGameCommon;
 
 namespace LZ.WarGameMap.MapEditor
 {
+    using RvClusterPixelDict = Dictionary<Vector2Int, List<Vector2Int>>;
 
-    public enum RiverDataFlow 
-    { 
-        RiverTexture,       // 以纹理 (pixel) 的形式 保存河流数据       
-        RiverBezier,        // 以贝塞尔曲线的形式    保存河流数据
+    public struct PaintRiverTextureJob : IJobParallelFor
+    {
+        [ReadOnly] public int rvTexSize;
+        [ReadOnly] public Color fillColor;
+        [ReadOnly] public Color brushColor;
+        [NativeDisableParallelForRestriction]
+        [ReadOnly] public NativeHashSet<int2> paintedPixels;
+
+        [WriteOnly] public NativeArray<Color> datas;
+
+        public void Execute(int index)
+        {
+            int i = index / rvTexSize;
+            int j = index % rvTexSize;
+            int2 curIdx = new int2 { x = i, y = j };
+            if(paintedPixels.Contains(curIdx))
+            {
+                datas[index] = brushColor;
+            }
+            else
+            {
+                datas[index] = fillColor;
+            }
+        }
     }
 
     public class RiverEditor : BrushMapEditor 
@@ -87,7 +106,6 @@ namespace LZ.WarGameMap.MapEditor
 
         #region 当前河流编辑
 
-
         [Serializable]
         public class PaintRiverRTData : IDisposable {
 
@@ -136,6 +154,7 @@ namespace LZ.WarGameMap.MapEditor
                 renderer.SetPropertyBlock(mpb);
 
                 RenderTexture.active = null;
+
             }
 
             // this function will fill texture with white
@@ -151,28 +170,52 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
+        public enum PaintMode
+        {
+            SetStart,
+            Paint,
+            Erase
+        }
+
+        //[FoldoutGroup("河流编辑")]
+        //[LabelText("绘制范围")]
+        //[Tooltip("应当在3~5之间")]
+        //[MaxValue(10)]    // public 
+        // NOTE : 本来我是想可以控制涂刷范围的，但是这样似乎太麻烦，多余的数据也没必要存，所以涂一个格子就好了...
+        // NOTE : 河流的宽度要额外去设置
+        ushort paintScope = 0;
 
         [FoldoutGroup("河流编辑")]
-        [LabelText("绘制范围")]
-        [Tooltip("应当在3~5之间")]
-        [MaxValue(10)]
-        public ushort paintScope = 3;
+        [LabelText("绘制模式")]
+        [OnValueChanged("OnPaintModeChanged")]
+        public PaintMode paintMode = PaintMode.Paint;
 
-        [FoldoutGroup("河流编辑")]
-        [LabelText("绘制颜色")]
-        public Color paintColor = Color.blue;       // 不要轻易地改这玩意啊！！！会影响绘制判定的！！！
+        Color paintRiverColor = RiverPaintColor.riverColor;       // 不要轻易地改这玩意啊！！！会影响绘制判定的！！！
 
-        [FoldoutGroup("河流编辑")]
-        [LabelText("背景颜色")]
-        public Color bgColor = Color.white;
+        Color bgColor = RiverPaintColor.noRvColor;
+
+        private void OnPaintModeChanged()
+        {
+            switch (paintMode)
+            {
+                case PaintMode.SetStart:
+                    paintScope = 0;
+                    paintRiverColor = RiverPaintColor.rvStartColor;
+                    break;
+                case PaintMode.Paint:
+                    paintScope = 0;
+                    paintRiverColor = RiverPaintColor.riverColor;
+                    break;
+                case PaintMode.Erase:
+                    paintScope = 8;
+                    paintRiverColor = RiverPaintColor.noRvColor;
+                    break;
+            }
+        }
 
         [FoldoutGroup("河流编辑")]
         [LabelText("当前编辑 河流ID")]
         public ushort curEditRiverID = 9999;
-
-        [FoldoutGroup("河流编辑")]
-        [LabelText("RT相比cluster的缩放比例")]
-        public ushort paintRTSizeScale = 4;
 
         [FoldoutGroup("河流编辑")]
         [LabelText("绘制-RT 材质")]
@@ -189,15 +232,12 @@ namespace LZ.WarGameMap.MapEditor
 
         Dictionary<Vector2Int, PaintRiverRTData> paintRTDatasDict;
 
-        //[FoldoutGroup("河流编辑")]
-        //[LabelText("当前编辑河流的贝塞尔曲线")]
-        //public 
-            BezierCurve curHandleBezierCurve;
 
+        BezierCurveEditor curBezierCurveEditor;
 
         [FoldoutGroup("河流编辑", 0)]
         [Button("重置编辑数据", ButtonSizes.Medium)]
-        private void UpdateEditingRiverData() {
+        private void ResetEditingRiverData() {
             if (paintRTDatas != null) {
                 paintRTDatas.Clear();
             }
@@ -216,7 +256,32 @@ namespace LZ.WarGameMap.MapEditor
             }
             curEditRiverID = 9999;
 
-            curHandleBezierCurve = null;
+            if(curBezierCurveEditor != null)
+            {
+                curBezierCurveEditor.Dispose();
+            }
+            curBezierCurveEditor = null;
+            RiverBezierParentTrans.ClearObjChildren();
+
+            //RiverDataParentTrans.ClearObjChildren();
+            UpdateEditingRvDataDict();
+        }
+
+        private void UpdateEditingRvDataDict()
+        {
+            if(editRiverDataDict == null)
+            {
+                editRiverDataDict = new Dictionary<ushort, EditingRiverData>();
+            }
+            editRiverDataDict.Clear();
+            if(editRiverDatas != null)
+            {
+                foreach (var editRvData in editRiverDatas)
+                {
+                    editRiverDataDict.Add(editRvData.riverID, editRvData);
+                }
+            }
+            
         }
 
         #endregion
@@ -232,14 +297,12 @@ namespace LZ.WarGameMap.MapEditor
 
             public string riverName;
 
+            public RiveStartData riverStart = MapRiverData.UnvalidRvStart;
+
             public GameObject riverDataObj;
 
             [LabelText("河流存在的地块")]
             public List<Vector2Int> existTerrainClusterIDs;
-
-            // TODO : 怎么真正地去存储河流的数据？？？不会还是要回归到贝塞尔曲线来吧？？？
-            // TODO : 是不是应该 动态画纹理，然后每次切换地块纹理的时候把编辑的数据转为曲线，立刻放到EditRiverData里面？
-            List<Vector2Int> riverDataPoints;
 
             Action<ushort, EditingRiverData> ChooseRiverEvent;
             Action<ushort, EditingRiverData> EditStartEvent;
@@ -247,11 +310,12 @@ namespace LZ.WarGameMap.MapEditor
             Action<ushort, EditingRiverData> SaveRiverEvent;
             Action<ushort, EditingRiverData> DeleteRiverEvent;
 
-            public EditingRiverData(ushort riverID, GameObject riverDataObj,
+            public EditingRiverData(ushort riverID, GameObject riverDataObj, RiveStartData riverStart,
                 Action<ushort, EditingRiverData> chooseEvent, Action<ushort, EditingRiverData> editStartEvent,
                  Action<ushort, EditingRiverData> genCurveEvent, Action<ushort, EditingRiverData> saveEvent, Action<ushort, EditingRiverData> deleteEvent) {
                 this.riverID = riverID;
                 this.riverDataObj = riverDataObj;
+                this.riverStart = riverStart;
 
                 this.ChooseRiverEvent = chooseEvent;
                 this.EditStartEvent = editStartEvent;
@@ -260,9 +324,10 @@ namespace LZ.WarGameMap.MapEditor
                 this.DeleteRiverEvent = deleteEvent;
             }
 
-            public EditingRiverData(RiverData riverData, GameObject riverDataObj) {
+            public EditingRiverData(RiverData riverData, GameObject riverDataObj, RiveStartData riverStart) {
                 this.riverID = riverData.riverID;
                 this.riverName = riverData.riverName;
+                this.riverStart = riverStart;
                 //this.curve = riverData.curve;
                 this.riverDataObj = riverDataObj;
                 this.existTerrainClusterIDs = riverData.existTerrainClusterIDs;
@@ -321,7 +386,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("河流数据")]
         [LabelText("当前河流数据制作流")]
-        public RiverDataFlow CurRiverDataFlow = RiverDataFlow.RiverTexture;
+        public RiverDataFlow CurRiverDataFlow = RiverDataFlow.Texture;
 
         [FoldoutGroup("河流数据")]
         [LabelText("持久化河流容器")]
@@ -332,6 +397,8 @@ namespace LZ.WarGameMap.MapEditor
         [Tooltip("仅存在于Editor中的数据，如果不保存则会在关闭时销毁")]
         public List<EditingRiverData> editRiverDatas;
 
+        Dictionary<ushort, EditingRiverData> editRiverDataDict;
+
 
         [FoldoutGroup("河流数据", 0)]
         [Button("添加河流数据", ButtonSizes.Medium)]
@@ -339,7 +406,7 @@ namespace LZ.WarGameMap.MapEditor
             ushort riverID = mapRiverData.GetRiverID();
             GameObject riverObj = CreateRiverObj(riverID);
 
-            EditingRiverData editingRiverData = new EditingRiverData(riverID, riverObj,
+            EditingRiverData editingRiverData = new EditingRiverData(riverID, riverObj, MapRiverData.UnvalidRvStart,
                 ChooseRiverEvent, EditStartEvent, GenCurveEvent, SaveCurveEvent, DeleteRiverEvent);
             editRiverDatas.Add(editingRiverData);
 
@@ -352,8 +419,10 @@ namespace LZ.WarGameMap.MapEditor
             return riverObj;
         }
 
+
         private void ChooseRiverEvent(ushort riverID, EditingRiverData riverData) {
             // 警告：如果你没有保存就选择了另一条河流编辑数据，那么之前的编辑会失效
+            ResetEditingRiverData();
 
             if (paintRTDatas == null) {
                 paintRTDatas = new List<PaintRiverRTData>();
@@ -361,7 +430,7 @@ namespace LZ.WarGameMap.MapEditor
             if (paintRTDatasDict == null) {
                 paintRTDatasDict = new Dictionary<Vector2Int, PaintRiverRTData>();
             }
-
+            
             // if this river is choosed, load all the exist cluster ID's Texture
             curEditRiverID = riverData.riverID;
 
@@ -381,7 +450,7 @@ namespace LZ.WarGameMap.MapEditor
 
             // we set the paint-river-texture as 1/4 of clusterSize
             int clusterSize = terSet.clusterSize;
-            int showTexSize = clusterSize / paintRTSizeScale;
+            int showTexSize = clusterSize / terSet.paintRTSizeScale;
 
             RenderTextureDescriptor desc = new RenderTextureDescriptor() {
                 width = showTexSize, height = showTexSize,
@@ -390,19 +459,50 @@ namespace LZ.WarGameMap.MapEditor
             };
             Texture2D tmp = new Texture2D(showTexSize, showTexSize, TextureFormat.RGBA32, false);
 
-            // create and init all paint texture
-            for (int i = 0; i < clusterNum; i++) {
+            // create and init all paint texture, load all painted data
+            mapRiverData.UpdateMapRiverData();
+            RiverData runtimingRvData = mapRiverData.GetRiverData(riverID);
+            bool hasSavedThisRvData = runtimingRvData != null;
+            if (hasSavedThisRvData)
+            {
+                runtimingRvData.UpdateClusterPixelDict(terSet.clusterSize, terSet.paintRTSizeScale);
+            }
+            int hasPaintedPixelNum = 0;
+            for (int i = 0; i < clusterNum; i++) 
+            {
+                // get the pixel that has been painted. they existed in mapRiverData-RiverData, not EditingRiverData
+                Vector2Int curClsID = riverData.existTerrainClusterIDs[i];
+                List<Vector2Int> paintedPixel;
+                if (hasSavedThisRvData)
+                {
+                    paintedPixel = runtimingRvData.GetPaintedClsPixles(curClsID);
+                }
+                else
+                {
+                    paintedPixel = new List<Vector2Int>() { new Vector2Int(-1, -1) };
+                }
+                // NOTE : paintedPixel's data scope : [0, showTexSize], [0, showTexSize]
+                NativeHashSet<int2> paintedPixelsSets = new NativeHashSet<int2>(paintedPixel.Count, Allocator.TempJob);
+                for (int j = 0; j < paintedPixel.Count; j++)
+                {
+                    paintedPixelsSets.Add(new int2(paintedPixel[j].x, paintedPixel[j].y));
+                }
+                hasPaintedPixelNum += paintedPixel.Count;
 
                 NativeArray<Color> colors = new NativeArray<Color>(showTexSize * showTexSize, Allocator.TempJob);
-                PaintHexDataTextureJob paintHexDataTextureJob = new PaintHexDataTextureJob() {
-                    fillColor = bgColor,
+                PaintRiverTextureJob paintRiverTextureJob = new PaintRiverTextureJob() {
+                    rvTexSize = showTexSize,
+                    brushColor = RiverPaintColor.riverColor,
+                    fillColor = RiverPaintColor.noRvColor,
+                    paintedPixels = paintedPixelsSets,
                     datas = colors,
                 };
-                JobHandle job = paintHexDataTextureJob.Schedule(showTexSize * showTexSize, 16);
+                JobHandle job = paintRiverTextureJob.Schedule(showTexSize * showTexSize, 16);
                 job.Complete();
                 tmp.SetPixels(colors.ToArray());
                 tmp.Apply();
                 colors.Dispose();
+                paintedPixelsSets.Dispose();
 
                 // if cluster exist we do not need create a new RTData
                 Vector2Int clusterIdx = riverData.existTerrainClusterIDs[i];
@@ -414,6 +514,7 @@ namespace LZ.WarGameMap.MapEditor
                     CreatePaintRiverRTData(clusterIdx, renderTexture, clusterSize, paintRTMat);
                 }
             }
+            Debug.Log($"choose river id : {riverID}, expected add {hasPaintedPixelNum} painted pixels, saved this RvData {hasSavedThisRvData}");
             GameObject.DestroyImmediate(tmp);
 
             // TODO : you should set the rt's position!!
@@ -454,7 +555,7 @@ namespace LZ.WarGameMap.MapEditor
 
             var block = new MaterialPropertyBlock();
             block.SetTexture("_MainTex", renderTexture);
-            block.SetFloat("_GridNum", clusterSize / paintRTSizeScale);
+            block.SetFloat("_GridNum", clusterSize / terSet.paintRTSizeScale);
             renderer.SetPropertyBlock(block);
 
             PaintRiverRTData paintRiverRTData = new PaintRiverRTData(paintRiverParentObj, renderer, renderTexture, paintRTMat, clusterIdx);
@@ -463,7 +564,7 @@ namespace LZ.WarGameMap.MapEditor
             paintRTDatasDict.Add(clusterIdx, paintRiverRTData);
         }
 
-
+        [Obsolete]
         private void EditStartEvent(ushort riverID, EditingRiverData riverData) 
         {
             // TODO : 这个功能要将切换 BrushColor设置 为 Start 的颜色
@@ -482,12 +583,12 @@ namespace LZ.WarGameMap.MapEditor
             List<Vector2Int> brushedPixelPoss = GetBrushedPixels();
 
             // TODO : 需要验证 贝塞尔曲线 的拟合程度
-            BezierCurve bezierCurve = BezierCurve.FitCurve(brushedPixelPoss, 10);
-            //TransBezierCurve(brushedPixelPoss, 10, brushedPixelPoss[0]);
-
-            curHandleBezierCurve = bezierCurve;
+            BezierCurve bezierCurve = BezierCurve.GetFitCurve(brushedPixelPoss, riverData.riverStart, terSet, brushScope);
+            curBezierCurveEditor = CreateBezierEditor(bezierCurve);
+            Debug.Log($"gen over, curve node num : {bezierCurve.Count}, pixel num {brushedPixelPoss.Count}");
         }
 
+        // NOTE : this function return worldPos not editing pixelPos
         private List<Vector2Int> GetBrushedPixels()
         {
             if (paintRTDatas == null || paintRTDatas.Count <= 0)
@@ -501,15 +602,14 @@ namespace LZ.WarGameMap.MapEditor
                                 rtFmt == RenderTextureFormat.ARGBFloat ? TextureFormat.RGBAFloat :
                                 TextureFormat.RGBA32;
 
-            int texSize = terSet.clusterSize / paintRTSizeScale;
+            int texSize = terSet.clusterSize / terSet.paintRTSizeScale;
             Texture2D tmp = new Texture2D(texSize, texSize, fmt, false);
+            int brushedPixelNum = 0;
             List<Vector2Int> brushedPixelPoss = new List<Vector2Int>();
-
-            // TODO : 将 startPos 作为第一个元素加入进去，这样才能确定河流的起点，河流起点会作为贝塞尔曲线的起点
 
             foreach (var paintRTData in paintRTDatas)
             {
-                Vector2Int clusterStartPos = paintRTData.rtClusterIdx * terSet.clusterSize;
+                //Vector2Int clusterStartPos = paintRTData.rtClusterIdx * terSet.clusterSize;
                 RenderTexture.active = paintRTData.renderTexture;
                 tmp.ReadPixels(new Rect(0, 0, texSize, texSize), 0, 0);
                 tmp.Apply();
@@ -522,20 +622,32 @@ namespace LZ.WarGameMap.MapEditor
                         int index = (texSize - 1 - j) * texSize + i;    //
                         if (colors[index] != bgColor)
                         {
-                            Vector2Int curPixelPos = new Vector2Int(i, j) * paintRTSizeScale + clusterStartPos;
+                            //Vector2Int curPixelPos = new Vector2Int(i, j) * terSet.paintRTSizeScale + clusterStartPos;
+                            Vector2Int curPixelPos = MapRiverData.GetMapPosByRvEditPixel(new Vector2Int(i, j), 
+                                terSet.clusterSize, terSet.paintRTSizeScale, paintRTData.rtClusterIdx);
                             brushedPixelPoss.Add(curPixelPos);
+                            brushedPixelNum++;
                         }
                     }
                 }
             }
             GameObject.DestroyImmediate(tmp);
-            Debug.Log($"find painted pixel num : {brushedPixelPoss.Count}");
-            if (brushedPixelPoss.Count <= 0)
+            Debug.Log($"find painted pixel num : {brushedPixelNum}");
+            if (brushedPixelNum <= 0)
             {
                 Debug.LogError($"you do not paint!");
-                return null;
             }
             return brushedPixelPoss;
+        }
+
+
+        private BezierCurveEditor CreateBezierEditor(BezierCurve bezierCurve)
+        {
+            GameObject go = new GameObject("curEditor");
+            BezierCurveEditor bezierCurveEditor = go.AddComponent<BezierCurveEditor>();
+            bezierCurveEditor.InitCurveEditer(bezierCurve);
+            go.transform.SetParent(RiverBezierParentTrans);
+            return bezierCurveEditor;
         }
 
 
@@ -546,88 +658,42 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            if (CurRiverDataFlow == RiverDataFlow.RiverTexture)
+            if (CurRiverDataFlow == RiverDataFlow.Texture)
             {
                 SaveRiverTexture(riverID, riverData);
             }
-            else if (CurRiverDataFlow == RiverDataFlow.RiverBezier)
+            else if (CurRiverDataFlow == RiverDataFlow.Bezier)
             {
                 SaveRiverCurve(riverID, riverData);
             }
+            EditorUtility.SetDirty(mapRiverData);
+            AssetDatabase.Refresh();
         }
 
         private void SaveRiverTexture(ushort riverID, EditingRiverData riverData)
         {
             List<Vector2Int> brushedPixels = GetBrushedPixels();
             RiverData saveRiverData = new RiverData(riverData.riverID, riverData.riverName, null, brushedPixels, riverData.existTerrainClusterIDs);
+            saveRiverData.riverStart = riverData.riverStart;
             mapRiverData.AddRiverData(saveRiverData);
             Debug.Log($"save river! id : {riverData.riverID}, name : {riverData.riverName}, generate river pixel num : {brushedPixels.Count}");
         }
 
         private void SaveRiverCurve(ushort riverID, EditingRiverData riverData)
         {
-            if (curHandleBezierCurve == null)
+            if (curBezierCurveEditor == null)
             {
                 Debug.LogError("you should generate curve for this river firstly");
                 return;
             }
 
-            RiverData saveRiverData = new RiverData(riverData.riverID, riverData.riverName, curHandleBezierCurve, null, riverData.existTerrainClusterIDs);
+            RiverData saveRiverData = new RiverData(riverData.riverID, riverData.riverName, curBezierCurveEditor.Curve, null, riverData.existTerrainClusterIDs);
             mapRiverData.AddRiverData(saveRiverData);
-            DrawBezierInScene(curHandleBezierCurve, riverData.riverName);
-            Debug.Log($"save river! id : {riverData.riverID}, name : {riverData.riverName}, generate river bezier curve node num : {curHandleBezierCurve.Count}");
+            //DrawBezierInScene(curBezierCurveEditor.Curve, riverData.riverName);
+            Debug.Log($"save river! id : {riverData.riverID}, name : {riverData.riverName}, generate river bezier curve node num : {curBezierCurveEditor.Curve.Count}");
         }
 
         [Obsolete]
-        private BezierCurve TransBezierCurve(List<Vector2Int> pixels, int nodeInterval, Vector2Int startPos) {
-            BezierCurve curve = new BezierCurve();
-            if (pixels == null || pixels.Count < 2)
-                return curve;
-
-            // 找到 startPos 在 pixels 中的最近索引
-            int startIndex = 0;
-            float minDist = float.MaxValue;
-            for (int i = 0; i < pixels.Count; i++) {
-                float dist = Vector2Int.Distance(pixels[i], startPos);
-                if (dist < minDist) {
-                    minDist = dist;
-                    startIndex = i;
-                }
-            }
-
-            // 保证顺序向前推进
-            List<Vector2Int> orderedPixels = pixels.GetRange(startIndex, pixels.Count - startIndex);
-
-            // 创建 BezierNodes 每隔 nodeInterval 点
-            for (int i = 0; i < orderedPixels.Count; i += nodeInterval) {
-                Vector2Int current = orderedPixels[i];
-                Vector3 position = new Vector3(current.x, 0f, current.y);
-
-                // 尝试计算前后方向向量作为 handle
-                Vector3 handleIn = Vector3.zero;
-                Vector3 handleOut = Vector3.zero;
-
-                // 前一个点
-                if (i - nodeInterval >= 0) {
-                    Vector2Int prev = orderedPixels[i - nodeInterval];
-                    Vector3 inDir = (position - new Vector3(prev.x, prev.y, 0)).normalized;
-                    handleIn = -inDir * (nodeInterval / 2f);
-                }
-
-                // 后一个点
-                if (i + nodeInterval < orderedPixels.Count) {
-                    Vector2Int next = orderedPixels[i + nodeInterval];
-                    Vector3 outDir = (new Vector3(next.x, 0, next.y) - position).normalized;
-                    handleOut = outDir * (nodeInterval / 2f);
-                }
-
-                BezierNode node = new BezierNode(position, handleIn, handleOut);
-                curve.Add(node);
-            }
-
-            return curve;
-        }
-
         private void DrawBezierInScene(BezierCurve bezierCurve, string riverName) {
 
             GameObject bezierSignParent = new GameObject($"bezeierCurve_{riverName}");
@@ -651,7 +717,7 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
 
-            UpdateEditingRiverData();
+            ResetEditingRiverData();
         }
 
 
@@ -660,13 +726,21 @@ namespace LZ.WarGameMap.MapEditor
         private void LoadAllRiver() {
             Debug.Log("load river will override all editing data!");
 
+            for(int i = 0; i < editRiverDatas.Count; i++)
+            {
+                editRiverDatas[i].Dispose();
+            }
+            editRiverDatas.Clear();
+
             foreach (var riverData in mapRiverData.RiverDatas)
             {
                 GameObject riverObj = CreateRiverObj(riverData.riverID);
-                EditingRiverData editingRiverData = new EditingRiverData(riverData, riverObj);
+                EditingRiverData editingRiverData = new EditingRiverData(riverData, riverObj, riverData.riverStart);
                 editingRiverData.InitEditingRiverData(ChooseRiverEvent, EditStartEvent, GenCurveEvent, SaveCurveEvent, DeleteRiverEvent);
                 editRiverDatas.Add(editingRiverData);
             }
+
+            UpdateEditingRvDataDict();
 
             Debug.Log($"now you load all rivers, cur river cnt : {editRiverDatas.Count}");
         }
@@ -693,81 +767,27 @@ namespace LZ.WarGameMap.MapEditor
         [Button("保存河流数据", ButtonSizes.Medium)]
         public string riverTexturePath = MapStoreEnum.RiverTexDataPath;
 
-        struct GenRiverTexJob : IJobParallelFor
-        {
-            [ReadOnly] public Color brushColor;
-            [ReadOnly] public int riverTexSize;
-            [ReadOnly] public int paintRTSizeScale;
-            [ReadOnly] public NativeArray<Vector2Int> riverPixels;
-
-            [NativeDisableParallelForRestriction]
-            [WriteOnly] public NativeArray<Color> riverTexData;
-
-            public void Execute(int index)
-            {
-                Vector2Int pixelPos = riverPixels[index] / paintRTSizeScale;
-                int idx = pixelPos.y * riverTexSize + pixelPos.x;
-                riverTexData[idx] = Color.blue; // gray
-            }
-        }
+        
 
 
         [FoldoutGroup("河流纹理")]
         [Button("导出河流数据为纹理", ButtonSizes.Medium)]
+        [Tooltip("根据选择的RiverWorkFlow决定如何导出")]
         public void GenRiverTexture()
         {
-            int texSize = terSet.clusterSize * terSet.terrainSize.x / paintRTSizeScale;
-            Texture2D riverTex = new Texture2D(texSize, texSize, TextureFormat.RGB24, false);
-            NativeArray<Color> riverTexData = new NativeArray<Color>(texSize * texSize, Allocator.Persistent);
-            for (int i = 0; i < riverTexData.Length; i ++)
-            {
-                riverTexData[i] = Color.white;
-            }
-            foreach (var riverData in mapRiverData.RiverDatas)
-            {
-                int riverPixelSize = riverData.pixels.Count;
-                NativeArray<Vector2Int> riverPixels = new NativeArray<Vector2Int>(riverPixelSize, Allocator.TempJob);
-                //riverPixels.CopyTo(riverData.pixels.ToArray());
-                for (int i = 0; i < riverPixelSize; i++) 
-                {
-                    riverPixels[i] = riverData.pixels[i];
-                }
-
-                Debug.Log(riverPixelSize);
-
-                GenRiverTexJob genRiverTexJob = new GenRiverTexJob()
-                {
-                    brushColor = brushColor,
-                    riverTexSize = texSize,
-                    paintRTSizeScale = paintRTSizeScale,
-                    riverPixels = riverPixels,
-                    riverTexData = riverTexData
-                };
-                JobHandle jobHandle = genRiverTexJob.Schedule(riverPixelSize, 16);
-                jobHandle.Complete();
-
-                //foreach (var pixelPos in riverPixels)
-                //{
-                //    Vector2Int fixedPos = pixelPos / paintRTSizeScale;
-                //    int idx = fixedPos.y * texSize + fixedPos.x;
-                //    riverTexData[idx] = Color.blue; // gray
-                //}
-
-                riverPixels.Dispose();
-            }
-            riverTex.SetPixels(riverTexData.ToArray());
-            riverTex.Apply();
-            riverTexData.Dispose();
+            int texSize = terSet.clusterSize * terSet.terrainSize.x / terSet.paintRTSizeScale;
+            Texture2D riverTex = mapRiverData.GenRiverTexture(CurRiverDataFlow, terSet);
 
             string texName = GetRiverTexName();
             TextureUtility.GetInstance().SaveTextureAsAsset(riverTexturePath, texName, riverTex);
             GameObject.DestroyImmediate(riverTex);
         }
 
+
         private string GetRiverTexName()
         {
-            int texSize = terSet.clusterSize * terSet.terrainSize.x / paintRTSizeScale;
-            return string.Format("RvTexture_{0}_{1}x{1}_{2}", paintRTSizeScale, texSize, UnityEngine.Random.Range(0, 120));
+            int texSize = terSet.clusterSize * terSet.terrainSize.x / terSet.paintRTSizeScale;
+            return string.Format("RvTexture_{0}_{1}x{1}_{2}_{3}", terSet.paintRTSizeScale, texSize, CurRiverDataFlow.ToString(), UnityEngine.Random.Range(0, 120));
         }
 
         #endregion
@@ -837,24 +857,26 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         protected override void HandleSceneDraw() {
-            if(curHandleBezierCurve == null) {
+            if(curBezierCurveEditor == null) {
                 return;
-            }
+            }// curBezierCurveEditor
 
-            int count = curHandleBezierCurve.Nodes.Count;
+            int count = curBezierCurveEditor.Curve.Count;
             if (count < 2) {
                 return;
             }
             
             for(int i = 0; i < count - 1; i++) {
-                Vector3 startPoint = curHandleBezierCurve.Nodes[i].position;
-                Vector3 startTangent = curHandleBezierCurve.Nodes[i].handleIn;
-                Vector3 endPoint = curHandleBezierCurve.Nodes[i + 1].position;
-                Vector3 endTangent = curHandleBezierCurve.Nodes[i].handleOut;
+                Vector3 startPoint = curBezierCurveEditor.Curve.Nodes[i].position;
+                Vector3 startTangent = curBezierCurveEditor.Curve.Nodes[i].handleOut;
+                Vector3 endPoint = curBezierCurveEditor.Curve.Nodes[i + 1].position;
+                Vector3 endTangent = curBezierCurveEditor.Curve.Nodes[i + 1].handleIn;
                 Handles.DrawBezier(startPoint, endPoint,
                     startTangent, endTangent, Color.blue, null, 2f);
             }
         }
+
+        private PaintMode preMode;
 
         private void PaintRiverRT(Vector3 worldPos) {
             int clusterSize = terSet.clusterSize;
@@ -870,23 +892,29 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             Vector2Int curPaintClsIdx = new Vector2Int(clusterIdxX, clusterIdxY);
-            if (!curShowRTIdx.Contains(curPaintClsIdx)) {
+            if (!curShowRTIdx.Contains(curPaintClsIdx)) 
+            {
                 return;
             }
 
             // if paint scope has been changed, then renew the texture
             int curSize = paintScope * 2 + 1;
-            if (paintHelpTexture == null) {
+            bool paintModeChanged = preMode != paintMode;
+            if (paintHelpTexture == null || paintModeChanged) 
+            {
                 CreatePaintTexture(curSize);
-            } else {
+            } 
+            else 
+            {
                 int size = paintHelpTexture.width;
                 if (size != curSize) {
                     CreatePaintTexture(curSize);
                 }
             }
-            
+            preMode = paintMode;
+
             // if paint position is in cur Cluster
-            int rtSize = clusterSize / paintRTSizeScale;
+            int rtSize = clusterSize / terSet.paintRTSizeScale;
             float innerRatioX = (float)(FixedWorldPos.x % clusterSize) / clusterSize;
             float innerRatioY = (float)(FixedWorldPos.z % clusterSize) / clusterSize;
 
@@ -899,7 +927,13 @@ namespace LZ.WarGameMap.MapEditor
             } else {
                 Debug.LogError($"dic do not contains : {curPaintClsIdx}");
             }
-            
+
+
+            if (paintMode == PaintMode.SetStart)
+            {
+                editRiverDataDict[curEditRiverID].riverStart = new RiveStartData(curPaintClsIdx, paintPos);
+            }
+
             Debug.Log($"world pos : {worldPos}, paint cluster : {curPaintClsIdx}, paint area : {curSize}x{curSize}, paint pos : {paintPos}, paint ratio : ({innerRatioX},{innerRatioY}), paint target RT size : {rtSize}");
         }
 
@@ -910,7 +944,7 @@ namespace LZ.WarGameMap.MapEditor
             paintHelpTexture = new Texture2D(curSize, curSize, TextureFormat.RGBA32, false, false);
             Color[] colors = new Color[curSize * curSize];
             for (int i = 0; i < curSize * curSize; i++) {
-                colors[i] = paintColor;
+                colors[i] = paintRiverColor;
             }
             paintHelpTexture.SetPixels(colors);
             paintHelpTexture.Apply();

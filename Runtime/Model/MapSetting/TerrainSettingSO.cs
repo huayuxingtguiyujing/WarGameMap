@@ -1,3 +1,4 @@
+using CodiceApp;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections;
@@ -40,9 +41,23 @@ namespace LZ.WarGameMap.Runtime {
         [LabelText("地块大小")]
         public int tileSize = MapTerrainEnum.TileSize;
 
+        // river setting
+        [LabelText("河流编辑数据相比大地图的缩放")]
+        public ushort paintRTSizeScale = 4;     // only editor
+
+        [LabelText("河道最大沉降")]
+        public int riverDownOffset = 5;
+
+        [LabelText("非河流颜色（纹理存储）")]
+        public Color noRiverColor = Color.white;
+
+        [LabelText("河流颜色（纹理存储）")]
+        public Color riverColor = Color.blue;
+
         public TerrainSetting GetTerrainSetting() {
             return new TerrainSetting(
-                LODLevel, terrainSize, startLL, clusterSize, tileSize    
+                LODLevel, terrainSize, startLL, clusterSize, tileSize, 
+                riverDownOffset, noRiverColor, riverColor
             );
         }
 
@@ -61,14 +76,25 @@ namespace LZ.WarGameMap.Runtime {
 
         public int tileSize { get; private set; }
 
+        // river set
+        public int riverDownOffset { get; private set; }
+
+        public Color noRiverColor { get; private set; }
+
+        public Color riverColor { get; private set; }
+
         public TerrainSetting(){ }
 
-        public TerrainSetting(int lODLevel, Vector3Int terrainSize, Vector2Int startLongitudeAndLatitude, int clusterSize, int tileSize) {
+        public TerrainSetting(int lODLevel, Vector3Int terrainSize, Vector2Int startLongitudeAndLatitude, 
+            int clusterSize, int tileSize, int riverDownOffset, Color noRiverColor, Color riverColor) {
             LODLevel = lODLevel;
             this.terrainSize = terrainSize;
             this.startLL = startLongitudeAndLatitude;
             this.clusterSize = clusterSize;
             this.tileSize = tileSize;
+            this.riverDownOffset = riverDownOffset;
+            this.noRiverColor = noRiverColor;
+            this.riverColor = riverColor;
         }
 
         public void WriteToBinary(BinaryWriter writer) {
@@ -77,6 +103,13 @@ namespace LZ.WarGameMap.Runtime {
             writer.Write(startLL.ToStringFixed());
             writer.Write(clusterSize);
             writer.Write(tileSize);
+
+            writer.Write(riverDownOffset);
+            writer.Write(noRiverColor.ToStringFixedRGBA());
+            writer.Write(riverColor.ToStringFixedRGBA());
+            //public float riverDownOffset { get; private set; }
+            //public Color noRiverColor { get; private set; }
+            //public Color riverColor { get; private set; }
         }
 
         public void ReadFromBinary(BinaryReader reader) {
@@ -85,9 +118,13 @@ namespace LZ.WarGameMap.Runtime {
             startLL = reader.ReadString().ToVector2Int();
             clusterSize = reader.ReadInt32();
             tileSize = reader.ReadInt32();
+
+            riverDownOffset = reader.ReadInt32();
+            noRiverColor = reader.ReadString().ToColorRGBA();
+            riverColor = reader.ReadString().ToColorRGBA();
         }
 
-
+        // TODO : update them
         public override string ToString() {
             return $"{LODLevel},{terrainSize.ToStringFixed()},{startLL.ToStringFixed()},{clusterSize},{tileSize}";
         }

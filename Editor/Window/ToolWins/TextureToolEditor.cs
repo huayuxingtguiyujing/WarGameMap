@@ -170,6 +170,7 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
+        // TODO : 这个功能还要吗？要不要保留呢
         #region 地形mesh处理
 
         TerrainConstructor TerrainCtor;
@@ -203,7 +204,35 @@ namespace LZ.WarGameMap.MapEditor
             AssetDatabase.Refresh();
             Debug.Log($"create mesh and obj txt over!");
         }
-        
+
+        #endregion
+
+
+        #region SDF纹理处理
+
+
+        [FoldoutGroup("SDF纹理处理")]
+        [LabelText("源纹理")]
+        public Texture2D originTexture;
+
+        [FoldoutGroup("SDF纹理处理")]
+        [LabelText("SDF纹理")]
+        public Texture2D sdfTexture;
+
+        [FoldoutGroup("SDF纹理处理")]
+        [Button("生成SDF纹理", ButtonSizes.Medium)]
+        private void GetSDFTexture()
+        {
+
+        }
+
+        [FoldoutGroup("SDF纹理处理")]
+        [Button("保存SDF纹理", ButtonSizes.Medium)]
+        private void SaveSDFTexture()
+        {
+
+        }
+
         #endregion
 
     }

@@ -1,9 +1,9 @@
 Shader "WarGameMap/Terrain/HexmapDataTexShader"
 {
-// this shader will show a texture int the scene obj
+// this shader will show a texture in the scene obj
 // and you can modify this texture by brush
 // hexmap data will storage in this texture
-// and this shader is only for show effect
+// and this shader is only used for show hexmap edit effect
 
     Properties
     {

@@ -106,7 +106,7 @@ namespace LZ.WarGameMap.MapEditor
                     TerrainCtor = mapScene.mapRootObj.AddComponent<TerrainConstructor>();
                 }
             }
-            TerrainCtor.SetMapPrefab(mapScene.mapRootObj.transform, mapScene.heightMeshParentObj.transform);
+            TerrainCtor.SetMapPrefab(mapScene.mapRootObj.transform, mapScene.heightMeshParentObj.transform, mapScene.riverMeshParentObj.transform);
 
             // init hex cons
             if (HexCtor == null) {
@@ -173,7 +173,7 @@ namespace LZ.WarGameMap.MapEditor
             InitTerScene();
 
             // TODO : hexSet 也要从 持久化文件里面读取
-            TerrainCtor.InitTerrainCons(mapSet, terSet.GetTerrainSetting(), hexSet, heightDataModels, null, material);
+            TerrainCtor.InitTerrainCons(mapSet, terSet.GetTerrainSetting(), hexSet, heightDataModels, null, material, null);
 
             foreach (var binder in clusterMeshDatas)
             {
@@ -449,6 +449,7 @@ namespace LZ.WarGameMap.MapEditor
         public GameObject hexTextureParentObj { get; private set; }
 
         public GameObject riverDataParentObj { get; private set; }
+        public GameObject riverMeshParentObj { get; private set; }
 
         public void Dispose() {
             GameObject.DestroyImmediate(hexClusterParentObj);
@@ -495,6 +496,18 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
             riverDataParentObj.transform.parent = mapRootObj.transform;
+
+            // RiverMeshParentName
+            if (riverMeshParentObj == null)
+            {
+                riverMeshParentObj = GameObject.Find(MapSceneEnum.RiverMeshParentName);
+                if (riverMeshParentObj == null)
+                {
+                    riverMeshParentObj = new GameObject(MapSceneEnum.RiverMeshParentName);
+                }
+            }
+            riverMeshParentObj.transform.parent = mapRootObj.transform;
+
         }
 
     }

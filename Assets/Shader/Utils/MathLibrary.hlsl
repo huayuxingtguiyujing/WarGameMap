@@ -54,5 +54,16 @@ float GetDegrees(float2 angle){
     return fmod(angleDeg + 360.0, 360.0);
 }
 
+// lerp color
+float LerpColor(float3 colorA, float3 colorB, float3 colorC)
+{
+    float3 ab = colorB - colorA;
+    float3 ac = colorC - colorA;
+    float denom = dot(ab, ab);
+    if (denom < 1e-5) return 0.0;
+    float t = dot(ac, ab) / denom;
+    return saturate(t);     // return t in (0, 1)
+}
+
 
 #endif

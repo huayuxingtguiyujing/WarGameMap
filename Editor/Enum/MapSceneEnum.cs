@@ -17,7 +17,10 @@ namespace LZ.WarGameMap.MapEditor
 
         public static string HexTextureParentName = "hexTexture";
 
-        public static string RiverDataParentName = "riverDatas";
+        public static string RiverDataParentName = "riverData";
+
+        public static string RiverMeshParentName = "riverMesh";
+
 
 
         public static string HexSignParentName = "hexSigns";

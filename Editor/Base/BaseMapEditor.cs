@@ -97,6 +97,9 @@ namespace LZ.WarGameMap.MapEditor {
         private int dragInterval = 5;
 
         protected virtual void OnSceneGUI(SceneView sceneView) {
+
+            HandleSceneDraw(); 
+            
             if (!lockSceneView) {
                 return;
             }
@@ -132,7 +135,6 @@ namespace LZ.WarGameMap.MapEditor {
             } else if (e.button == 1) {
             }
 
-            HandleSceneDraw();
         }
 
         #endregion

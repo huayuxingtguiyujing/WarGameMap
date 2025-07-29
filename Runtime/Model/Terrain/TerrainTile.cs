@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.UIElements;
+using static UnityEngine.Mesh;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -115,6 +116,35 @@ namespace LZ.WarGameMap.Runtime
             MeshRenderer meshRenderer = tileGo.AddComponent<MeshRenderer>();
             meshRenderer.sharedMaterial = mat;
             return tileGo;
+        }
+
+        public void ApplyRiverEffect(RiverDataManager riverDataManager)
+        {
+            if (riverDataManager.IsValid == false)
+            {
+                Debug.LogError("un valid river data manager, so can not init river!");
+                return;
+            }
+            int tileNumPerLine = terSet.clusterSize / terSet.tileSize;
+            for (int i = 0; i < tileNumPerLine; i++)
+            {
+                for (int j = 0; j < tileNumPerLine; j++)
+                {
+                    tileList[i, j].ApplyRiverEffect(riverDataManager);
+                }
+            }
+        }
+
+        public void BuildOriginMesh()
+        {
+            int tileNumPerLine = terSet.clusterSize / terSet.tileSize;
+            for (int i = 0; i < tileNumPerLine; i++)
+            {
+                for (int j = 0; j < tileNumPerLine; j++)
+                {
+                    tileList[i, j].BuildOriginMesh();
+                }
+            }
         }
 
         public void SampleMeshNormal(Texture2D normalTex) {
@@ -535,8 +565,6 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            meshData.RecaculateNormal_Origin();
-            meshData.BuildOriginMesh();
         }
 
         public void SetMeshData_Origin(int curLODLevel, TerrainSetting terSet, int vertexNumFix, HeightDataManager heightDataManager) {
@@ -640,8 +668,23 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            meshData.RecaculateNormal_Origin();
-            meshData.BuildOriginMesh();
+        }
+
+        public void ApplyRiverEffect(RiverDataManager riverDataManager)
+        {
+            for (int i = 0; i < LODMeshes.Length; i ++)
+            {
+                LODMeshes[i].ApplyRiverEffect(riverDataManager);
+            }
+
+        }
+
+        public void BuildOriginMesh()
+        {
+            for (int i = 0; i < LODMeshes.Length; i++)
+            {
+                LODMeshes[i].BuildOriginMesh();
+            }
         }
 
         #endregion

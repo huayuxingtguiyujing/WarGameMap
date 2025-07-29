@@ -23,6 +23,7 @@ namespace LZ.WarGameMap.Runtime
 
         [SerializeField] Transform originPoint;
         [SerializeField] Transform heightClusterParent;
+        [SerializeField] Transform riverMeshParent;
         [SerializeField] Transform signParent;
 
         // cluster and tile setting
@@ -51,18 +52,23 @@ namespace LZ.WarGameMap.Runtime
         // height data
         private HeightDataManager heightDataManager;
 
+        private RiverDataManager riverDataManager;
 
         #region init height cons
 
-        public void SetMapPrefab(Transform originPoint, Transform heightClusterParent) {
+        public void SetMapPrefab(Transform originPoint, Transform heightClusterParent, Transform riverMeshParent) {
             this.originPoint = originPoint;
             this.heightClusterParent = heightClusterParent;
+            this.riverMeshParent = riverMeshParent;
         }
 
-        public void InitTerrainCons(MapRuntimeSetting mapSet, TerrainSetting terSet, HexSettingSO hexSetting, List<HeightDataModel> heightDataModels, RawHexMapSO rawHexMapSO, Material mat) {
+        public void InitTerrainCons(MapRuntimeSetting mapSet, TerrainSetting terSet, HexSettingSO hexSetting, List<HeightDataModel> heightDataModels, 
+            RawHexMapSO rawHexMapSO, Material mat, MapRiverData mapRiverData) {
             heightDataManager = new HeightDataManager();
             heightDataManager.InitHeightDataManager(heightDataModels, terSet.clusterSize, hexSetting, rawHexMapSO);
             //heightDataManager.InitHexSet(hexSetting, rawHexMapSO);
+
+            riverDataManager = new RiverDataManager(mapRiverData, terSet.riverDownOffset, terSet.clusterSize, terSet.terrainSize, riverMeshParent);
 
             this.mapSet = mapSet;
             this.terSet = terSet;
@@ -89,9 +95,18 @@ namespace LZ.WarGameMap.Runtime
 
             int longitude = this.terSet.startLL.x + i;
             int latitude = this.terSet.startLL.y + j;
-            if (!clusterList[i, j].IsLoaded) {
+            if (!clusterList[i, j].IsLoaded) 
+            {
                 GameObject clusterGo = CreateTerrainCluster(i, j);
                 clusterList[i, j].InitTerrainCluster_Static(i, j, longitude, latitude, terSet, heightDataManager, clusterGo, terMaterial);
+
+                riverDataManager.BuildRiverData(i, j);
+                // if river tex is null, skip it, if not paint and generate river obj
+                clusterList[i, j].ApplyRiverEffect(riverDataManager);
+
+                // TODO : generate river obj, they will be served by TerCons
+
+                clusterList[i, j].BuildOriginMesh();
             }
 
             Debug.Log($"handle cluster successfully, use heightData : {longitude}, {latitude}");
@@ -130,7 +145,19 @@ namespace LZ.WarGameMap.Runtime
             }
             
             heightClusterParent.ClearObjChildren();
+
+            if (riverDataManager != null)
+            {
+                riverDataManager.Dispose();
+            }
+            riverMeshParent.ClearObjChildren();
+
             hasInit = false;    // clear 之后回归未初始化状态
+        }
+
+        private void OnDestroy()
+        {
+            riverDataManager.Dispose();
         }
 
         #endregion

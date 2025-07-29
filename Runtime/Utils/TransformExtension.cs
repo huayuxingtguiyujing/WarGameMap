@@ -31,13 +31,6 @@ namespace LZ.WarGameMap.Runtime {
             return $"{target.x},{target.y}";
         }
 
-        public static string ToStringFixedRGB(this Color target) {
-            return $"{target.r},{target.g},{target.b}";
-        }
-
-        public static string ToStringFixedRGBA(this Color target) {
-            return $"{target.r},{target.g},{target.b},{target.a}";
-        }
     }
 
     public static class TransformExtension {
@@ -109,5 +102,62 @@ namespace LZ.WarGameMap.Runtime {
         public static Vector3 TransToXZ(this Vector2 v2) {
             return new Vector3(v2.x, 0, v2.y);
         }
+
+        public static Vector3 TransToXZ(this Vector2Int v2)
+        {
+            return new Vector3(v2.x, 0, v2.y);
+        }
+
+        public static Vector2 TransFromXZ(this Vector3 v3)
+        {
+            return new Vector2(v3.x, v3.z);
+        }
+
+        public static Vector3Int GetSimilarVInt(this Vector3 v)
+        {
+            return new Vector3Int((int)v.x, (int)v.y, (int)v.z);
+        }
+
     }
+
+    public static class ColorExtension
+    {
+
+        public static string ToStringFixedRGB(this Color target)
+        {
+            return $"{target.r},{target.g},{target.b}";
+        }
+
+        public static string ToStringFixedRGBA(this Color target)
+        {
+            return $"{target.r},{target.g},{target.b},{target.a}";
+        }
+
+        public static Color ToColorRGB(this string target)
+        {
+            string[] strs = target.Split(',');
+            return new Color((float)Convert.ToDouble(strs[0]), (float)Convert.ToDouble(strs[1]), (float)Convert.ToDouble(strs[2]));
+        }
+
+        public static Color ToColorRGBA(this string target)
+        {
+            string[] strs = target.Split(',');
+            return new Color((float)Convert.ToDouble(strs[0]), (float)Convert.ToDouble(strs[1]),
+                (float)Convert.ToDouble(strs[2]), (float)Convert.ToDouble(strs[3]));
+        }
+        
+        public static float LerpColor(this Color c, Color a, Color b)
+        {
+            Vector3 ab = new Vector3(b.r - a.r, b.g - a.g, b.b - a.b);
+            Vector3 ac = new Vector3(c.r - a.r, c.g - a.g, c.b - a.b);
+            float denominator = Vector3.Dot(ab, ab);
+            if (denominator < 1e-6f)
+            {
+                return 0f;
+            }
+            float t = Vector3.Dot(ac, ab) / denominator;
+            return Mathf.Clamp01(t);
+        }
+    } 
+
 }
