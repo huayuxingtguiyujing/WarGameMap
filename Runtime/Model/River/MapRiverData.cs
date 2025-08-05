@@ -206,6 +206,7 @@ namespace LZ.WarGameMap.Runtime {
             int maxIter = 10000;
             int iterTime = 0;
             bool isFinal = false;
+            riverData.curve.InitGetDistanceCache();
             while (!isFinal && iterTime < maxIter)
             {
                 riverData.curve.GetPointAtDistance(iterTime, out Vector3 point, out Vector3 tangent, out isFinal);

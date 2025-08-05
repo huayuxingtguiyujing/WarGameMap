@@ -284,6 +284,18 @@ namespace LZ.WarGameMap.MapEditor
             
         }
 
+        [FoldoutGroup("河流编辑", 0)]
+        [Button("同步曲线场景节点到曲线", ButtonSizes.Medium)]
+        private void SyncToBezierCurve()
+        {
+            if(curBezierCurveEditor == null)
+            {
+                Debug.LogError("bezier curve editor is null!");
+                return;
+            }
+            curBezierCurveEditor.SyncToBezierCurve();
+        }
+
         #endregion
 
 
@@ -583,7 +595,8 @@ namespace LZ.WarGameMap.MapEditor
             List<Vector2Int> brushedPixelPoss = GetBrushedPixels();
 
             // TODO : 需要验证 贝塞尔曲线 的拟合程度
-            BezierCurve bezierCurve = BezierCurve.GetFitCurve(brushedPixelPoss, riverData.riverStart, terSet, brushScope);
+            //BezierCurve bezierCurve = BezierCurve.GenCurve(brushedPixelPoss, riverData.riverStart, terSet);
+            BezierCurve bezierCurve = BezierCurve.FitCurve(brushedPixelPoss, riverData.riverStart, terSet);
             curBezierCurveEditor = CreateBezierEditor(bezierCurve);
             Debug.Log($"gen over, curve node num : {bezierCurve.Count}, pixel num {brushedPixelPoss.Count}");
         }
@@ -645,7 +658,7 @@ namespace LZ.WarGameMap.MapEditor
         {
             GameObject go = new GameObject("curEditor");
             BezierCurveEditor bezierCurveEditor = go.AddComponent<BezierCurveEditor>();
-            bezierCurveEditor.InitCurveEditer(bezierCurve);
+            bezierCurveEditor.InitCurveEditer(bezierCurve, terSet.paintRTSizeScale / 2);
             go.transform.SetParent(RiverBezierParentTrans);
             return bezierCurveEditor;
         }
@@ -658,39 +671,23 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            if (CurRiverDataFlow == RiverDataFlow.Texture)
-            {
-                SaveRiverTexture(riverID, riverData);
-            }
-            else if (CurRiverDataFlow == RiverDataFlow.Bezier)
-            {
-                SaveRiverCurve(riverID, riverData);
-            }
-            EditorUtility.SetDirty(mapRiverData);
-            AssetDatabase.Refresh();
-        }
-
-        private void SaveRiverTexture(ushort riverID, EditingRiverData riverData)
-        {
-            List<Vector2Int> brushedPixels = GetBrushedPixels();
-            RiverData saveRiverData = new RiverData(riverData.riverID, riverData.riverName, null, brushedPixels, riverData.existTerrainClusterIDs);
-            saveRiverData.riverStart = riverData.riverStart;
-            mapRiverData.AddRiverData(saveRiverData);
-            Debug.Log($"save river! id : {riverData.riverID}, name : {riverData.riverName}, generate river pixel num : {brushedPixels.Count}");
-        }
-
-        private void SaveRiverCurve(ushort riverID, EditingRiverData riverData)
-        {
+            // Texture should be saved, and curve should be saved too
             if (curBezierCurveEditor == null)
             {
                 Debug.LogError("you should generate curve for this river firstly");
                 return;
             }
 
-            RiverData saveRiverData = new RiverData(riverData.riverID, riverData.riverName, curBezierCurveEditor.Curve, null, riverData.existTerrainClusterIDs);
+            List<Vector2Int> brushedPixels = GetBrushedPixels();
+            RiverData saveRiverData = new RiverData(riverData.riverID, riverData.riverName, curBezierCurveEditor.Curve, brushedPixels, riverData.existTerrainClusterIDs);
+            saveRiverData.riverStart = riverData.riverStart;
             mapRiverData.AddRiverData(saveRiverData);
+
             //DrawBezierInScene(curBezierCurveEditor.Curve, riverData.riverName);
-            Debug.Log($"save river! id : {riverData.riverID}, name : {riverData.riverName}, generate river bezier curve node num : {curBezierCurveEditor.Curve.Count}");
+            Debug.Log($"save river! id : {riverData.riverID}, name : {riverData.riverName}, generate river bezier curve node num : {curBezierCurveEditor.Curve.Count}, river pixel num : {brushedPixels.Count}");
+
+            EditorUtility.SetDirty(mapRiverData);
+            AssetDatabase.Refresh();
         }
 
         [Obsolete]

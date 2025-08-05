@@ -31,7 +31,7 @@ namespace LZ.WarGameMap.Runtime
         public int terrainHeight;
 
         public MapRuntimeSetting mapSet;
-        public TerrainSetting terSet;
+        public TerrainSettingSO terSet;
 
         public Material terMaterial;
 
@@ -62,13 +62,13 @@ namespace LZ.WarGameMap.Runtime
             this.riverMeshParent = riverMeshParent;
         }
 
-        public void InitTerrainCons(MapRuntimeSetting mapSet, TerrainSetting terSet, HexSettingSO hexSetting, List<HeightDataModel> heightDataModels, 
+        public void InitTerrainCons(MapRuntimeSetting mapSet, TerrainSettingSO terSet, HexSettingSO hexSetting, List<HeightDataModel> heightDataModels, 
             RawHexMapSO rawHexMapSO, Material mat, MapRiverData mapRiverData) {
             heightDataManager = new HeightDataManager();
-            heightDataManager.InitHeightDataManager(heightDataModels, terSet.clusterSize, hexSetting, rawHexMapSO);
+            heightDataManager.InitHeightDataManager(heightDataModels, terSet, hexSetting, rawHexMapSO);
             //heightDataManager.InitHexSet(hexSetting, rawHexMapSO);
 
-            riverDataManager = new RiverDataManager(mapRiverData, terSet.riverDownOffset, terSet.clusterSize, terSet.terrainSize, riverMeshParent);
+            riverDataManager = new RiverDataManager(mapRiverData, terSet.riverDownOffset, terSet.tileSize, terSet.clusterSize, terSet.terrainSize, riverMeshParent);
 
             this.mapSet = mapSet;
             this.terSet = terSet;
@@ -101,12 +101,11 @@ namespace LZ.WarGameMap.Runtime
                 clusterList[i, j].InitTerrainCluster_Static(i, j, longitude, latitude, terSet, heightDataManager, clusterGo, terMaterial);
 
                 riverDataManager.BuildRiverData(i, j);
-                // if river tex is null, skip it, if not paint and generate river obj
-                clusterList[i, j].ApplyRiverEffect(riverDataManager);
+                clusterList[i, j].ApplyRiverEffect(heightDataManager, riverDataManager);
+                clusterList[i, j].BuildOriginMesh();
 
                 // TODO : generate river obj, they will be served by TerCons
 
-                clusterList[i, j].BuildOriginMesh();
             }
 
             Debug.Log($"handle cluster successfully, use heightData : {longitude}, {latitude}");

@@ -25,7 +25,7 @@ namespace LZ.WarGameMap.Runtime
         public bool IsShowing { get; private set; }     // TODO : 有bug！
 
 
-        TerrainSetting terSet;
+        TerrainSettingSO terSet;
         Vector3 clusterStartPoint;
 
         Material mat;   // TODO : 要记录在这吗？
@@ -41,7 +41,7 @@ namespace LZ.WarGameMap.Runtime
 
         #region init cluster
 
-        public void InitTerrainCluster_Static(int idxX, int idxY, int longitude, int latitude, TerrainSetting terSet, HeightDataManager heightDataManager, GameObject clusterGo, Material mat) {
+        public void InitTerrainCluster_Static(int idxX, int idxY, int longitude, int latitude, TerrainSettingSO terSet, HeightDataManager heightDataManager, GameObject clusterGo, Material mat) {
             this.idxX = idxX;
             this.idxY = idxY;
 
@@ -118,7 +118,7 @@ namespace LZ.WarGameMap.Runtime
             return tileGo;
         }
 
-        public void ApplyRiverEffect(RiverDataManager riverDataManager)
+        public void ApplyRiverEffect(HeightDataManager heightDataManager, RiverDataManager riverDataManager)
         {
             if (riverDataManager.IsValid == false)
             {
@@ -130,7 +130,7 @@ namespace LZ.WarGameMap.Runtime
             {
                 for (int j = 0; j < tileNumPerLine; j++)
                 {
-                    tileList[i, j].ApplyRiverEffect(riverDataManager);
+                    tileList[i, j].ApplyRiverEffect(heightDataManager, riverDataManager);
                 }
             }
         }
@@ -437,7 +437,7 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        public void SetMeshData_Coroutine(int curLODLevel, TerrainSetting terSet, int vertexNumFix, HeightDataManager heightDataManager) {
+        public void SetMeshData_Coroutine(int curLODLevel, TerrainSettingSO terSet, int vertexNumFix, HeightDataManager heightDataManager) {
             this.heightDataManager = heightDataManager;
             this.clusterSize = terSet.clusterSize;
             this.tileSize = terSet.tileSize;
@@ -445,7 +445,7 @@ namespace LZ.WarGameMap.Runtime
             CoroutineManager.GetInstance().RunCoroutine(_SetMeshData(curLODLevel, terSet, vertexNumFix, 50000));
         }
 
-        private IEnumerator _SetMeshData(int curLODLevel, TerrainSetting terSet, int vertexNumFix, int maxTickOneFrame) {
+        private IEnumerator _SetMeshData(int curLODLevel, TerrainSettingSO terSet, int vertexNumFix, int maxTickOneFrame) {
             // caculate tile's start point
             float startX = tileIdxX * tileSize;
             float startZ = tileIdxY * tileSize;
@@ -515,9 +515,8 @@ namespace LZ.WarGameMap.Runtime
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
                     // NOTE : 这里的代码不能删！千万不能删啊
-                    //float height = SampleFromHeightData(terrainClusterSize, vert);
-                    float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
-                    //float height = heightDataManager.SampleFromHexMap(vert);
+                    //float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
+                    float height = heightDataManager.SampleFromHexMap(vert);
                     //float height = 0;
 
                     vert.y = height;
@@ -670,12 +669,12 @@ namespace LZ.WarGameMap.Runtime
 
         }
 
-        public void ApplyRiverEffect(RiverDataManager riverDataManager)
+        public void ApplyRiverEffect(HeightDataManager heightDataManager, RiverDataManager riverDataManager)
         {
-            for (int i = 0; i < LODMeshes.Length; i ++)
-            {
-                LODMeshes[i].ApplyRiverEffect(riverDataManager);
-            }
+            //for (int i = 0; i < LODMeshes.Length; i ++)
+            //{
+                LODMeshes[LODMeshes.Length - 1].ApplyRiverEffect(heightDataManager, riverDataManager);
+            //}
 
         }
 

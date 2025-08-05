@@ -46,7 +46,7 @@ namespace LZ.WarGameMap.Runtime {
         public ushort paintRTSizeScale = 4;     // only editor
 
         [LabelText("河道最大沉降")]
-        public int riverDownOffset = 5;
+        public int riverDownOffset = 15;
 
         [LabelText("非河流颜色（纹理存储）")]
         public Color noRiverColor = Color.white;

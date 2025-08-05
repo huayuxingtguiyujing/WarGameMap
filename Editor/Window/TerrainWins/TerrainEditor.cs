@@ -73,7 +73,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            TerrainCtor.InitTerrainCons(mapSet, terSet.GetTerrainSetting(), hexSet, heightDataModels, rawHexMapSO, terMaterial, mapRvData);
+            TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, rawHexMapSO, terMaterial, mapRvData);
         }
 
         [FoldoutGroup("构建地形-高度图流程")]
@@ -105,7 +105,7 @@ namespace LZ.WarGameMap.MapEditor
                         Debug.LogError($"unable to find heightdata, longitude : {longitude}, latitude : {latitude}");
                     }
                 }
-                Debug.Log($"construct cluster mesh : {longitude}, {latitude}");
+                //Debug.Log($"construct cluster mesh : {longitude}, {latitude}");
             }
 
             TerrainCtor.UpdateTerrain();
@@ -175,7 +175,7 @@ namespace LZ.WarGameMap.MapEditor
         private void GenerateRawHexMap() {
 
             HeightDataManager heightDataManager = new HeightDataManager();
-            heightDataManager.InitHeightDataManager(heightDataModels, MapTerrainEnum.ClusterSize, hexSet, rawHexMapSO);
+            heightDataManager.InitHeightDataManager(heightDataModels, terSet, hexSet, rawHexMapSO);
 
             // TODO : 不应该使用 高度图生成 RawHexMapSO
             rawHexMapSO = CreateInstance<RawHexMapSO>();
@@ -442,14 +442,14 @@ namespace LZ.WarGameMap.MapEditor
             using (FileStream fs = new FileStream(curHandleMeshPath, FileMode.Open, FileAccess.Read))
             using (BufferedStream bufferedStream = new BufferedStream(fs))
             using (BinaryReader reader = new BinaryReader(bufferedStream)) {
+                // NOTE : 勿删
+                //TerrainSetting trSet = new TerrainSetting();
+                //trSet.ReadFromBinary(reader);
+                //int terrainWidth = trSet.terrainSize.x;
+                //int terrainHeight = trSet.terrainSize.z;
 
-                TerrainSetting trSet = new TerrainSetting();
-                trSet.ReadFromBinary(reader);
-                int terrainWidth = trSet.terrainSize.x;
-                int terrainHeight = trSet.terrainSize.z;
-
-                // TODO : hexSet 也要从 持久化文件里面读取
-                TerrainCtor.InitTerrainCons(mapSet, trSet, hexSet, heightDataModels, rawHexMapSO, terMaterial, null);
+                // TODO : terSet hexSet 最好要从 持久化文件里面读取
+                TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, rawHexMapSO, terMaterial, null);
 
                 int validClusterNum = reader.ReadInt32();
                 for (int i = 0; i < validClusterNum; i++) {

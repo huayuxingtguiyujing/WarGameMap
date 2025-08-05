@@ -381,20 +381,32 @@ namespace LZ.WarGameMap.Runtime
             return Vector3.Cross(sideAB, sideAC).normalized;
         }
 
-        public void ApplyRiverEffect(RiverDataManager riverDataManager)
+        public void ApplyRiverEffect(HeightDataManager heightDataManager, RiverDataManager riverDataManager)
         {
             int len = vertexs.Length;
             for (int i = 0; i < len; i++)
             {
                 Vector3 point = vertexs[i];
-                bool IsEffectByRiver;
-                float offset = riverDataManager.SampleRiverRatio(point, out IsEffectByRiver);
+                riverDataManager.SampleRiverRatio(point, out bool IsEffectByRiver, out float offsetDown, out Vector2Int bindWorldPos);
+                // TODO : °ó¶¨²»ºÃ¸ãÍÛ
                 if (IsEffectByRiver)
                 {
-                    vertexs[i] = new Vector3(point.x, -offset, point.z);
+                    //float bindTargetHeight = vertexs[bindTargetIdxInVert].y;
+                    //float bindTargetHeight = heightDataManager.SampleFromHeightData(bindWorldPos.TransToXZ());
+                    vertexs[i] = new Vector3(point.x, point.y - offsetDown, point.z);
                 }
             }
 
+            int outLen = outofMeshVertexs.Length;
+            for (int i = 0; i < outLen; i++)
+            {
+                Vector3 point = outofMeshVertexs[i];
+                riverDataManager.SampleRiverRatio(point, out bool IsEffectByRiver, out float offsetDown, out Vector2Int bindWorldPos);
+                if (IsEffectByRiver)
+                {
+                    outofMeshVertexs[i] = new Vector3(point.x, point.y - offsetDown, point.z);
+                }
+            }
         }
 
         // this function build a terrain tile mesh (tiled mesh)

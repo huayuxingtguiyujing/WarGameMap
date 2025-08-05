@@ -173,7 +173,7 @@ namespace LZ.WarGameMap.MapEditor
             InitTerScene();
 
             // TODO : hexSet 也要从 持久化文件里面读取
-            TerrainCtor.InitTerrainCons(mapSet, terSet.GetTerrainSetting(), hexSet, heightDataModels, null, material, null);
+            TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, material, null);
 
             foreach (var binder in clusterMeshDatas)
             {

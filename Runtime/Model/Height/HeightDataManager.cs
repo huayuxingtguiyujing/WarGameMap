@@ -23,7 +23,10 @@ namespace LZ.WarGameMap.Runtime
         int srcWidth;
         int srcHeight;
 
-        int terrainClusterSize;
+        TerrainSettingSO terSet;
+        int clusterSize;
+        Vector2Int startLongitudeLatitude;
+
 
         internal enum GetHeightDir {
             Center, Up, Down, Left, Right
@@ -91,21 +94,24 @@ namespace LZ.WarGameMap.Runtime
             heightDataModels = new List<HeightDataModel>();
         }
 
-        public void InitHeightDataManager(List<HeightDataModel> heightDataModels, int terrainClusterSize, HexSettingSO HexSet, RawHexMapSO RawHexMap) {
+        public void InitHeightDataManager(List<HeightDataModel> heightDataModels, TerrainSettingSO terSet, HexSettingSO HexSet, RawHexMapSO RawHexMap) {
             this.heightDataModels = heightDataModels;
             srcWidth = heightDataModels[0].singleHeightFileSize;
             srcHeight = heightDataModels[0].singleHeightFileSize;
-            this.terrainClusterSize = terrainClusterSize;
             // hex set
             // if you do not want to use the function of "sample height by hex", then set it null
             this.HexSet = HexSet;
             this.RawHexMap = RawHexMap;
+
+            this.terSet = terSet;
+            this.clusterSize = terSet.clusterSize;
+            this.startLongitudeLatitude = terSet.startLL;
         }
 
 
         #region sample height, TIF heightModelData
 
-        public float SampleFromHeightData(Vector2Int startLongitudeLatitude, Vector3 vertPos) {
+        public float SampleFromHeightData(Vector3 vertPos) {
             Vector3 clusterStartPoint = Vector3.zero;
             Vector2Int longAndLat = FixVertPosInCluster(startLongitudeLatitude, vertPos, ref clusterStartPoint);
             return SampleFromHeightData(longAndLat.x, longAndLat.y, vertPos, clusterStartPoint);
@@ -128,8 +134,8 @@ namespace LZ.WarGameMap.Runtime
                 vertPos.z -= clusterStartPoint.z;
 
                 // resample the size of height map
-                float sx = vertPos.x / terrainClusterSize * srcWidth;
-                float sy = vertPos.z / terrainClusterSize * srcHeight;
+                float sx = vertPos.x / clusterSize * srcWidth;
+                float sy = vertPos.z / clusterSize * srcHeight;
 
                 int x0 = Mathf.FloorToInt(sx);
                 int x1 = x0 + 1;
@@ -145,7 +151,7 @@ namespace LZ.WarGameMap.Runtime
                 float rx1 = Mathf.Lerp(q01, q11, sx - x0);
 
                 // caculate the height by the data given
-                float h = Mathf.Lerp(rx0, rx1, sy - y0) * terrainClusterSize;
+                float h = Mathf.Lerp(rx0, rx1, sy - y0) * clusterSize;
                 float fixed_h = Mathf.Clamp(h, 0, 50);
                 return fixed_h;
             }
@@ -174,8 +180,8 @@ namespace LZ.WarGameMap.Runtime
                 vertPos.z -= clusterStartPoint.z;
 
                 // resample the size of height map
-                float sx = vertPos.x / terrainClusterSize * srcWidth;
-                float sy = vertPos.z / terrainClusterSize * srcHeight;
+                float sx = vertPos.x / clusterSize * srcWidth;
+                float sy = vertPos.z / clusterSize * srcHeight;
 
                 int x0 = Mathf.FloorToInt(sx);
                 int y0 = Mathf.FloorToInt(sy);
@@ -388,8 +394,8 @@ namespace LZ.WarGameMap.Runtime
                 vertPos.z -= clusterStartPoint.z;
 
                 // resample the size of height map
-                float sx = vertPos.x / terrainClusterSize * srcWidth;
-                float sy = vertPos.z / terrainClusterSize * srcHeight;
+                float sx = vertPos.x / clusterSize * srcWidth;
+                float sy = vertPos.z / clusterSize * srcHeight;
 
                 int x0 = Mathf.FloorToInt(sx);
                 int x1 = x0 + 1;
@@ -419,11 +425,11 @@ namespace LZ.WarGameMap.Runtime
             clusterStartPoint = Vector3.zero;
 
             // get the start point of cluster's which the pos on
-            int longitude = Mathf.FloorToInt(vertPos.x) / terrainClusterSize;
-            int latitude = Mathf.FloorToInt(vertPos.z) / terrainClusterSize;
+            int longitude = Mathf.FloorToInt(vertPos.x) / clusterSize;
+            int latitude = Mathf.FloorToInt(vertPos.z) / clusterSize;
 
-            clusterStartPoint.x += longitude * terrainClusterSize;
-            clusterStartPoint.z += latitude * terrainClusterSize;
+            clusterStartPoint.x += longitude * clusterSize;
+            clusterStartPoint.z += latitude * clusterSize;
 
             longitude += startLongitude;
             latitude += startLatitude;

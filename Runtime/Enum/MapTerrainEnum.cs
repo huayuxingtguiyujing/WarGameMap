@@ -22,9 +22,9 @@ namespace LZ.WarGameMap.Runtime
 
         //public static Vector3Int ClusterSize = new Vector3Int(1024, 1000, 1024);
 
-        public const int ClusterSize = 1024;
+        public const int ClusterSize = 512;
 
-        public const int TileSize = 256;
+        public const int TileSize = 128;
 
     }
 

@@ -1,8 +1,10 @@
+using LZ.WarGameMap.Runtime.QuadTree;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
+using UnityEditor;
 using UnityEditor.PackageManager.UI;
 using UnityEngine;
 using UnityEngine.Profiling;
@@ -16,31 +18,11 @@ namespace LZ.WarGameMap.Runtime
     {
         MapRiverData mapRiverData;
 
-        Dictionary<int, float> pointDownOffsetDict;
+        Dictionary<Vector2Int, float> pointDownOffsetDict;      // 
 
-        struct BorderVert
-        {
-            public int vertIdx;
 
-            public Vector2 tangent;
 
-            public BorderVert(int vertIdx, Vector2 tangent)
-            {
-                this.vertIdx = vertIdx;
-                this.tangent = tangent;
-            }
-
-            public Vector3 TransIndexToVert(int terWorldWidth)
-            {
-                int x = vertIdx % terWorldWidth;
-                int z = vertIdx / terWorldWidth;
-                return new Vector3(x, 0, z);
-            }
-        }
-        
-        Dictionary<int, List<BorderVert>> riverBorderPoints_Left;        // Key : riverID, Value : river border points
-
-        Dictionary<int, List<BorderVert>> riverBorderPoints_Right;        // Key : riverID, Value : river border points, but right border
+        Dictionary<int, Dictionary<Vector2Int, RiverVert>> riverVertsDict;        // Key : riverID, Value : river border points, but right border
 
         Dictionary<int, RiverMesh> riverMeshDict;
 
@@ -49,10 +31,11 @@ namespace LZ.WarGameMap.Runtime
 
         float riverDownOffset;
 
-        int clusterSize;
-        Vector3 terrainSize;
-        int terWorldWidth;
-        int terWorldHeight;
+        public int tileSize { get; private set; }
+        public int clusterSize { get; private set; }
+        public Vector3 terrainSize { get; private set; }
+        public int terWorldWidth { get; private set; }
+        public int terWorldHeight { get; private set; }
 
         Transform riverParentTrans;
 
@@ -60,12 +43,12 @@ namespace LZ.WarGameMap.Runtime
 
         public RiverDataManager() { IsValid = false; }
 
-        public RiverDataManager(MapRiverData mapRiverData, float riverDownOffset, int clusterSize, Vector3 terrainSize, Transform parentTrans)
+        public RiverDataManager(MapRiverData mapRiverData, float riverDownOffset, int tileSize, int clusterSize, Vector3 terrainSize, Transform parentTrans)
         {
-            InitRiverDataManager(mapRiverData, riverDownOffset, clusterSize, terrainSize, parentTrans);
+            InitRiverDataManager(mapRiverData, riverDownOffset, tileSize, clusterSize, terrainSize, parentTrans);
         }
 
-        public void InitRiverDataManager(MapRiverData mapRiverData, float riverDownOffset, int clusterSize, Vector3 terrainSize, Transform parentTrans)
+        public void InitRiverDataManager(MapRiverData mapRiverData, float riverDownOffset, int tileSize, int clusterSize, Vector3 terrainSize, Transform parentTrans)
         {
             if (mapRiverData == null)
             {
@@ -74,14 +57,14 @@ namespace LZ.WarGameMap.Runtime
             }
             this.mapRiverData = mapRiverData;
 
-            pointDownOffsetDict = new Dictionary<int, float>();
-            riverBorderPoints_Left = new Dictionary<int, List<BorderVert>>();
-            riverBorderPoints_Right = new Dictionary<int, List<BorderVert>>();
+            pointDownOffsetDict = new Dictionary<Vector2Int, float>();
+            riverVertsDict = new Dictionary<int, Dictionary<Vector2Int, RiverVert>>();
             hasLoadedRiverSets = new HashSet<int>();
 
             riverMeshDict = new Dictionary<int, RiverMesh>();
 
             this.riverDownOffset = riverDownOffset;
+            this.tileSize = clusterSize / tileSize;
             this.clusterSize = clusterSize;
             this.terrainSize = terrainSize;
             terWorldWidth = (int)(terrainSize.x * clusterSize);
@@ -91,8 +74,6 @@ namespace LZ.WarGameMap.Runtime
 
             IsValid = true;
         }
-
-        //struct GetPoint
 
         // Lazy Build : when building a cluster of terrain, we will build the riverdata exists in this cluster
         public void BuildRiverData(int clsX, int clsY)
@@ -109,197 +90,203 @@ namespace LZ.WarGameMap.Runtime
                 }
                 hasLoadedRiverSets.Add(riverID);
 
-                InitRiverBorderList(riverData);
-                GenCurveData(riverData);
-                BuildRiverMesh(riverID, riverBorderPoints_Left[riverID], riverBorderPoints_Right[riverID]);
+                int effectScope = 8;        // TODO : effect scope should store in mapRiverData
+
+                GenCurveData(riverData, effectScope);
+
+                BuildRiverMesh(riverID, riverVertsDict[riverID]);
+
                 Debug.Log($"build river id {riverData.riverID}");
             }
         }
 
-        private void InitRiverBorderList(RiverData riverData)
+        private void GenCurveData(RiverData riverData, int effectScope)
         {
-            // init border point data struct
-            if (riverBorderPoints_Left.ContainsKey(riverData.riverID))
+            if (riverVertsDict.ContainsKey(riverData.riverID))
             {
-                riverBorderPoints_Left[riverData.riverID].Clear();
+                riverVertsDict[riverData.riverID].Clear();
             }
             else
             {
-                riverBorderPoints_Left.Add(riverData.riverID, new List<BorderVert>());
+                riverVertsDict.Add(riverData.riverID, new Dictionary<Vector2Int, RiverVert>());
             }
 
-            if (riverBorderPoints_Right.ContainsKey(riverData.riverID))
-            {
-                riverBorderPoints_Right[riverData.riverID].Clear();
-            }
-            else
-            {
-                riverBorderPoints_Right.Add(riverData.riverID, new List<BorderVert>());
-            }
-        }
+            BezierCurve curve = riverData.curve;
 
-        private void GenCurveData(RiverData riverData)
-        {
-            int effectScope = 12;
-            int fixScope = 3;
-            float maxIter = 80000;    // maybe it need modify
-            float iterTime = 0;
-            bool isFinal = false;
-            riverData.curve.InitGetDistanceCache();
-
-            while (!isFinal && iterTime < maxIter)
+            // establish bound for evert curve segment
+            int initCnt = 0;
+            int nodeNum = curve.Count;
+            List<MapBoundStruct> bounds = new List<MapBoundStruct>(nodeNum);
+            for (int i = 0; i < nodeNum - 1; i ++)
             {
-                riverData.curve.GetPointAtDistance(iterTime, out Vector3 point, out Vector3 tangent, out isFinal);
-                iterTime += 1.0f;       // 必须大于1.0，不能小！！！否则 riverMesh 的 vert 会出错
-                if (point == Vector3.zero)
+                Vector3 p0 = curve.Nodes[i].position;
+                Vector3 p1 = curve.Nodes[i].handleOut;
+                Vector3 p2 = curve.Nodes[i + 1].handleIn;
+                Vector3 p3 = curve.Nodes[i + 1].position;
+
+                Vector3 horizontalTangent = new Vector3(1, 0, 0);
+                Vector3 verticalTangent = new Vector3(0, 0, 1);
+                Vector3 horiTangentPoint;
+                Vector3 vertTangentPoint;
+                float horiTangentRatio;
+                float vertTangentRatio;
+
+                BezierCurveHelper.FindPointWithTangent_Newton(p0, p1, p2, p3, horizontalTangent, out horiTangentPoint, out horiTangentRatio);
+                BezierCurveHelper.FindPointWithTangent_Newton(p0, p1, p2, p3, verticalTangent, out vertTangentPoint, out vertTangentRatio);
+
+                int Left = Mathf.Min((int)p0.x, (int)p3.x, (int)vertTangentPoint.x);
+                int Right = Mathf.Max((int)p0.x, (int)p3.x, (int)vertTangentPoint.x);
+                int Down = Mathf.Min((int)p0.z, (int)p3.z, (int)horiTangentPoint.z);
+                int Up = Mathf.Max((int)p0.z, (int)p3.z, (int)horiTangentPoint.z);
+                bounds.Add(new MapBoundStruct(Left - effectScope, Right + effectScope, Up + effectScope, Down - effectScope));
+                initCnt += (Right - Left + 1) * (Up - Down + 1);
+            }
+
+            float totalLen = curve.GetTotalLength(); // cache it
+
+            // effect all pixel inside bound
+            for (int i = 0; i < nodeNum - 1; i++)
+            {
+                Vector3 p0 = curve.Nodes[i].position;
+                Vector3 p1 = curve.Nodes[i].handleOut;
+                Vector3 p2 = curve.Nodes[i + 1].handleIn;
+                Vector3 p3 = curve.Nodes[i + 1].position;
+
+                float segmentLen = curve.GetSegmentLength(i);
+
+                List<Vector2Int> pixels = bounds[i].GetPixelInsideBound();
+                foreach (var pixel in pixels)
                 {
-                    continue;
-                }
+                    Vector3 closestPoint;
+                    Vector3 closestPTangent;
+                    float closestT;
+                    float distance = BezierCurveHelper.DistancePointToBezier(pixel.TransToXZ(), p0, p1, p2, p3, out closestPoint, out closestPTangent, out closestT);
 
-                Vector3 normal = new Vector3(-tangent.z, 0, tangent.x).normalized;
-                for(int j = -fixScope; j <= fixScope; j++)
-                {
-                    for (int i = -effectScope; i <= effectScope; i++)
+                    if (distance > effectScope)
                     {
-                        float distance = Mathf.Sqrt(i * i + j * j);
-                        float dir = i >= 0 ? 1 : -1;
-                        Vector3 sample = point + normal * distance * dir * 0.5f;
-                        float ratio = 1 - 0.9f * Mathf.Abs(distance) / effectScope;
-                        int idx_sample_pixel = (int)sample.z * terWorldWidth + (int)sample.x;
-
-                        if (i == -effectScope && j == 0)
-                        {
-                            riverBorderPoints_Left[riverData.riverID].Add(new BorderVert(idx_sample_pixel, tangent.TransFromXZ()));
-                        }else if(i == effectScope && j == 0)
-                        {
-                            riverBorderPoints_Right[riverData.riverID].Add(new BorderVert(idx_sample_pixel, tangent.TransFromXZ()));
-                        }
-
-                        if (pointDownOffsetDict.ContainsKey(idx_sample_pixel))
-                        {
-                            float val = pointDownOffsetDict[idx_sample_pixel];
-                            pointDownOffsetDict[idx_sample_pixel] = Mathf.Max(LerpDownOffset(ratio), val);
-                        }
-                        else
-                        {
-                            pointDownOffsetDict.Add(idx_sample_pixel, LerpDownOffset(ratio));
-                        }
+                        continue;
                     }
+
+                    // TODO : 也许需要记录边界顶点，进行保护
+                    float len = BezierCurveHelper.EstimateBezierLength(p0, p1, closestPTangent, closestPoint);
+                    float curLen = segmentLen + len;
+
+                    Vector2 uv = new Vector2(curLen / totalLen, distance / effectScope);
+                    float offsetDown = LerpDownOffset(distance, effectScope);
+                    Vector2 tangentNormalized = closestPTangent.TransFromXZ().normalized;
+                    AddPointDownOffset(riverData.riverID, pixel, uv, tangentNormalized, offsetDown);     // 
                 }
-                
             }
+            
         }
 
-        [Obsolete]
-        private void GenBorderData(RiverData riverData)
+        private float LerpDownOffset(float distance, float maxDistance, int preSpeed = 2, int lateSpeed = 2)
         {
-
-            int effectScope = 12;
-            float maxIter = 80000;    // maybe it need modify
-            float iterTime = 0;
-            bool isFinal = false;
-            riverData.curve.InitGetDistanceCache();
-
-            while (!isFinal && iterTime < maxIter)
+            float mid = maxDistance / 2;
+            float ratio = 1;
+            if (distance <= mid)
             {
-                riverData.curve.GetPointAtDistance(iterTime, out Vector3 point, out Vector3 tangent, out isFinal);
-                iterTime += 5.0f;
-                if (point == Vector3.zero)
+                float u = distance / mid;
+                ratio = 0.5f * Mathf.Pow(u, preSpeed);
+            }
+            else if (distance <= 2f * mid)
+            {
+                float u = (distance - mid) / mid;
+                ratio = 1f - 0.5f * Mathf.Pow(1f - u, lateSpeed);
+            }
+            return (1 - ratio) * riverDownOffset;
+        }
+
+        private void AddPointDownOffset(int riverID, Vector2Int pixelIdx, Vector2 uv, Vector2 tangent, float offsetDown)
+        {
+            if (pointDownOffsetDict.ContainsKey(pixelIdx))
+            {
+                if (pointDownOffsetDict[pixelIdx] < offsetDown)
                 {
-                    continue;
+                    pointDownOffsetDict[pixelIdx] = offsetDown;
+                    riverVertsDict[riverID][pixelIdx].UpdateVert(pixelIdx, uv, tangent);
                 }
-
-                Vector3 normal = new Vector3(-tangent.z, 0, tangent.x).normalized;
-
-                Vector3 sampleLeft = point + normal * effectScope * 0.5f;
-                int idx_sample_pixel_left = (int)sampleLeft.z * terWorldWidth + (int)sampleLeft.x;
-                Vector3 sampleRight = point - normal * effectScope * 0.5f;
-                int idx_sample_pixel_right = (int)sampleRight.z * terWorldWidth + (int)sampleRight.x;
-                riverBorderPoints_Left[riverData.riverID].Add(new BorderVert(idx_sample_pixel_left, tangent.TransFromXZ()));
-                riverBorderPoints_Right[riverData.riverID].Add(new BorderVert(idx_sample_pixel_right, tangent.TransFromXZ()));
-
+            }
+            else
+            {
+                pointDownOffsetDict.Add(pixelIdx, offsetDown);
+                riverVertsDict[riverID].Add(pixelIdx, new RiverVert(pixelIdx, uv, tangent));
             }
         }
 
-        private void BuildRiverMesh(int riverID, List<BorderVert> leftBorderVert, List<BorderVert> rightBorderVert)
-            {
-            if (leftBorderVert.Count != rightBorderVert.Count)
-            {
-                Debug.LogError($"wrong border vert num : {leftBorderVert.Count}, {rightBorderVert.Count}");
-                return;
-            }
-
+        private void BuildRiverMesh(int riverID, Dictionary<Vector2Int, RiverVert> riverVerts)
+        {
             GameObject riverMeshGo = new GameObject($"riverMeshGo_{riverID}");
             MeshFilter meshFiler = riverMeshGo.AddComponent<MeshFilter>();
             MeshRenderer renderer = riverMeshGo.AddComponent<MeshRenderer>();
             riverMeshGo.transform.parent = riverParentTrans;
 
-            int borderVertNum = leftBorderVert.Count;
+            int borderVertNum = riverVerts.Count;
             RiverMesh riverMesh = new RiverMesh();
-            riverMesh.InitRiverMesh(borderVertNum, meshFiler, renderer);
+            riverMesh.InitRiverMesh(borderVertNum, meshFiler, renderer, terWorldWidth, clusterSize);
             riverMeshDict.Add(riverID, riverMesh);
 
-            // set vertex firstly
-            for (int i = 0; i < borderVertNum; i++)
-            {
-                riverMesh.SetBorderVert(i, leftBorderVert[i].TransIndexToVert(terWorldWidth), leftBorderVert[i].tangent, 0);
-            }
-            for (int i = 0; i < borderVertNum; i++)
-            {
-                riverMesh.SetBorderVert(i, rightBorderVert[i].TransIndexToVert(terWorldWidth), rightBorderVert[i].tangent, borderVertNum);
-            }
+            int vertIdx = 0;
+            Dictionary<Vector2Int, int> riverVertIndiceDict = new Dictionary<Vector2Int, int>(borderVertNum);
+            Dictionary<Vector2Int, RiverVert> riverVertDict = new Dictionary<Vector2Int, RiverVert>(borderVertNum);
 
-            // set triangles
-            for (int i = 0; i < borderVertNum - 1; i++)
+
+            foreach (var riverVert in riverVerts.Values)
             {
-                int curLeftIdx = i;
-                int nextLeftIdx = i + 1;
-                int curRightIdx = i + borderVertNum;
-                int nextRightIdx = i + borderVertNum + 1;
-
-                //Vector3 curLeftVert = leftBorderVert[i].TransIndexToVert(terWorldWidth);
-                //Vector3 nextLeftVert = leftBorderVert[i + 1].TransIndexToVert(terWorldWidth);
-                //Vector3 curRightVert = rightBorderVert[i].TransIndexToVert(terWorldWidth);
-                //Vector3 nextRightVert = rightBorderVert[i + 1].TransIndexToVert(terWorldWidth);
-
-                riverMesh.AddTriangle(curLeftIdx, curRightIdx, nextLeftIdx);
-                riverMesh.AddTriangle(nextLeftIdx, curRightIdx, nextRightIdx);
+                //DebugUtil.DebugGameObject($"node{vertIdx}", riverVert.TransToWorldPos(), null);
+                riverMesh.SetVert(vertIdx, riverVert.vertIdx.TransToXZ(), riverVert.uv, riverVert.tangent);
+                riverVertIndiceDict.Add(riverVert.vertIdx, vertIdx);
+                riverVertDict.Add(riverVert.vertIdx, riverVert);
+                vertIdx++;
             }
 
+            // 对于每个点 (i, 0, j) 
+            // 如果有下面两点存在：(i, 0, j) -> (i + 1, 0, j) -> (i + 1, 0, j + 1)
+            // 如果有下面两点存在：(i, 0, j) -> (i, 0, j + 1) -> (i + 1, 0, j + 1)
+            HashSet<Vector2Int> hasAddTriangle = new HashSet<Vector2Int>(borderVertNum);
+            List<int> triangles = new List<int>(borderVertNum * 3);
+            foreach (var riverVert in riverVerts.Values)
+            {
+                Vector2Int curIdx = riverVert.vertIdx;
+                Vector2Int rightIdx = riverVert.GetRightVertIdx();
+                Vector2Int upIdx = riverVert.GetUpVertIdx();
+                Vector2Int rightUpIdx = riverVert.GetRightUpVertIdx();
+
+                bool hasRightUp = riverVertDict.ContainsKey(rightUpIdx);
+                bool hasRight = riverVertDict.ContainsKey(rightIdx);
+                bool hasUp = riverVertDict.ContainsKey(upIdx);
+
+                if (hasRight && hasRightUp)
+                {
+                    triangles.Add(riverVertIndiceDict[curIdx]);
+                    triangles.Add(riverVertIndiceDict[rightIdx]);
+                    triangles.Add(riverVertIndiceDict[rightUpIdx]);
+                }
+                if (hasUp && hasRightUp)
+                {
+                    triangles.Add(riverVertIndiceDict[curIdx]);
+                    triangles.Add(riverVertIndiceDict[rightUpIdx]);
+                    triangles.Add(riverVertIndiceDict[upIdx]);
+                }
+            }
+            riverMesh.SetTriangle(triangles);
             riverMesh.BuildOrightMesh();
+
         }
 
-        private float LerpDownOffset(float ratio)
+        public void SampleRiverRatio(Vector3 terWorldPos, out bool IsEffectByRiver, out float offsetDown, out Vector2Int bindWorldPos)
         {
-            // TODO : need more netural lerp (a curve ?)
-            return ratio * riverDownOffset;
-        }
+            Vector2Int pixelIdx = terWorldPos.TransIntFromXZ();
 
-
-        public float SampleRiverRatio(Vector3 terWorldPos, out bool IsEffectByRiver)
-        {
-            Vector3Int sample = terWorldPos.GetSimilarVInt();
-            int idx_sample_pixel = (int)sample.z * terWorldWidth + (int)sample.x;
-            if (pointDownOffsetDict.ContainsKey(idx_sample_pixel))
+            IsEffectByRiver = false;
+            offsetDown = 0;
+            bindWorldPos = Vector2Int.zero;
+            if (pointDownOffsetDict.ContainsKey(pixelIdx))
             {
                 IsEffectByRiver = true;
-                return pointDownOffsetDict[idx_sample_pixel];
+                offsetDown = pointDownOffsetDict[pixelIdx];
             }
-            else
-            {
-                IsEffectByRiver = false;
-                return 0;
-            }
-
-            //Vector2 worldUV = new Vector2(terWorldPos.x / terWorldWidth, terWorldPos.z / terWorldHeight);
-            //Vector2Int pixelPos = new Vector2Int((int)(worldUV.x * riverTexWidth), (int)(worldUV.y * riverTexHeight));
-            //int index = pixelPos.y * riverTexHeight + pixelPos.x;
-            //Color texColor = riverTexData[index];
-            //float ratio = texColor.LerpColor(noRiverColor, riverColor);
-            //IsEffectByRiver = ratio > 0;
-            //return LerpDownOffset(ratio);
         }
-
 
         public void Dispose()
         {
@@ -310,8 +297,6 @@ namespace LZ.WarGameMap.Runtime
             //riverTexData.Dispose();
             pointDownOffsetDict.Clear();
 
-            riverBorderPoints_Left.Clear();
-            riverBorderPoints_Right.Clear();
 
             foreach (var pair in riverMeshDict)
             {
