@@ -6,7 +6,6 @@ namespace LZ.WarGameMap.Runtime
 {
     public class HexGenerator {
         
-
         public HexGenerator() {
             hexagonIdxDic = new Dictionary<Vector2Int, Hexagon>();
             hexagonNumDic = new Dictionary<uint, Hexagon>();

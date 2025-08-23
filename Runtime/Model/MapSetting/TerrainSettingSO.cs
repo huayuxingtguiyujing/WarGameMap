@@ -1,7 +1,5 @@
-using CodiceApp;
 using Sirenix.OdinInspector;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -24,7 +22,30 @@ namespace LZ.WarGameMap.Runtime {
         }
 
         [LabelText("LOD总层级数")]
-        public int LODLevel = 5;
+        public int LODLevel = 3;
+
+        // recommend : 
+        //  0 : 0.1
+        //  1 : 0.2
+        //  2 : 0.35
+        //  3 : 0.6
+        //  4 : 1.0
+        [LabelText("LOD各级的简化程度")]
+        public List<float> LODLevelSimplifyTarget = new List<float>() { 
+            0.1f, 0.2f, 0.35f, 0.6f, 1.0f
+        };  
+
+        public float GetSimplifyTarget(int lodLevel)
+        {
+            if(lodLevel < 0)
+            {
+                Debug.LogError($"why lodLevel is less than 0? : {lodLevel}");
+                return 1.0f;
+            }
+            lodLevel = Mathf.Min(lodLevel, LODLevelSimplifyTarget.Count - 1);
+            return LODLevelSimplifyTarget[lodLevel];
+        }
+
 
         [LabelText("Terrain大小")]
         [Tooltip("大地图规模，表示共有多少个cluster，它不必是2的倍数")]
@@ -41,6 +62,11 @@ namespace LZ.WarGameMap.Runtime {
         [LabelText("地块大小")]
         public int tileSize = MapTerrainEnum.TileSize;
 
+        public int GetTileNumClsPerLine()
+        {
+            return clusterSize / tileSize;
+        }
+
         // river setting
         [LabelText("河流编辑数据相比大地图的缩放")]
         public ushort paintRTSizeScale = 4;     // only editor
@@ -53,6 +79,7 @@ namespace LZ.WarGameMap.Runtime {
 
         [LabelText("河流颜色（纹理存储）")]
         public Color riverColor = Color.blue;
+
 
         public TerrainSetting GetTerrainSetting() {
             return new TerrainSetting(
@@ -140,7 +167,6 @@ namespace LZ.WarGameMap.Runtime {
         public static bool operator !=(TerrainSetting x, TerrainSetting y) {
             return !(x == y);
         }
-
 
     }
 }

@@ -1,7 +1,5 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
@@ -31,9 +29,9 @@ namespace LZ.WarGameMap.Runtime
                 //CreateSignObj(ref posObj, $"node_pos_{i}", parent, node.position);
                 //CreateSignObj(ref inObj, $"node_in_{i}", parent, node.handleIn);
                 //CreateSignObj(ref outObj, $"node_out_{i}", parent, node.handleOut);
-                posObj = DebugUtil.DebugGameObject($"node_pos_{i}", node.position / paintRTSizeScale, parent);
-                inObj = DebugUtil.DebugGameObject($"node_in_{i}", node.handleIn / paintRTSizeScale, parent);
-                outObj = DebugUtil.DebugGameObject($"node_out_{i}", node.handleOut / paintRTSizeScale, parent);
+                posObj = DebugUtility.DebugGameObject($"node_pos_{i}", node.position / paintRTSizeScale, parent);
+                inObj = DebugUtility.DebugGameObject($"node_in_{i}", node.handleIn / paintRTSizeScale, parent);
+                outObj = DebugUtility.DebugGameObject($"node_out_{i}", node.handleOut / paintRTSizeScale, parent);
             }
 
 /*            private void CreateSignObj(ref GameObject go, string goName, Transform parent, Vector3 pos)

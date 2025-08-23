@@ -1,13 +1,15 @@
 using LZ.WarGameCommon;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using UnityEditor.PackageManager;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
-using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
 
 namespace LZ.WarGameMap.Runtime
 {
+    using GetSimplifierCall = Func<int, int, int, int, int, TerrainSimplifier>;
 
     public enum TerMeshGenMethod {
         TIFHeight,
@@ -54,7 +56,7 @@ namespace LZ.WarGameMap.Runtime
 
         private RiverDataManager riverDataManager;
 
-        #region init height cons
+        #region init terrain cons
 
         public void SetMapPrefab(Transform originPoint, Transform heightClusterParent, Transform riverMeshParent) {
             this.originPoint = originPoint;
@@ -86,63 +88,19 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log(string.Format($"successfully init terrain constructor!  create {terrainWidth}*{terrainHeight}"));
         }
 
-        // TODO : 要写个 hex 版本的！
-        public void BuildCluster(int i, int j) {
-            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
-                Debug.LogError($"wrong index : {i}, {j}");
-                return;
-            }
-
-            int longitude = this.terSet.startLL.x + i;
-            int latitude = this.terSet.startLL.y + j;
-            if (!clusterList[i, j].IsLoaded) 
-            {
-                GameObject clusterGo = CreateTerrainCluster(i, j);
-                clusterList[i, j].InitTerrainCluster_Static(i, j, longitude, latitude, terSet, heightDataManager, clusterGo, terMaterial);
-
-                riverDataManager.BuildRiverData(i, j);
-                clusterList[i, j].ApplyRiverEffect(heightDataManager, riverDataManager);
-                clusterList[i, j].BuildOriginMesh();
-
-                // TODO : generate river obj, they will be served by TerCons
-
-            }
-
-            Debug.Log($"handle cluster successfully, use heightData : {longitude}, {latitude}");
-        }
-
-        public void BuildClusterNormal(int i, int j, Texture2D normalTex) {
-            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
-                Debug.LogError($"wrong index : {i}, {j}");
-                return;
-            }
-
-            if (!clusterList[i, j].IsLoaded) {
-                Debug.LogError($"you should firstly build the cluster : {i}, {j}");
-                return;
-            }
-
-            clusterList[i, j].SampleMeshNormal(normalTex);
-            Debug.Log("build mesh normal successfully!");
-        }
-
-        private GameObject CreateTerrainCluster(int idxX, int idxY) {
-            GameObject go = new GameObject();
-            go.transform.parent = heightClusterParent;
-            go.name = string.Format("heightCluster_{0}_{1}", idxX, idxY);
-            return go;
-        }
-
-        public void ClearClusterObj() {
+        public void ClearClusterObj()
+        {
             terrainWidth = 0;
             terrainHeight = 0;
 
-            if(clusterList != null) {
-                foreach (var cluster in clusterList) {
+            if (clusterList != null)
+            {
+                foreach (var cluster in clusterList)
+                {
                     cluster.Dispose();
                 }
             }
-            
+
             heightClusterParent.ClearObjChildren();
 
             if (riverDataManager != null)
@@ -161,13 +119,99 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-        public void ExeSimplify(int i, int j, int tileIdxX, int tileIdxY, float simplifyTarget) {
-            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth) {
+        #region build terrain
+
+        [Obsolete("现在应该分阶段地在外部调用各个步骤进行生成，逻辑放到了 TerrainGenTask 里头")]
+        public void BuildCluster(int i, int j, bool shouldGenRiver, bool shouldGenLODBySimplify, int timerID)
+        {
+            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth)
+            {
                 Debug.LogError($"wrong index : {i}, {j}");
                 return;
             }
 
-            if (!clusterList[i, j].IsLoaded) {
+            int longitude = this.terSet.startLL.x + i;
+            int latitude = this.terSet.startLL.y + j;
+            if (!clusterList[i, j].IsLoaded)
+            {
+                GameObject clusterGo = CreateTerrainCluster(i, j);
+                //clusterList[i, j].InitTerrainCluster_Static(i, j, longitude, latitude, terSet, heightDataManager, clusterGo, terMaterial, shouldGenLODBySimplify);
+
+                //ProgressManager.GetInstance().ProgressGoChildNextTask(timerID);
+
+                if (shouldGenRiver)
+                {
+                    riverDataManager.BuildRiverData(i, j);
+                    clusterList[i, j].ApplyRiverEffect(heightDataManager, riverDataManager);
+                }
+
+                //ProgressManager.GetInstance().ProgressGoChildNextTask(timerID);
+
+                if (shouldGenLODBySimplify)
+                {
+                    clusterList[i, j].ExeTerrainSimplify_MT();
+                }
+            }
+
+            //ProgressManager.GetInstance().ProgressGoNextTask(timerID);
+            Debug.Log($"handle cluster successfully, use heightData : {longitude}, {latitude}");
+        }
+
+        public async Task BuildCluster_TerMesh(int i, int j, bool shouldGenLODBySimplify, CancellationToken token)
+        {
+            CheckClusterIdxValid(i, j);
+
+            int longitude = this.terSet.startLL.x + i;
+            int latitude = this.terSet.startLL.y + j;
+            GameObject clusterGo = CreateTerrainCluster(i, j);
+            clusterList[i, j].InitTerrainCluster_Static(i, j, longitude, latitude, terSet, clusterGo, terMaterial);
+
+            Action<CancellationToken> exeGenTerMesh = (cancelToken) =>
+            {
+                clusterList[i, j].SetMeshData(heightDataManager, shouldGenLODBySimplify);
+            };
+            await ThreadManager.GetInstance().RunTaskAsync(exeGenTerMesh, null, token);
+        }
+
+        public async Task BuildCluster_River(int i, int j, CancellationToken token)
+        {
+            CheckClusterIdxValid(i, j);
+            CheckClusterLoaded(i, j);
+            
+            Action<CancellationToken> exeSimplify = (cancelToken) =>
+            {
+                riverDataManager.BuildRiverData(i, j);
+                clusterList[i, j].ApplyRiverEffect(heightDataManager, riverDataManager);
+            };
+            await ThreadManager.GetInstance().RunTaskAsync(exeSimplify, null, token);
+
+            riverDataManager.BuildRiverMesh(i ,j);
+        }
+
+        public void BuildOriginMesh(int i, int j)
+        {
+            CheckClusterLoaded(i, j);
+            clusterList[i, j].BuildOriginMesh();
+        }
+
+        public async Task ExeSimplify_MT(int i, int j, GetSimplifierCall getSimplifierCall, CancellationToken token)
+        {
+            CheckClusterIdxValid(i, j);
+            CheckClusterLoaded(i, j);
+
+            await clusterList[i, j].ExeSimplify_MT(getSimplifierCall, token);
+        }
+
+        public void ExeSimplify(int i, int j, int tileIdxX, int tileIdxY, float simplifyTarget)
+        {
+            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth)
+            {
+                Debug.LogError($"wrong index : {i}, {j}");
+                return;
+            }
+
+            if (!clusterList[i, j].IsLoaded)
+            {
                 Debug.LogError($"cluster not valid, index : {i}, {j}");
                 return;
             }
@@ -178,13 +222,59 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log($"simplify over, cluster idx : {i}, {j}, target : {simplifyTarget}");
         }
 
+        public int GetClusterCurVertNum(int i, int j)
+        {
+            return clusterList[i, j].GetClusterCurVertNum();
+        }
+
+        public int GetTargetSimplifyVertNum(int i, int j)
+        {
+            return clusterList[i, j].GetTargetSimplifyVertNum();
+        }
+
+
+        public void BuildCluster_Normal(int i, int j, Texture2D normalTex)
+        {
+            CheckClusterLoaded(i, j);
+
+            clusterList[i, j].SampleMeshNormal(normalTex);
+            Debug.Log("build mesh normal successfully!");
+        }
+
+        private void CheckClusterIdxValid(int i, int j)
+        {
+            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth)
+            {
+                throw new Exception($"wrong terrain cluster index : {i}, {j}");
+            }
+        }
+
+        private void CheckClusterLoaded(int i, int j)
+        {
+            if (!clusterList[i, j].IsLoaded)
+            {
+                throw new Exception($"you should firstly build the cluster : {i}, {j}");
+            }
+        }
+
+        private GameObject CreateTerrainCluster(int idxX, int idxY)
+        {
+            GameObject go = new GameObject();
+            go.transform.parent = heightClusterParent;
+            go.name = string.Format("heightCluster_{0}_{1}", idxX, idxY);
+            return go;
+        }
+
+        #endregion
+
 
         #region 序列化/反序列化 terrain mesh 数据
 
+        // TODO : 要大改了
         public void ExportClusterByBinary(int idxX, int idxY, int longitude, int latitude, BinaryReader reader) {
             if (!clusterList[idxX, idxY].IsLoaded) {
                 GameObject clusterGo = CreateTerrainCluster(idxX, idxY);
-                clusterList[idxX, idxY].InitTerrainCluster_Static(idxX, idxY, longitude, latitude, terSet, heightDataManager, clusterGo, null);
+                //clusterList[idxX, idxY].InitTerrainCluster_Static(idxX, idxY, longitude, latitude, terSet, heightDataManager, clusterGo, null, true);
             }
             //clusterList[idxX, idxY].SetTerrainCluster(reader);
 
@@ -303,7 +393,7 @@ namespace LZ.WarGameMap.Runtime
 
             preCameraIdx = new Vector3Int(cameraIdxX, curLODLevel, cameraIdxY);
             preClusterIdxSet = newScopeCls;
-            Debug.Log(string.Format("cur camera cls idx : {0}, cur LOD : {1}, hide cluster : {2}, show cluster {3}, load cluster {4}", curCameraIdx, curLODLevel, shouldHideIdxs.Count, shouldShowIdxs.Count, 0));
+            DebugUtility.Log(string.Format("cur camera cls idx : {0}, cur LOD : {1}, hide cluster : {2}, show cluster {3}, load cluster {4}", curCameraIdx, curLODLevel, shouldHideIdxs.Count, shouldShowIdxs.Count, 0), DebugPriority.High);
         }
 
         private void DebugHashSet(HashSet<Vector2Int> sets, string name) {
@@ -312,7 +402,7 @@ namespace LZ.WarGameMap.Runtime
             {
                 stringBuilder.Append(idx.ToString());
             }
-            Debug.Log($"{name} hashSet content : {stringBuilder.ToString()}");
+            DebugUtility.Log($"{name} hashSet content : {stringBuilder.ToString()}");
         }
 
         private int UpdateTerrain_LODHeight(int curLODLevel, TerrainCluster cluster) {

@@ -98,7 +98,6 @@ namespace LZ.WarGameMap.MapEditor
                 float blend = Mathf.SmoothStep(0, 2, (tNorm1 + tNorm2) / 2);
 
                 colors[index] = color * perlinNoise.SampleNoise(vertPos) * blend;
-
             }
 
         }

@@ -1,9 +1,5 @@
-using Sirenix.OdinInspector;
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEditor;
-using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor {
     // TODO : 看看能不能写一个资产绑定器！！！

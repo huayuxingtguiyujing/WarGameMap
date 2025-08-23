@@ -1,11 +1,9 @@
-using LZ.WarGameMap.Runtime;
-using Sirenix.OdinInspector;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using LZ.WarGameMap.Runtime;
 using static LZ.WarGameMap.Runtime.TerrainMeshDataBinder;
 
 namespace LZ.WarGameMap.MapEditor
@@ -21,12 +19,10 @@ namespace LZ.WarGameMap.MapEditor
             InitCtor();
             if (Instance == null) {
                 Instance = new EditorSceneManager();
+                UnityEditorManager.RegisterUpdate(Instance.UpdateSceneHex);
+                UnityEditorManager.RegisterUpdate(Instance.UpdateSceneTer);
             }
             return Instance;
-        }
-
-        public static void DisposeInstance() {
-            Instance = null;
         }
 
 
@@ -119,12 +115,13 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
-
-        // TODO : call it when destory the editor window
+        // Call it when destory the editor window
         public static void Dispose() {
             // TODO : un register all gizmos event
 
-            // TODO : 销毁所有scene里头的物体
+            UnityEditorManager.UnregisterUpdate(Instance.UpdateSceneTer);
+            UnityEditorManager.UnregisterUpdate(Instance.UpdateSceneHex);
+
             mapScene.Dispose();
             Instance = null;
         }
@@ -146,7 +143,7 @@ namespace LZ.WarGameMap.MapEditor
 
         // call it to decide whether show Ter Scene
         public void UpdateSceneView(bool showTer, bool showHex) {
-            Debug.Log($"switch editor panel : {showTer}, {showHex}");
+            DebugUtility.Log($"switch editor panel : {showTer}, {showHex}");
             if(ShowingTer != showTer) {
                 if (showTer) {
                     GizmosCtrl.GetInstance().RegisterGizmoEvent(DrawTerrainMes);

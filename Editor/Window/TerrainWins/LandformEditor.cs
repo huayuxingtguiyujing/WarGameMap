@@ -354,7 +354,7 @@ namespace LZ.WarGameMap.MapEditor
 
             for(int i = 0; i < buildScope.x; i++) {
                 for(int j = 0;  j < buildScope.y; j++) {
-                    TerrainCtor.BuildClusterNormal(buildStartPos.x + i, j, curHandleNormalTex);
+                    TerrainCtor.BuildCluster_Normal(buildStartPos.x + i, j, curHandleNormalTex);
                 }
             }
 

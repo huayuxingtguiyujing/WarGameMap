@@ -1,11 +1,7 @@
-using CodiceApp.EventTracking.Plastic;
-using NUnit.Framework;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -140,6 +136,7 @@ namespace LZ.WarGameMap.Runtime
 #endif
         }
 
+
         #region Serialized
 
         public void ReadFromBinary(BinaryReader reader)
@@ -155,7 +152,8 @@ namespace LZ.WarGameMap.Runtime
         #endregion
 
         #region 边界点建立河流Mesh
-        // a failed try
+        // A failed try to build river
+        // but keep it, do not call it
         // use EarClipping Algorithm
         [Obsolete]
         public List<int> ExeEarClipping(List<RiverVert> borderVert, int terWorldWidth)
@@ -281,10 +279,9 @@ namespace LZ.WarGameMap.Runtime
                 BorderVertLinkNode nodeRec = vertLinkNodeDict[0];
                 while (nodeRec != null)
                 {
-                    DebugUtil.DebugGameObject($"node{nodeRec.vertIdx}", borderVert[nodeRec.vertIdx].TransToWorldPos(), null);
+                    DebugUtility.DebugGameObject($"node{nodeRec.vertIdx}", borderVert[nodeRec.vertIdx].TransToWorldPos(), null);
                     nodeRec = nodeRec.next;
                 }
-
 
                 /*// Temp : a fix try
                 BorderVertLinkNode noPre = null;
@@ -388,7 +385,6 @@ namespace LZ.WarGameMap.Runtime
                     hasClippedList[curIdx] = true;
                     curVertCnt--;
                 }*/
-
             }
 
             private int GetCloestPoint(int curIdx)
@@ -504,7 +500,6 @@ namespace LZ.WarGameMap.Runtime
 
                 return triangles;
             }
-
         }
 
         #endregion

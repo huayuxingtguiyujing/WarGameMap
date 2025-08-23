@@ -36,13 +36,21 @@ namespace LZ.WarGameMap.MapEditor
             // read terrain Setting from path
             InitMapSetting();
         }
-        
+
         //protected override void InitMapSetting() {
         //    base.InitMapSetting();
         //}
 
 
         #region 构建地形-高度图流程
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("自动减面生成LOD")]        // 自动LOD为多线程过程，编写代码时需要谨慎，禁止job、协程等 与 多线程混用
+        public bool shouldGenLODBySimplify = false;
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("是否生成河流")]
+        public bool shouldGenRiver = false;
 
         [FoldoutGroup("构建地形-高度图流程")]
         [LabelText("Ter地图材质")]
@@ -65,8 +73,8 @@ namespace LZ.WarGameMap.MapEditor
         private void GenerateTerrain() {
             int tileNumARow = terSet.clusterSize / terSet.tileSize;
 
-            Debug.Log($"the map size is : {terSet.terrainSize}");
-            Debug.Log($"the cluster size : {terSet.clusterSize}, the tile size : {terSet.tileSize}, there are {tileNumARow} tiles per line");
+            DebugUtility.Log($"the map size is : {terSet.terrainSize}");
+            DebugUtility.Log($"the cluster size : {terSet.clusterSize}, the tile size : {terSet.tileSize}, there are {tileNumARow} tiles per line");
 
             if (TerrainCtor == null) {
                 Debug.LogError("terrian ctor is null!");
@@ -88,29 +96,16 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
 
-            foreach (var clusterIdx in clusterIdxList) {
-                int longitude = terSet.startLL.x + clusterIdx.x;
-                int latitude = terSet.startLL.y + clusterIdx.y;
-                foreach (var model in heightDataModels) {
-                    // TODO : 此处可能有bug
-                    if (model.ExistHeightData(longitude, latitude)) {
-                        //HeightData heightData = model.GetHeightData(longitude, latitude);
-                        // 手动设置 longitude ?
-                        TerrainCtor.BuildCluster(clusterIdx.x, clusterIdx.y);
-                        break;
-                    } else {
-                        Debug.LogError($"unable to find heightdata, longitude : {longitude}, latitude : {latitude}");
-                    }
-                }
-                //Debug.Log($"construct cluster mesh : {longitude}, {latitude}");
-            }
+            // TODO : 先吧 ProgressTimer 重写一遍，完善这个进度管理器
+            // TODO : 然后再添加上进度窗口UI
+            // TODO : 有两个 cluster的时候会崩溃
 
-            TerrainCtor.UpdateTerrain();
-            stopwatch.Stop();
-            Debug.Log($"build over, build {clusterIdxList.Count} clusters, cost {stopwatch.ElapsedMilliseconds} ms");
+            TerrainGenTask terrainGenTask = new TerrainGenTask(heightDataModels, terSet, TerrainCtor, 
+                clusterIdxList, shouldGenRiver, shouldGenLODBySimplify);
+            int taskID = TaskManager.GetInstance().StartProgress(TaskTickLevel.Medium, terrainGenTask);
+            TerGenTaskPop.GetPopInstance().ShowBasePop(terrainGenTask);
+            terrainGenTask.StartTask(taskID);
         }
 
         [FoldoutGroup("构建地形-高度图流程", 0)]
@@ -254,12 +249,13 @@ namespace LZ.WarGameMap.MapEditor
                 Debug.LogError("TerrainCtor is null!");
                 return;
             }
-            //if () {
-            //}
+            
 
             rawHexMapSO.UpdateGridTerrainData();
-            //TerrainCtor.InitHexCons(EditorSceneManager.hexSet, rawHexMapSO);      // change to hex mat
-            TerrainCtor.BuildCluster(curClusterIdx_Hex.x, curClusterIdx_Hex.y); // ?
+            
+            // TODO : hex 流程有待完善
+            //TerrainCtor.BuildCluster(curClusterIdx_Hex.x, curClusterIdx_Hex.y); // ?
+
             // Terrain的size和hexmap的size不一定要对应
             // 第一步：继续按TerrainCtor的方式去生成 TerrainMesh（cluster-tile的结构）
             // 第二步：遍历生成mesh的时候，找到该点对应的hex格子

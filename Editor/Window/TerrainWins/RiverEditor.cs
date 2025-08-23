@@ -9,7 +9,6 @@ using Unity.Jobs;
 using UnityEngine.Experimental.Rendering;
 using ReadOnlyAttribute = Sirenix.OdinInspector.ReadOnlyAttribute;
 using Unity.Mathematics;
-using System.ComponentModel;
 //using LZ.WarGameCommon;
 
 namespace LZ.WarGameMap.MapEditor

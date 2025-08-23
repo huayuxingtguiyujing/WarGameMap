@@ -3,383 +3,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading.Tasks;
-using UnityEditor.PackageManager;
 using UnityEngine;
-using UnityEngine.UIElements;
-using static UnityEngine.Mesh;
 
 namespace LZ.WarGameMap.Runtime
 {
-
-    // NOTE : 一个 cluster 对应一个TIF高度图文件，包含了多个 TerrainTile
-    public class TerrainCluster : IBinarySerializer, IDisposable {
-
-        public int idxX { get; private set; }
-        public int idxY { get; private set; }
-
-        public int longitude { get; private set; }
-        public int latitude { get; private set; }
-
-        public bool IsLoaded { get; private set; }
-        public bool IsShowing { get; private set; }     // TODO : 有bug！
-
-
-        TerrainSettingSO terSet;
-        Vector3 clusterStartPoint;
-
-        Material mat;   // TODO : 要记录在这吗？
-
-        private TDList<TerrainTile> tileList;
-        
-        public TDList<TerrainTile> TileList { get { return tileList; } }
-
-        public GameObject clusterGo { get; private set; }
-
-        public TerrainCluster() { IsLoaded = false; IsShowing = false; }
-
-
-        #region init cluster
-
-        public void InitTerrainCluster_Static(int idxX, int idxY, int longitude, int latitude, TerrainSettingSO terSet, HeightDataManager heightDataManager, GameObject clusterGo, Material mat) {
-            this.idxX = idxX;
-            this.idxY = idxY;
-
-            this.longitude = longitude;
-            this.latitude = latitude;
-
-            this.terSet = terSet;
-
-            this.clusterGo = clusterGo;
-
-            clusterStartPoint = new Vector3(terSet.clusterSize * idxX, 0, terSet.clusterSize * idxY);
-            _InitTerrainCluster_Static(heightDataManager, mat);
-
-            IsLoaded = true;
-        }
-
-        private void _InitTerrainCluster_Static(HeightDataManager heightDataManager, Material mat) {
-            int tileNumPerLine = terSet.clusterSize / terSet.tileSize;
-
-            this.mat = mat;
-
-            //Debug.Log(string.Format("the cluster size : {0}x{1}, because the size of cluster is {2}, so there are {3} tiles in a row", 
-            //    terrainSize.x, terrainSize.z, tileSize, tileNumPerLine));
-
-            tileList = new TDList<TerrainTile>(tileNumPerLine, tileNumPerLine);
-            int[] lodLevels = new int[terSet.LODLevel];
-            for (int i = 0; i < terSet.LODLevel; i++) {
-                lodLevels[i] = i;
-            }
-
-            for (int i = 0; i < tileNumPerLine; i++) {
-                for (int j = 0; j < tileNumPerLine; j++) {
-                    GameObject tileGo = CreateTerrainTile(i, j, mat);
-                    MeshFilter meshFilter = tileGo.GetComponent<MeshFilter>();
-                    MeshRenderer meshRenderer = tileGo.GetComponent<MeshRenderer>();
-                    tileList[i, j].InitTileMeshData(i, j, longitude, latitude, clusterStartPoint, meshFilter, meshRenderer, lodLevels);
-                }
-            }
-
-            // generate mesh data for every LOD level
-            int curLODLevel = terSet.LODLevel - 1;
-            while (curLODLevel >= 0) {
-                // vertexNumFix == 1, 生成的 tile 每行顶点数等于 tileSize
-                // vertextNumFix == 2, 即当前生成的这个 tile 有 terSet.tileSize / 2 个顶点
-                // 按目前计算 : LOD = maxLODLevel 时 顶点树等于 tileSize
-                int vertexNumFix = (int)Mathf.Pow(2, (terSet.LODLevel - curLODLevel - 1));
-
-                if (vertexNumFix > terSet.tileSize) {   // wrong
-                    break;
-                }
-
-                for (int i = 0; i < tileNumPerLine; i++) {
-                    for (int j = 0; j < tileNumPerLine; j++) {
-                        //tileList[i, j].SetMeshData_Origin(curLODLevel, terSet, vertexNumFix, heightDataManager);
-                        //tileList[i, j].SetMeshData_NoCoroutine(curLODLevel, terSet, vertexNumFix, heightDataManager);
-                        tileList[i, j].SetMeshData_Coroutine(curLODLevel, terSet, vertexNumFix, heightDataManager);
-                    }
-                }
-
-                curLODLevel--;
-            }
-
-            //Debug.Log(string.Format($"successfully generate terrain cluster {longitude}_{latitude} and tiles! "));
-        }
-
-        private GameObject CreateTerrainTile(int idxX, int idxY, Material mat) {
-            GameObject tileGo = new GameObject();
-            tileGo.transform.parent = clusterGo.transform;
-            tileGo.name = string.Format("heightTile_{0}_{1}", idxX, idxY);
-
-            MeshFilter meshFilter = tileGo.AddComponent<MeshFilter>();
-            MeshRenderer meshRenderer = tileGo.AddComponent<MeshRenderer>();
-            meshRenderer.sharedMaterial = mat;
-            return tileGo;
-        }
-
-        public void ApplyRiverEffect(HeightDataManager heightDataManager, RiverDataManager riverDataManager)
-        {
-            if (riverDataManager.IsValid == false)
-            {
-                Debug.LogError("un valid river data manager, so can not init river!");
-                return;
-            }
-            int tileNumPerLine = terSet.clusterSize / terSet.tileSize;
-            for (int i = 0; i < tileNumPerLine; i++)
-            {
-                for (int j = 0; j < tileNumPerLine; j++)
-                {
-                    tileList[i, j].ApplyRiverEffect(heightDataManager, riverDataManager);
-                }
-            }
-        }
-
-        public void BuildOriginMesh()
-        {
-            int tileNumPerLine = terSet.clusterSize / terSet.tileSize;
-            for (int i = 0; i < tileNumPerLine; i++)
-            {
-                for (int j = 0; j < tileNumPerLine; j++)
-                {
-                    tileList[i, j].BuildOriginMesh();
-                }
-            }
-        }
-
-        public void SampleMeshNormal(Texture2D normalTex) {
-
-            for (int i = 0; i < tileList.GetLength(1); i++) {
-                for (int j = 0; j < tileList.GetLength(0); j++) {
-                    tileList[i, j].SampleMeshNormal();
-                }
-            }
-        }
-
-        public void Dispose() {
-            if (tileList != null) {
-                foreach (var tile in tileList) {
-                    tile.Dispose();
-                }
-            }
-        }
-
-        #endregion
-
-
-        public void ExeTerrainSimplify(int tileIdxX, int tileIdxY, TerrainSimplifier terrainSimplifier, float simplifyTarget) {
-
-            // NOTE : 先只做一个地块的
-            tileList[tileIdxX, tileIdxY].ExeTerrainSimplify_Min(terrainSimplifier, simplifyTarget);;
-            
-            // TOOD : 要改
-            for (int i = 0; i < tileList.GetLength(1); i++) {
-                for (int j = 0; j < tileList.GetLength(0); j++) {
-                    //tileList[i, j].ExeTerrainSimplify(i, j, terrainSimplifier, simplifyTarget);
-                }
-            }
-        }
-
-
-        #region runtime update terrain, fix LOD seam
-
-        // NOTE : LODHeight 根据摄像机距离地面的高度决定地块的 lod level
-        public int UpdateTerrainCluster_LODHeight(int curLODLevel, int LODLevels) {
-            // if we switch LOD by height, then we do not need to fix the seam
-            //  float FadeDistance, int LODLevels
-            if(tileList == null || tileList.Count <= 0) {
-                return -100;
-            }
-
-            if (tileList[0, 0].curLODLevel == curLODLevel && IsShowing == true) {
-                // tile's lod do not change and is showing, so return (only if its in height switch method
-                return curLODLevel;     
-            }
-
-            foreach (var tile in tileList) {
-                tile.SetMesh(tile.GetMesh(curLODLevel, 0, LODSwitchMethod.Height), mat);
-            }
-
-            // 当调用这个方法的时候，默认show statu发生了改变，除非LOD级别越界了
-            if (curLODLevel >= 0 && curLODLevel < LODLevels) {
-                IsShowing = true;
-            }
-            return curLODLevel;
-        }
-
-        public void UpdateTerrainCluster_LODDistance(TDList<int> fullLodLevelMap) {
-            int showTileNum = 0;
-            foreach (var tile in tileList) {
-                // use full lod map, so index offset is 1
-                int x = tile.tileIdxX + 1;
-                int y = tile.tileIdxY + 1;
-                int lodLevel = fullLodLevelMap[x, y];
-
-                int left = x - 1;
-                int right = x + 1;
-                int top = y + 1;
-                int bottom = y - 1;
-
-                // check if should fix LOD seam
-                int fixSeamDirection = 10000;
-                int[,] direction = new int[4, 2]{
-                    {left, y},{right, y}, {x, top}, {x, bottom}
-                };
-
-                for (int i = 0; i < 4; i++) {
-                    int idxX = direction[i, 0];
-                    int idxY = direction[i, 1];
-                    if (fullLodLevelMap.IsValidIndex(idxX, idxY) && lodLevel > fullLodLevelMap[idxX, idxY]) {
-                        fixSeamDirection |= (1 << i);
-                    }
-                }
-
-                if (fixSeamDirection == 0 && tile.curLODLevel == lodLevel) {
-                    // no need to fix seam, and no change LOD level, so continue
-                    continue;
-                }
-
-                // 不管LOD层级有没有发生改变，都必须重新刷新mesh，因为要处理LOD接缝
-                Mesh mesh = tile.GetMesh(lodLevel, fixSeamDirection, LODSwitchMethod.Distance);
-                tile.SetMesh(mesh, mat);
-                if(mesh != null) {
-                    showTileNum++;
-                }
-            }
-
-            //IsShowing = (showTileNum > 0);
-            //Debug.Log(string.Format("update successfully! handle tile num {0}", terrainTileList.GetLength(0)));
-        }
-
-        public void HideTerrainCluster() {
-            foreach (var tileMeshData in tileList) {
-                tileMeshData.SetMesh(null, mat);
-            }
-            IsShowing = false;
-        }
-
-        internal TDList<int> GetFullLODLevelMap(Vector3 cameraPos) {
-            int tileWidth = tileList.GetLength(1);
-            int tileHeight = tileList.GetLength(0);
-
-            TDList<int> lodLevelMap = GetLODLevelMap(cameraPos);
-            TDList<int> fullLodLevelMap = new TDList<int>(tileWidth + 2, tileHeight + 2);
-
-            // copy cluster's lodlevelmap to fulllodlevelmap
-            for (int i = 1; i < tileWidth + 1; i++) {
-                for (int j = 1; j < tileHeight + 1; j++) {
-                    fullLodLevelMap[i, j] = lodLevelMap[i - 1, j - 1];
-                }
-            }
-            return fullLodLevelMap;
-        }
-
-        private TDList<int> GetLODLevelMap(Vector3 cameraPos) {
-            int tileWidth = tileList.GetLength(1);
-            int tileHeight = tileList.GetLength(0);
-            TDList<int> lodLevelMap = new TDList<int>(tileWidth, tileHeight);
-
-            // get every tile's LOD level
-            foreach (var tileMeshData in tileList) {
-                int x = tileMeshData.tileIdxX;
-                int y = tileMeshData.tileIdxY;
-                int lodLevel = tileMeshData.GetLODLevel_Distance(cameraPos);
-                lodLevelMap[x, y] = lodLevel;
-            }
-            return lodLevelMap;
-        }
-
-        private enum GetEdgeDir {
-            Left, Right, Up, Down
-        }
-
-        private List<int> GetEdgeLODLevel(Vector3 cameraPos, GetEdgeDir edgeDir) {
-            int tileWidth = tileList.GetLength(1);
-            int tileHeight = tileList.GetLength(0);
-
-            // 一般而言 tileWidth = tileHeight
-            List<int> lodLevels = new List<int>(4);
-
-            if (edgeDir == GetEdgeDir.Left || edgeDir == GetEdgeDir.Right) {
-                for (int i = 0; i < tileHeight; i++) {
-                    lodLevels.Add(-1);
-                }
-            } else {
-                for (int i = 0; i < tileWidth; i++) {
-                    lodLevels.Add(-1);
-                }
-            }
-
-
-            switch (edgeDir) {
-                case GetEdgeDir.Left:
-                    for (int i = 0; i < tileHeight; i++) {
-                        int lodLevel = tileList[0, i].GetLODLevel_Distance(cameraPos);
-                        lodLevels[i] = lodLevel;
-                    }
-                    break;
-                case GetEdgeDir.Right:
-                    for (int i = 0; i < tileHeight; i++) {
-                        int lodLevel = tileList[tileWidth - 1, i].GetLODLevel_Distance(cameraPos);
-                        lodLevels[i] = lodLevel;
-                    }
-                    break;
-                case GetEdgeDir.Up:
-                    for (int i = 0; i < tileWidth; i++) {
-                        int lodLevel = tileList[i, tileHeight - 1].GetLODLevel_Distance(cameraPos);
-                        lodLevels[i] = lodLevel;
-                    }
-                    break;
-                case GetEdgeDir.Down:
-                    for (int i = 0; i < tileWidth; i++) {
-                        int lodLevel = tileList[i, 0].GetLODLevel_Distance(cameraPos);
-                        lodLevels[i] = lodLevel;
-                    }
-                    break;
-            }
-            return lodLevels;
-        }
-
-        #endregion
-
-
-        #region serialize
-
-        public string GetClusterInfo() {
-            return $"{idxX},{idxY},{longitude},{latitude}";
-        }
-
-        public void WriteToBinary(BinaryWriter writer) {
-            writer.Write(idxX);
-            writer.Write(idxY);
-            writer.Write(longitude);
-            writer.Write(latitude);
-        }
-
-        public void ReadFromBinary(BinaryReader reader) {
-            idxX = reader.ReadInt32();
-            idxY = reader.ReadInt32();
-            longitude = reader.ReadInt32();
-            latitude = reader.ReadInt32();
-        }
-
-        #endregion
-    
-        public Vector2Int GetClusterLL() {
-            return new Vector2Int(longitude, latitude);
-        }
-
-        public Mesh GetTileMesh(int lodLevel, int tileIdxX, int tileIdxY) {
-            if (tileIdxX < 0 || tileIdxX >= tileList.GetLength(0) || tileIdxY < 0 || tileIdxY >= tileList.GetLength(1)) {
-                Debug.LogError($"wrong index when get cluster : {tileIdxX}, {tileIdxY}");
-                return null;
-            }
-            return tileList[tileIdxX, tileIdxY].GetMesh(lodLevel, 0, LODSwitchMethod.Height);
-        }
-
-    }
-
-
     public class TerrainTile : IBinarySerializer, IDisposable {
 
         public int tileIdxX { get; private set; }
@@ -397,7 +24,9 @@ namespace LZ.WarGameMap.Runtime
         int[] LODLevels;
         TerrainMeshData[] LODMeshes;
 
+
         public TerrainMeshData[] GetLODMeshes() { return LODMeshes; }
+        public int GetLODMeshVertNum(int lodLevel) { return LODMeshes[lodLevel].GetVertNum(); }
 
 
         HeightDataManager heightDataManager;
@@ -442,7 +71,8 @@ namespace LZ.WarGameMap.Runtime
             this.clusterSize = terSet.clusterSize;
             this.tileSize = terSet.tileSize;
 
-            CoroutineManager.GetInstance().RunCoroutine(_SetMeshData(curLODLevel, terSet, vertexNumFix, 50000));
+            // can not work with multiThread
+            CoroutineManager.GetInstance().RunCoroutine(_SetMeshData(curLODLevel, terSet, vertexNumFix, 65535));
         }
 
         private IEnumerator _SetMeshData(int curLODLevel, TerrainSettingSO terSet, int vertexNumFix, int maxTickOneFrame) {
@@ -472,11 +102,8 @@ namespace LZ.WarGameMap.Runtime
 
             int curInVertIdx = 0;
             int curOutVertIdx = -1;
-
             int tickCnt = 0;
-
             Vector3 offsetInMeshVert = new Vector3(gridSize, 0, gridSize);
-            //Vector3 offsetInMeshVert = new Vector3(0, 0, 0);
 
             // multithreading, but slow ?
             /*Action<int> exeHeightSet = (idx) => {
@@ -515,8 +142,8 @@ namespace LZ.WarGameMap.Runtime
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
                     // NOTE : 这里的代码不能删！千万不能删啊
-                    //float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
-                    float height = heightDataManager.SampleFromHexMap(vert);
+                    float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
+                    //float height = heightDataManager.SampleFromHexMap(vert);
                     //float height = 0;
 
                     vert.y = height;
@@ -534,9 +161,7 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            // TODO : 有问题！！！！
-            // LOD4(max) :  gridSize : 256, vertexPerLine : 257, vertexPerLineFixed : 259, gridSize : 1
-            // 需要计算一遍
+            // gen triangle
             int curGridIdx = 0;
             for (int i = 0; i < gridNumPerLineFixed; i++) {
                 for (int j = 0; j < gridNumPerLineFixed; j++) {
@@ -564,6 +189,17 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
+            meshData.SetInited();
+        }
+
+        public void SetMeshData_Origin(int curLODLevel, TerrainSettingSO terSet, int vertexNumFix, HeightDataManager heightDataManager)
+        {
+            this.heightDataManager = heightDataManager;
+            this.clusterSize = terSet.clusterSize;
+            this.tileSize = terSet.tileSize;
+
+            var setCoroutine = _SetMeshData(curLODLevel, terSet, vertexNumFix, 65535);
+            while (setCoroutine.MoveNext()) { }
         }
 
         public void SetMeshData_Origin(int curLODLevel, TerrainSetting terSet, int vertexNumFix, HeightDataManager heightDataManager) {
@@ -604,10 +240,6 @@ namespace LZ.WarGameMap.Runtime
             for (int i = 0; i < vertexPerLineFixed; i++) {
                 for (int j = 0; j < vertexPerLineFixed; j++) {
 
-                    if (i >= 254 && j <= 3) {
-                        int test03 = 1;
-                    }
-
                     bool isVertOutOfMesh = (i == 0) || (i == vertexPerLineFixed - 1) || (j == 0) || (j == vertexPerLineFixed - 1);
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
@@ -645,21 +277,11 @@ namespace LZ.WarGameMap.Runtime
                     int next_w = cur_w + 1;
                     int next_h = cur_h + 1;
 
-                    if (cur_w == 256 && cur_h == 1) {
-                        int tt = 1;
-                    }
-                    if (next_w == 256 && next_h == 1) {
-                        int tt = 1;
-                    }
-
                     int a = meshData.GetIndiceInMap(cur_w, cur_h);
                     int b = meshData.GetIndiceInMap(cur_w, next_h);
                     int c = meshData.GetIndiceInMap(next_w, next_h);
                     int d = meshData.GetIndiceInMap(next_w, cur_h);
 
-                    if (a == 65278 || b == 65278 || c == 65278 || d == 65278) {
-                        int test2 = 2;
-                    }
                     meshData.AddTriangle(a, b, c, i, j);
                     meshData.AddTriangle(a, c, d, i, j);
 
@@ -669,13 +291,34 @@ namespace LZ.WarGameMap.Runtime
 
         }
 
+
+        public void SetMeshData_Copy(int dstLODLevel, TerrainSimplifier terrainSimplifier, float simplifyTarget)
+        {
+            // we will setMeshData of LOD max, and use it as simplify src
+            int srcLODLevel = LODMeshes.Length - 1;
+
+            // copy LOD max's raw data to dstLODLevel
+            LODMeshes[dstLODLevel] = new TerrainMeshData();
+            TerrainMeshData meshData = LODMeshes[dstLODLevel];
+            meshData.CopyMeshData(dstLODLevel, LODMeshes[srcLODLevel]);
+            meshData.SetInited();
+        }
+
+
         public void ApplyRiverEffect(HeightDataManager heightDataManager, RiverDataManager riverDataManager)
         {
             //for (int i = 0; i < LODMeshes.Length; i ++)
             //{
                 LODMeshes[LODMeshes.Length - 1].ApplyRiverEffect(heightDataManager, riverDataManager);
             //}
+        }
 
+        public void BuildOriginMeshWrapper()
+        {
+            for (int i = 0; i < LODMeshes.Length; i++)
+            {
+                LODMeshes[i].BuildOriginMeshWrapper();
+            }
         }
 
         public void BuildOriginMesh()
@@ -683,6 +326,15 @@ namespace LZ.WarGameMap.Runtime
             for (int i = 0; i < LODMeshes.Length; i++)
             {
                 LODMeshes[i].BuildOriginMesh();
+            }
+        }
+
+        public void RecaculateNormal_Mesh()
+        {
+            // NOTE : 建议地块使用 normal 贴图，自动生成的normal 边界老是有问题...很不适用于减面后的地表 
+            for (int i = 0; i < LODMeshes.Length; i++)
+            {
+                LODMeshes[i].RecaculateNormal_Mesh();
             }
         }
 
@@ -703,48 +355,39 @@ namespace LZ.WarGameMap.Runtime
             SetMesh(curMesh, null);
         }
 
-        public void ExeTerrainSimplify(TerrainSimplifier terrainSimplifier, float simplifyTarget) {
-            int length = LODMeshes.Length;
-
-            // exe simplify to all lod level tile
-            for (int i = 0; i < length; i++) {
-                ExeTerrainSimplify(i, terrainSimplifier, simplifyTarget);
-            }
-        }
-
-        public void ExeTerrainSimplify_Min(TerrainSimplifier terrainSimplifier, float simplifyTarget) {
-            ExeTerrainSimplify(curLODLevel, terrainSimplifier, simplifyTarget);
-        }
-
-        private void ExeTerrainSimplify(int curLODLevel, TerrainSimplifier terrainSimplifier, float simplifyTarget, int iterLimit = 5) {
-            if (curLODLevel >= LODLevels.Length || curLODLevel < 0) {
-                Debug.LogError("wrong cur lod level");
+        // This Function must be thread safe
+        public void ExeTerrainSimplify(int lodLevel, TerrainSimplifier terrainSimplifier, float simplifyTarget, int iterLimit = 5) {
+            
+            if (lodLevel >= LODMeshes.Length || lodLevel < 0)
+            {
+                DebugUtility.LogError($"wrong lod level : {lodLevel}", DebugPriority.Medium);
                 return;
             }
 
             // only update once time
-            LODMeshes[curLODLevel].UpdateEdgeVertInfoByOrigin(null);
+            LODMeshes[lodLevel].UpdateEdgeVertInfoByOrigin();
             // LODMeshes[curLODLevel].GetMesh_LODDistance(tileIdxX, tileIdxY, 0)
-            Mesh mesh = LODMeshes[curLODLevel].GetMesh_LODHeight();
-            int targetVertCnt = (int)(mesh.vertexCount * simplifyTarget);
+            MeshWrapper meshWrapper = LODMeshes[lodLevel].GetMeshWrapper();
+            int targetVertCnt = (int)(meshWrapper.GetVertNum() * simplifyTarget);
 
             int iterCnt = 0;
-            while(mesh.vertexCount > targetVertCnt && iterCnt ++ < iterLimit) {
-                List<int> edgeVerts = LODMeshes[curLODLevel].GetEdgeVertInfo();
-                terrainSimplifier.InitSimplifyer(mesh, edgeVerts, null, targetVertCnt, clusterStartPoint, clusterSize);
+            terrainSimplifier.InitRecorder();
+            while (meshWrapper.GetVertNum() > targetVertCnt && iterCnt ++ < iterLimit) {
+
+                List<int> edgeVerts = LODMeshes[lodLevel].GetEdgeVertInfo();
+                terrainSimplifier.InitSimplifyer(meshWrapper, edgeVerts, null, targetVertCnt, clusterStartPoint, clusterSize);
 
                 terrainSimplifier.StartSimplify();
 
                 // get new mesh and new edge verts
                 List<int> newEdgeVerts = new List<int>();
-                List<int> newOutOfMeshTris = LODMeshes[curLODLevel].GetOutOfMeshTris();
-                mesh = terrainSimplifier.EndSimplify(ref newEdgeVerts, ref newOutOfMeshTris);
+                List<int> newOutOfMeshTris = LODMeshes[lodLevel].GetOutOfMeshTris();
+                meshWrapper = terrainSimplifier.EndSimplify(ref newEdgeVerts, ref newOutOfMeshTris);
 
-                ReplaceMesh(mesh, null);
-                LODMeshes[curLODLevel].SetEdgeVertInfo(newEdgeVerts);
-                LODMeshes[curLODLevel].SetOutOfMeshTris(newOutOfMeshTris);
+                SetMeshWrapper(lodLevel, meshWrapper, null);
+                LODMeshes[lodLevel].SetEdgeVertInfo(newEdgeVerts);
+                LODMeshes[lodLevel].SetOutOfMeshTris(newOutOfMeshTris);
             }
-            LODMeshes[curLODLevel].RecaculateNormal_Mesh(mesh);
         }
 
 
@@ -772,7 +415,7 @@ namespace LZ.WarGameMap.Runtime
         public Mesh GetMesh(int curLODLevel, int fixDirection, LODSwitchMethod switchMethod) {
             this.curLODLevel = curLODLevel;
             if (curLODLevel < 0 || curLODLevel >= LODMeshes.Length) {
-                Debug.LogError("wrong LOD level, can not get mesh");
+                DebugUtility.LogError("wrong LOD level, can not get mesh", DebugPriority.Medium);
                 return null;
             }
 
@@ -786,17 +429,15 @@ namespace LZ.WarGameMap.Runtime
 
         public void SetMesh(Mesh mesh, Material mat) {
 #if UNITY_EDITOR
-            meshFilter.mesh = mesh;
+            meshFilter.sharedMesh = mesh;
 #else
-            meshFilter.mesh = mesh;
+            meshFilter.sharedMesh = mesh;
 #endif
             renderer.sharedMaterial = mat;
         }
 
-        public void ReplaceMesh(Mesh mesh, Material mat) {
-            UnityEngine.Object.DestroyImmediate(meshFilter.sharedMesh);
-            LODMeshes[curLODLevel].SetMesh(mesh);
-            SetMesh(mesh, mat);
+        public void SetMeshWrapper(int lodLevel, MeshWrapper meshWrapper, Material mat) {
+            LODMeshes[lodLevel].SetMeshWrapper(meshWrapper);
         }
         
         

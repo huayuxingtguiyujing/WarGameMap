@@ -1,27 +1,16 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.XR;
 
 namespace LZ.WarGameMap.Runtime
 {
-    public class CoroutineManager : MonoBehaviour
+    public class CoroutineManager : BaseManager
     {
         private static CoroutineManager _instance;
 
-        // TODO : ÒªÍêÉÆ CoroutineManager
         public static CoroutineManager GetInstance() {
-            if (_instance == null) {
-                GameObject go = GameObject.Find("CoroutineManager");
-                if(go == null) {
-                    go = new GameObject("CoroutineManager");
-                    go.hideFlags = HideFlags.HideAndDontSave;
-                }
-
-                _instance = go.GetComponent<CoroutineManager>();
-                if (_instance == null) {
-                    _instance = go.AddComponent<CoroutineManager>();
-                }
+            if(_instance == null)
+            {
+                _instance = GetInstance<CoroutineManager>();
             }
             return _instance;
         }

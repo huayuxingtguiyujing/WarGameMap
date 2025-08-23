@@ -1,18 +1,12 @@
-using System.Collections;
-using System.Collections.Generic;
+using System;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
-using static UnityEditor.U2D.ScriptablePacker;
 using static Unity.Mathematics.math;
-using System;
-using UnityEngine.UIElements;
 
 namespace LZ.WarGameMap.Runtime
 {
-
     // Unity 自带的 PerlinNoise 不是无缝的，请使用  PerlinNoise
     struct InitNoiseJob : IJobParallelFor {
         [ReadOnly] public int width;
@@ -221,8 +215,6 @@ namespace LZ.WarGameMap.Runtime
         private float2 Evolution;
         private int FBMIteration;
 
-        //private NativeArray<float4> colors;
-        //private NativeArray<float2> noiseConstVector;
 
         public PerlinNoise(int resolution, float frequency, bool isTilable, float randomSeed, Vector2 evolution, int fBMIteration = 0) {
             Resolution = resolution;
@@ -362,7 +354,7 @@ namespace LZ.WarGameMap.Runtime
             return (int2)floor((float2)pixelCoord / blockSize);
         }
 
-        // 生成随机向量
+
         private static readonly Vector2[] Gradients = new Vector2[]
         {
             new Vector2( 1, 0), new Vector2(-1, 0),

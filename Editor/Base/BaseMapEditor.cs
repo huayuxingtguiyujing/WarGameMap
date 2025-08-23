@@ -1,17 +1,9 @@
-
 using UnityEngine;
 using Sirenix.OdinInspector;
-using Sirenix.OdinInspector.Editor;
 using UnityEditor;
-using static TreeEditor.TextureAtlas;
-using System.IO;
 using LZ.WarGameMap.Runtime;
-using System;
-using UnityEngine.SceneManagement;
 
 namespace LZ.WarGameMap.MapEditor {
-
-    
 
     public abstract class BaseMapEditor: ScriptableObject {
         public abstract string EditorName { get; }
@@ -90,7 +82,6 @@ namespace LZ.WarGameMap.MapEditor {
         public virtual void Destory() {
 
         }
-
 
         private int curDragTriggerTime = 0;
 

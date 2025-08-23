@@ -1,11 +1,7 @@
-﻿using Codice.Client.Common;
-using NUnit.Framework;
-using System;
-using System.Collections;
+﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using UnityEngine;
-using UnityEngine.Rendering;
-using static Codice.Client.Common.WebApi.WebApiEndpoints;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -26,11 +22,9 @@ namespace LZ.WarGameMap.Runtime
         // dictionary<int, list<int>> triangle_contains_vertIdx；
         // dictionary<int, matrix> triangle_Q_dict；
         // 2.构建顶点对集合： 根据相邻关系和距离阈值，确定所有可收缩的顶点对，计算每个顶点对合并后的误差度量
-        // 3.构建最小堆： 将所有顶点对按照误差度量组织成一个最小堆，以便快速获取误差最小的顶点对。
-
+        // 3.构建最小堆： 将所有顶点对按照误差度量组织成一个最小堆，以便快速获取误差最小的顶点对
         // 4.迭代合并：从最小堆中取出误差最小的顶点对，进行合并该顶点对，更新所有相关要素，重复该步骤，直到达到预定的简化程度
-        // 5.完成简化：去除过程中被标注为，重新计算 normal 和 uv 输出 当达到预定的简化程度或无法继续合并时，输出简化后的网格模型。
-
+        // 5.完成简化：去除过程中被标注为，重新计算 normal 和 uv 输出 当达到预定的简化程度或无法继续合并时，输出简化后的网格模型
         // https://zhuanlan.zhihu.com/p/545507892
 
         Vector3 clusterStartPoint;
@@ -38,7 +32,9 @@ namespace LZ.WarGameMap.Runtime
 
         // simplify metric
         int vertCnt;
+        int curReducedCnt;
         int targetCnt;
+        bool isSimplifyOver;
 
         // mesh's data
         string meshName;
@@ -62,15 +58,19 @@ namespace LZ.WarGameMap.Runtime
         HashSet<string> hasAddThisPairMap;     // to judge whether a vert pair has been added
         //Dictionary<int, Vector3> edgeVert_normals_dict;
 
+        public void InitRecorder()
+        {
+            curReducedCnt = 0;
+        }
 
-
-        public void InitSimplifyer(Mesh mesh, List<int> edgeVerts, List<Vector3> edgeNormals, int targetVertCnt, Vector3 clusterStartPoint, int clusterSize) {
+        public void InitSimplifyer(MeshWrapper meshWrapper, List<int> edgeVerts, List<Vector3> edgeNormals, int targetVertCnt, Vector3 clusterStartPoint, int clusterSize) {
+            isSimplifyOver = false;
             this.clusterSize = clusterSize;
             this.clusterStartPoint = clusterStartPoint;
 
-            meshName = mesh.name;
-            vertexs = mesh.vertices;
-            triangles = mesh.triangles;
+            meshName = meshWrapper.meshName;
+            vertexs = meshWrapper.GetVertex().ToArray();
+            triangles = meshWrapper.GetTriangles().ToArray();
 
             // NOTE : simplifyTarget 40% : end util 40% vertex
             vertCnt = vertexs.Length;
@@ -93,7 +93,7 @@ namespace LZ.WarGameMap.Runtime
             // construct triangle's data
             int triIdxNum = triangles.Length;
             if(triIdxNum % 3 != 0) {
-                Debug.Log($"error! not valid triangle num : {triIdxNum}");
+                DebugUtility.Log($"error! not valid triangle num : {triIdxNum}");
                 return;
             }
             int triNum = triIdxNum / 3;
@@ -156,11 +156,11 @@ namespace LZ.WarGameMap.Runtime
 
                 // NOTE :  初步构建时是不会出现这种情况的
                 if (v1 == v2) {
-                    Debug.LogError($"传入的triangle有问题，v1 和 v2 相同！:{v1}");
+                    DebugUtility.LogError($"传入的triangle有问题，v1 和 v2 相同！:{v1}");
                 } else if (v2 == v3) {
-                    Debug.LogError($"传入的triangle有问题，v2 和 v3 相同！:{v2}");
+                    DebugUtility.LogError($"传入的triangle有问题，v2 和 v3 相同！:{v2}");
                 } else if (v1 == v3) {
-                    Debug.LogError($"传入的triangle有问题，v1 和 v3 相同！:{v1}");
+                    DebugUtility.LogError($"传入的triangle有问题，v1 和 v3 相同！:{v1}");
                 }
 
                 // TODO:  ERROR: 为什么处于边缘的 vert pair 也被加入了？
@@ -207,7 +207,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
         public void StartSimplify() {
-            Debug.Log("now we start simplify!");
+            DebugUtility.Log("now we start simplify!");
 
             int curCnt = vertCnt;
             int iterCnt = 0;    // 防止无限循环
@@ -216,13 +216,13 @@ namespace LZ.WarGameMap.Runtime
 
                 iterCnt++;
                 if (iterCnt >= maxIter * 2) {
-                    Debug.LogError($"simplify end because iterCnt has reach its limit : {maxIter}");
+                    DebugUtility.LogError($"simplify end because iterCnt has reach its limit : {maxIter}");
                 }
 
                 VectorPair pair = qemMinHeap.GetTop();
                 if (pair == null) {
                     //throw new Exception($"pair is null, so heap is null, iterCnt: {iterCnt}, curVer: {curCnt}, startCnt: {vertCnt}, targetCnt: {targetCnt}");
-                    //Debug.LogError($"pair is null, so heap is null, iterCnt: {iterCnt}, curVer: {curCnt}, startCnt: {vertCnt}, targetCnt: {targetCnt}");
+                    //DebugUtility.LogError($"pair is null, so heap is null, iterCnt: {iterCnt}, curVer: {curCnt}, startCnt: {vertCnt}, targetCnt: {targetCnt}");
                     continue;
                 }
 
@@ -231,15 +231,15 @@ namespace LZ.WarGameMap.Runtime
                 int idx1 = pair.v1Idx;
                 int idx2 = pair.v2Idx;
                 if (idx1 == idx2) {
-                    Debug.LogError($"不应该出现的情况，idx1 = idx2, {idx1}， 本次 iter cnt ：{iterCnt}");
+                    DebugUtility.LogError($"不应该出现的情况，idx1 = idx2, {idx1}， 本次 iter cnt ：{iterCnt}");
                     continue;
                 }
                 if (!vertex_valid[idx1]) {
-                    //Debug.LogError($"vert {idx1} is not valid， 本次 iter cnt ：{iterCnt}");
+                    //DebugUtility.LogError($"vert {idx1} is not valid， 本次 iter cnt ：{iterCnt}");
                     continue;
                 }
                 if (!vertex_valid[idx2]) {
-                    //Debug.LogError($"vert {idx2} is not valid， 本次 iter cnt ：{iterCnt}");
+                    //DebugUtility.LogError($"vert {idx2} is not valid， 本次 iter cnt ：{iterCnt}");
                     continue;
                 }
 
@@ -286,7 +286,7 @@ namespace LZ.WarGameMap.Runtime
                 // add all v2's vertex pair to v1
                 foreach (var idx2_pair in vertex_pair_dict[idx2]) {
                     if (idx2_pair.v1Idx != idx1 && idx2_pair.v2Idx != idx1) {
-                        Debug.LogError($"不应该出现的情况，idx1 没有设置正确 * 2 ：{idx2_pair.v1Idx},{idx2_pair.v2Idx},{idx1},{idx2},iterCnt: {iterCnt}");
+                        DebugUtility.LogError($"不应该出现的情况，idx1 没有设置正确 * 2 ：{idx2_pair.v1Idx},{idx2_pair.v2Idx},{idx1},{idx2},iterCnt: {iterCnt}");
                         //continue;
                     }
 
@@ -333,11 +333,16 @@ namespace LZ.WarGameMap.Runtime
                 }
 
                 if (commonTriCnt != 2 && commonTriCnt != 0) {
-                    Debug.LogError($"不应该出现的情况！检测到当前vertpair的共边三角型 ：{commonTriCnt}");
+                    DebugUtility.LogError($"不应该出现的情况！检测到当前vertpair的共边三角型 ：{commonTriCnt}");
                 }
 
-                curCnt--;
+                // TODO : 在这里更新进度
+                //SimplifyProcess.AddSimplifyProcess();
+                //int progressID, string taskName, float progress
+                //ProgressManager.GetInstance().SyncProgress();
 
+                curCnt--;
+                Interlocked.Increment(ref curReducedCnt);
             }
 
         }
@@ -362,7 +367,7 @@ namespace LZ.WarGameMap.Runtime
                 flag = true;
             }
             if (flag) {
-                Debug.LogError($"不应该出现的情况！计算共边三角型时发现 两个顶点落在了同样的索引上！{idx1}");
+                DebugUtility.LogError($"不应该出现的情况！计算共边三角型时发现 两个顶点落在了同样的索引上！{idx1}");
                 return false;
             }
 
@@ -389,16 +394,9 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        public Mesh EndSimplify(ref List<int> newEdgeVerts, ref List<int> outOfMeshTriangles) {
-            Debug.Log("now we end simplify, and you can get the mesh");
-            Mesh mesh = new Mesh();
-            mesh.name = meshName;
-
-            if(vertexs.Length >= UInt16.MaxValue) {
-                mesh.indexFormat = IndexFormat.UInt32;
-            }
-
-            DebugSimplifyResult();
+        public MeshWrapper EndSimplify(ref List<int> newEdgeVerts, ref List<int> outOfMeshTriangles) {
+            DebugUtility.Log("now we end simplify, and you can get the mesh", DebugPriority.Medium);
+            //DebugSimplifyResult();
 
             // 去掉所有 not valid 的顶点的vertex
             int vertNum = vertexs.Length;
@@ -437,7 +435,6 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-
             // 去掉 不合法的 tris
             List<int> newTriangles = new List<int>();
             int triIdxNum = triangles.Length;
@@ -470,13 +467,11 @@ namespace LZ.WarGameMap.Runtime
                 newUvs.Add(new Vector2(curPos.x / clusterSize, curPos.z / clusterSize));
             }
 
-            mesh.vertices = newVerts.ToArray();
-            mesh.triangles = newTriangles.ToArray();
-            mesh.uv = newUvs.ToArray();
-            
-            mesh.RecalculateBounds();
-            //mesh.RecalculateNormals();
-            return mesh;
+
+            MeshWrapper meshWrapper = new MeshWrapper(meshName, newVerts, newTriangles, null, newUvs, null);
+
+            isSimplifyOver = true;
+            return meshWrapper;
         }
 
         private void DebugSimplifyResult() {
@@ -493,13 +488,23 @@ namespace LZ.WarGameMap.Runtime
             int reducedVertCnt = vertexs.Length - vertValidCnt;
             int reducedTriCnt = triangles.Length / 3 - triValidCnt;
 
-            //Debug.Log($"start vert : {vertexs.Length} end valid num : {vertValidCnt}");
-            //Debug.Log($"start tri : {triangles.Length / 3} end valid num : {triValidCnt}");
-            Debug.Log($"reduced vert cnt: {reducedVertCnt}, reduced tri cnt: {reducedTriCnt}");
+            //DebugUtility.Log($"start vert : {vertexs.Length} end valid num : {vertValidCnt}");
+            //DebugUtility.Log($"start tri : {triangles.Length / 3} end valid num : {triValidCnt}");
+            DebugUtility.Log($"reduced vert cnt: {reducedVertCnt}, reduced tri cnt: {reducedTriCnt}", DebugPriority.Medium);
             if(reducedVertCnt * 2 != reducedTriCnt) {
-                Debug.LogError($"wrong vert-tri relation, should have {reducedVertCnt * 2} reduced tri");
+                DebugUtility.LogError($"wrong vert-tri relation, should have {reducedVertCnt * 2} reduced tri");
             }
         }
+
+
+        public int GetTargetCnt() { return targetCnt; }
+
+        public int GetReducedCnt() {
+            return Interlocked.CompareExchange(ref curReducedCnt, 0, 0);
+            //return curReducedCnt;
+        }
+
+        public bool GetSimplifyOver() { return isSimplifyOver; }
 
     }
 
@@ -536,12 +541,12 @@ namespace LZ.WarGameMap.Runtime
 
         public void UpdatePair(int oldIdx, int newIdx, Vector3 newV, Matrix4x4 newQ) {
             if (v1Idx == v2Idx) {
-                Debug.LogError($"不应该出现的状况！顶点对的两个顶点一样，{v1Idx}, {v2Idx}, 传入顶点：{oldIdx}，{newIdx}");
+                DebugUtility.LogError($"不应该出现的状况！顶点对的两个顶点一样，{v1Idx}, {v2Idx}, 传入顶点：{oldIdx}，{newIdx}");
                 IsValid = false;
                 return;
             } else if ((v1Idx == oldIdx && v2Idx == newIdx) || (v2Idx == oldIdx && v1Idx == newIdx) && (oldIdx != newIdx)) {
                 // TODO : 到底什么时候会发出这个错误？？？
-                Debug.LogError($"不应该出现的状况！新顶点和另一个顶点一样，{v1Idx}, {v2Idx}, 传入顶点：{oldIdx}，{newIdx}");
+                DebugUtility.LogError($"不应该出现的状况！新顶点和另一个顶点一样，{v1Idx}, {v2Idx}, 传入顶点：{oldIdx}，{newIdx}");
                 //IsValid = false;
                 return;
             }
@@ -663,7 +668,7 @@ namespace LZ.WarGameMap.Runtime
             int idx = pair.idxHeap;
             int idxRec = idx;
             if (idx < 0 || idx >= heap.Count) {
-                Debug.LogError($"错误的 pair idx : {pair.idxHeap}, {pair.v1Idx}, {pair.v2Idx}, {logMes}");
+                DebugUtility.LogError($"错误的 pair idx : {pair.idxHeap}, {pair.v1Idx}, {pair.v2Idx}, {logMes}");
                 for (int i = 0; i < heap.Count; i++) {
                     heap[i].SetHeapIdx(i);
                     if (heap[i] == pair) {
@@ -741,7 +746,7 @@ namespace LZ.WarGameMap.Runtime
             // plane's normal
             Vector3 normal = Vector3.Cross(v1, v2);
             if (normal.sqrMagnitude == 0) {
-                Debug.LogError("v1 v2 v3 are in a line, error!");
+                DebugUtility.LogError("v1 v2 v3 are in a line, error!");
                 return Vector4.zero;
             }
 
@@ -758,6 +763,45 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
             return result;
+        }
+
+    }
+
+    // TODO : 需要一个线程安全的 全局计数器，最好不要使用 下面这种 static 的方式实现...
+    public class SimplifyProcess
+    {
+        static readonly object lockObj = new object();
+
+        static int SimplifiedVertCount = 0;
+        static float SimplifiedProcess = 0;
+        static int SimplifiedTargetCount = 1;
+
+        public static void StartRecSimplifyProcess(int startTotalVertNum, int targetVertNum)
+        {
+            SimplifiedVertCount = 0;
+            SimplifiedProcess = 0;
+            SimplifiedTargetCount = startTotalVertNum - targetVertNum;
+        }
+
+        public static void AddSimplifyProcess()
+        {
+            lock (lockObj)
+            {
+                SimplifiedVertCount++;
+            }
+        }
+
+        public static float GetSimplifyProcess()
+        {
+            SimplifiedProcess = SimplifiedVertCount / SimplifiedTargetCount;
+            return SimplifiedProcess;
+        }
+
+        public static void EndRecSimplifyProcess()
+        {
+            SimplifiedVertCount = 0;
+            SimplifiedProcess = 0;
+            SimplifiedTargetCount = 1;
         }
 
     }

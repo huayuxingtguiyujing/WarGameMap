@@ -1,9 +1,5 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Net;
 using UnityEngine;
-using UnityEngine.Experimental.GlobalIllumination;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -67,7 +63,6 @@ namespace LZ.WarGameMap.Runtime
         }
 
     }
-
 
     // TODO: 实现一个简单的观察者模式
     public abstract class EventMode : MonoBehaviour {

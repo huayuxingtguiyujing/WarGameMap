@@ -1,14 +1,6 @@
-using LZ.WarGameMap.Runtime.QuadTree;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using Unity.Collections;
-using UnityEditor;
-using UnityEditor.PackageManager.UI;
 using UnityEngine;
-using UnityEngine.Profiling;
-using static Codice.Client.BaseCommands.BranchExplorer.Layout.BrExLayout;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -93,10 +85,7 @@ namespace LZ.WarGameMap.Runtime
                 int effectScope = 8;        // TODO : effect scope should store in mapRiverData
 
                 GenCurveData(riverData, effectScope);
-
-                BuildRiverMesh(riverID, riverVertsDict[riverID]);
-
-                Debug.Log($"build river id {riverData.riverID}");
+                DebugUtility.Log($"build river id {riverData.riverID}");
             }
         }
 
@@ -214,6 +203,18 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
+        public void BuildRiverMesh(int clsX, int clsY)
+        {
+            mapRiverData.UpdateClsExistRiverDict();
+            Vector2Int clusterID = new Vector2Int(clsX, clsY);
+            List<RiverData> existRiverDatas = mapRiverData.GetClsExistRiverData(clusterID);
+            foreach (var riverData in existRiverDatas)
+            {
+                int riverID = riverData.riverID;
+                BuildRiverMesh(riverID, riverVertsDict[riverID]);
+            }
+        }
+
         private void BuildRiverMesh(int riverID, Dictionary<Vector2Int, RiverVert> riverVerts)
         {
             GameObject riverMeshGo = new GameObject($"riverMeshGo_{riverID}");
@@ -229,7 +230,6 @@ namespace LZ.WarGameMap.Runtime
             int vertIdx = 0;
             Dictionary<Vector2Int, int> riverVertIndiceDict = new Dictionary<Vector2Int, int>(borderVertNum);
             Dictionary<Vector2Int, RiverVert> riverVertDict = new Dictionary<Vector2Int, RiverVert>(borderVertNum);
-
 
             foreach (var riverVert in riverVerts.Values)
             {

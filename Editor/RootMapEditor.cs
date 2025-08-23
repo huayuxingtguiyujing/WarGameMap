@@ -1,22 +1,13 @@
 using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector.Editor;
-using Sirenix.Utilities;
-using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using Unity.Plastic.Antlr3.Runtime.Tree;
-using Unity.VisualScripting.Antlr3.Runtime.Tree;
 using UnityEditor;
-using UnityEditor.VersionControl;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
 {
 
-    /// <summary>
-    /// 编辑器的 Root，用于初始化编辑器配置
-    /// </summary>
+    // 编辑器的 Root，用于初始化编辑器配置
     public class RootMapEditor : OdinMenuEditorWindow {
 
         [MenuItem("GameMap/InitMapEditor")]
@@ -212,15 +203,15 @@ namespace LZ.WarGameMap.MapEditor
 
         protected override void OnEnable() {
             base.OnEnable();
-            UnityEditorManager.RegisterUpdate(EditorSceneManager.GetInstance().UpdateSceneHex);
-            UnityEditorManager.RegisterUpdate(EditorSceneManager.GetInstance().UpdateSceneTer);
+            //UnityEditorManager.RegisterUpdate(EditorSceneManager.GetInstance().UpdateSceneHex);
+            //UnityEditorManager.RegisterUpdate(EditorSceneManager.GetInstance().UpdateSceneTer);
+
+            EditorSceneManager.GetInstance();
         }
 
         protected override void OnDisable() {
             base.OnDisable();
-            
-            UnityEditorManager.UnregisterUpdate(EditorSceneManager.GetInstance().UpdateSceneTer);
-            UnityEditorManager.UnregisterUpdate(EditorSceneManager.GetInstance().UpdateSceneHex);
+
             GizmosCtrl.GetInstance().UnregisterGizmosAll();
         }
 
@@ -251,6 +242,8 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
+        // TODO : 怎么全局禁用
+
         protected override void OnDestroy() {
             // OdinMenuEditorWindow will call this function when it is closed
 
@@ -280,6 +273,5 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         #endregion
-
     }
 }

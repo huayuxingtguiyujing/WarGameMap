@@ -1,4 +1,3 @@
-
 using System;
 using System.IO;
 using Unity.Collections;
@@ -17,7 +16,6 @@ namespace LZ.WarGameMap.MapEditor {
 
     }
 
-
     internal struct FillPixelJob : IJobParallelFor {
         [WriteOnly]
         public NativeArray<Color> Pixels;
@@ -28,7 +26,6 @@ namespace LZ.WarGameMap.MapEditor {
             Pixels[index] = brushColor;
         }
     }
-
 
     internal struct BrushPixelJob : IJobParallelFor {
 
