@@ -15,9 +15,12 @@
 -战争迷雾、寻路<br> 
 -划分地图上势力，GamePlay方面的功能<br> 
 
-#### 目前进度（2025.4.22）：<br> 
+#### 目前进度（2025.8.5）：<br> 
 
 正在做类似文明6的六边形地图...
+现已支持河流编辑
+<img width="720" height="400" alt="85edc06a5d5838676cc95258089fb19" src="https://github.com/user-attachments/assets/47bbd23d-6b5c-45d0-b86b-3562c6ec581d" />
+<img width="720" height="300" alt="351167ce01e5ecfe555f94c03410303" src="https://github.com/user-attachments/assets/8f5a70ab-9542-4531-9064-dd38f32d7f56" />
 
 支持地形Mesh减面：<br> 
 <img src="https://github.com/user-attachments/assets/2553973e-6ae2-4201-ab63-078156b7d076" width="720px" height="300px">
