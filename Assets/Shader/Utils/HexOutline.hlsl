@@ -5,7 +5,8 @@
 
 float _HexGridSize;
 float _HexGridScale;
-float _HexGridEdgeRatio;    // 六边形边框比例，可以控制六边形边框大小，建议取值为 0.01 ~ 0.15
+float _HexGridEdgeRatio;        // 六边形边框显示透明度，可以控制六边形边框显示程度，建议取值为 0.01 ~ 0.15
+float _HexGridEdgeStartLerp;    // 六边形边框比例起点，可以控制六边形边框大小，建议取值 0.7~0.95
 
 sampler _HexGridTypeTexture;
 float4 _HexGridTypeTexture_ST;
@@ -34,7 +35,7 @@ float3 GetHexOutlineColor(float3 worldPos, float3 _BackgroundColor) : SV_Target{
     // return float3(t, t, t);
 
     t = clamp(0, 1 - _HexGridEdgeRatio, t);
-    float mask = smoothstep(0.9, 1.0, t);   // 0.7 start lerp
+    float mask = smoothstep(_HexGridEdgeStartLerp, 1.0, t);   // 0.7 start lerp
     return lerp(_BackgroundColor, gridColor, mask);
 }
 

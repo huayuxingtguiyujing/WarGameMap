@@ -1,5 +1,9 @@
 using LZ.WarGameMap.Runtime.HexStruct;
+using NUnit.Framework;
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
@@ -43,10 +47,8 @@ namespace LZ.WarGameMap.Runtime
         public float ratioBetweenInnerAndOutter;
     }
 
-
-
-    public static class HexHelper {
-
+    public static class HexHelper 
+    {
 
         public static Vector3Int PixelToAxialHexVector(Vector2 worldPos, int HexGridSize) {
             float q = (Mathf.Sqrt(3) / 3 * worldPos.x - 1.0f / 3 * worldPos.y) / HexGridSize;
@@ -108,6 +110,36 @@ namespace LZ.WarGameMap.Runtime
             return neighbour;
         }
 
+        public static List<Vector2Int> GetOffsetHexNeighbour_Scope(Vector2Int offsetHex, int scope)
+        {
+            int count = 0;
+            HashSet<Vector2Int> neighborList = new HashSet<Vector2Int>(scope * scope);
+            Queue<Vector2Int> curLevelNeighbor = new Queue<Vector2Int>(scope * scope);
+            curLevelNeighbor.Enqueue(offsetHex);
+            neighborList.Add(offsetHex);
+            while (scope > 0)
+            {
+                int curLevelNum = curLevelNeighbor.Count;
+                for(int i = 0; i < curLevelNum; i++)
+                {
+                    Vector2Int hex = curLevelNeighbor.Dequeue();
+                    Vector2Int[] neighbour = GetOffsetHexNeighbour(hex);
+                    for (int j = 0; j < 6; j++)
+                    {
+                        Vector2Int neighbor = hex + neighbour[j];
+                        if (!neighborList.Contains(neighbor))
+                        {
+                            curLevelNeighbor.Enqueue(neighbor);
+                            neighborList.Add(neighbor);
+                        }
+                    }
+                    count++;
+                }
+                scope--;
+            }
+            Debug.Log($"iter time : {count}");
+            return neighborList.ToList();
+        }
 
 
         public static HexAreaPointData GetPointHexArea(Vector2 worldPos, Hexagon hex, Layout layout, float fix) {
@@ -212,7 +244,6 @@ namespace LZ.WarGameMap.Runtime
             }
             return data;
         }
-
 
     }
 }

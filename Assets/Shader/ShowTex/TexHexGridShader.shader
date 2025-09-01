@@ -3,9 +3,14 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
     // this shader can fill texture surface with hex grid (but rect)
     Properties
     {
+        _BackgroundColor ("Background Color", Color) = (1, 1, 1, 0.5)
         _EdgeLineColor ("Edge Line Color", Color) = (1, 1, 1, 0.5)
-        _GridScale("Hex Grid Scale", Float) = 2
-        _GridSize("Hex Grid Size", Range(1, 30)) = 20
+        _HexGridScale("Hex Grid Scale", Float) = 2
+        _HexGridSize("Hex Grid Size", Range(1, 30)) = 20
+        _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0, 1)) = 0.1     // HexOutline need, control the aphla of hex outline rect
+        _HexGridEdgeStartLerp("Hex Grid Edge StartLerp", Range(0, 0.95)) = 0.9     // HexOutline need, control the ratio of hex outline rect
+
+        _HexGridTexture("Hex Grid Texture", 2D) = "white" {}
     }
     SubShader
     {
@@ -20,13 +25,14 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
             #pragma fragment frag
             #include "UnityCG.cginc"
 
-            int _HexGridSize;
-            float _HexGridScale;
+            #include "../Utils/HexLibrary.hlsl"
+            #include "../Utils/HexOutline.hlsl"
+
             float4 _BackgroundColor;
 
-            sampler _HexGridTypeTexture;
-            float4 _HexGridTypeTexture_ST;
-            float4 _HexGridTypeTexture_TexelSize;
+            sampler _HexGridTexture;
+            float4 _HexGridTexture_ST;
+            float4 _HexGridTexture_TexelSize;
 
 
             struct appdata
@@ -46,64 +52,27 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-                o.uv = v.uv * _HexGridTypeTexture_ST.xy + _HexGridTypeTexture_ST.zw;
+                o.uv = v.uv * _HexGridTexture_ST.xy + _HexGridTexture_ST.zw;
                 o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
                 return o;
             }
 
-            // TODO : move to common class
-            float3 PixelToHexCubeCoord(float3 worldPos){
-                float q = (sqrt(3)/3 * worldPos.x  -  1./3 * worldPos.z) / _HexGridSize;
-                float r = 2./3 * worldPos.z / _HexGridSize;
-                float s = - q - r;
-
-                int fix_q = round(q);
-                int fix_r = round(r);
-                int fix_s = round(s);
-
-                float q_diff = abs(fix_q - q);
-                float r_diff = abs(fix_r - r);
-                float s_diff = abs(fix_s - s);
-
-                int final_q = fix_q, final_r = fix_r, final_s = fix_s;
-                if(q_diff > r_diff && q_diff > s_diff){
-                    final_q = - fix_r - fix_s;
-                }else if(r_diff > s_diff){
-                    final_r = - fix_q - fix_s;
-                }else{
-                    final_s = - fix_q - fix_r;
-                }
-                return float3(final_q, final_r, final_s);
-            }
-
-            float3 CubeCoordToOffset(float3 cubePos){
-                float col = cubePos.x + (cubePos.y - ((int)cubePos.y&1)) / 2;
-                float row = cubePos.y;
-                return float3(col, row, -col-row);
-            }
-
-            float3 OffsetCoordToCube(float3 offsetPos){
-                float q = offsetPos.x - (offsetPos.y - ((int)offsetPos.y&1)) / 2;
-                float r = offsetPos.y;
-                return float3(q, r, -q-r);
-            }
-
-
+            // TODO : 要有Hex边界才行...涂起来更好看...
             half4 frag(v2f i) : SV_Target
             {
                 fixed4 c = _BackgroundColor;
-
-                float3 hex = PixelToHexCubeCoord(i.worldPos);
+                float3 hex = PixelToHexCubeCoord(i.worldPos, _HexGridSize);
                 hex = CubeCoordToOffset(hex);
 
                 int x_idx = hex.x;
                 int y_idx = hex.y;
 
-                float2 hex_uv = float2(x_idx , y_idx ) * _HexGridTypeTexture_TexelSize.xy;
+                float2 hex_uv = float2(x_idx , y_idx ) * _HexGridTexture_TexelSize.xy;
 
-                half3 gridColor = tex2D(_HexGridTypeTexture, hex_uv);
-
-                return half4(gridColor, c.a);
+                half3 gridColor = tex2D(_HexGridTexture, hex_uv);
+                // return half4(gridColor, c.a);
+                float3 outlineColor = GetHexOutlineColor(i.worldPos, gridColor);
+                return float4(outlineColor, 1); //  finalColor.a;
             }
             
             ENDCG

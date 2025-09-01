@@ -23,17 +23,19 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
+        // 即 HexGrid 的数目，目前推荐 一个TerrainCluster对应 30*30 个 Grid
+        // 则 大地图共有 600 * 600 个 Grid
         [LabelText("Hex地图宽度")]
-        public int mapWidth = 100;
+        public int mapWidth = 256;
 
         [LabelText("Hex地图高度")]
-        public int mapHeight = 100;
+        public int mapHeight = 256;
 
         [LabelText("Hex格大小")]
-        public int hexGridSize = 10;
+        public int hexGridSize = 20;
 
         [LabelText("cluster所具有的Hex格数目")]
-        public int clusterSize = 10;
+        public int clusterSize = 16;
 
         [LabelText("Hex对Terrain的映射范围")]
         [Tooltip("在通过terrain生成初版hex数据时，会根据hex中心范围内的一定vert确定该hex的地形（平原、丘陵、高地、山脉）")]
@@ -43,9 +45,9 @@ namespace LZ.WarGameMap.Runtime
         [Tooltip("根据周围距离加载 x * x 的HexCluster, 只能是奇数")]
         public int hexAOIScope = 5;
 
-        [LabelText("动态加载时Hex的AOI范围")]
+        [LabelText("显示HexCluster的最大数目")]
         [Tooltip("根据周围距离加载 x * x 的HexCluster, 只能是奇数")]
-        public int mapHexClusterNumLimit = 25;
+        public int mapHexClusterNumLimit = 400;
 
         [LabelText("hex地图偏移")]
         [Tooltip("HexMap 的原点相较于 terrain 的原点的偏移")]

@@ -14,8 +14,6 @@ namespace LZ.WarGameMap.Runtime {
     /// </summary>
     public class HexmapConstructor : MonoBehaviour {
 
-        public static HexmapConstructor Instance;
-
         [Header("hex map config")]
         [SerializeField] HexSettingSO hexSet;
         [SerializeField] public GameObject SignPrefab;
@@ -32,7 +30,7 @@ namespace LZ.WarGameMap.Runtime {
         int clusterWidth;
         int clusterHeight;
 
-        private bool hasInit = false;
+        public bool hasInit = false;
 
         [Header("hex map object")]
         [SerializeField] TDList<HexCluster> hexClusters;
@@ -49,12 +47,11 @@ namespace LZ.WarGameMap.Runtime {
         HashSet<Vector2Int> hasInitClsSet = new HashSet<Vector2Int>();
 
 
+        bool initOnce = false;
 
         #region hex map init
 
         public void SetHexSetting(HexSettingSO hexSettingSO, Transform clusterParentObj, Material hexMat) {
-            Instance = this;
-
             this.hexSet = hexSettingSO;
             this.clusterParentTrans = clusterParentObj;
             this.hexMat = hexMat;
@@ -120,6 +117,27 @@ namespace LZ.WarGameMap.Runtime {
             Debug.Log($"now we init hex cluster num : {cls_num_width * cls_num_height}");
         }
 
+        public void InitHexConsRectangle_Once(Material mat)
+        {
+            hexMat = mat;
+            initOnce = true;
+
+            InitHexGenerator();
+            _InitHexCons();
+            for (int i = 0; i < clusterWidth; i++)
+            {
+                for(int j = 0; j < clusterHeight; j++)
+                {
+                    if (!hexClusters[i, j].hasInit)
+                    {
+                        InitHexCluster(i, j, hexSet.clusterSize);
+                    }
+                }
+            }
+
+            hasInit = true;
+        }
+
         public void UpdateHex() {
             // 根据摄像机位置 和 展示 范围
             //动态地去加载 hexcluster
@@ -130,6 +148,11 @@ namespace LZ.WarGameMap.Runtime {
 
             if (hexClusters == null) {
                 Debug.LogError("hex clsuter list is null!");
+                return;
+            }
+
+            if (initOnce)
+            {
                 return;
             }
 
@@ -212,14 +235,13 @@ namespace LZ.WarGameMap.Runtime {
                 hexClusters[i, j].AddMapGrid(mapIdx, inClusterIdx, hex.Value, layout);
             }
 
-            // build this cluster
+            // Build this cluster
             hexClusters[i, j].SetClusterMesh();
 
             hasInitClsSet.Add(new Vector2Int(i, j));
             curLoadedClusterNum++;
 
-
-            Debug.Log($"cluster {i}, {j} has inited, and create map grids");
+            //Debug.Log($"cluster {i}, {j} has inited, and create map grids");
         }
 
         private struct ClusterDistanceStruct : IComparable<ClusterDistanceStruct> {
@@ -380,7 +402,7 @@ namespace LZ.WarGameMap.Runtime {
 
         #region generate hex message by height info
 
-        public void GenerateRawHexMap(Vector2Int startLongitudeLatitude, RawHexMapSO rawHexMapSO, HeightDataManager heightDataManager) {
+        public void GenerateRawHexMap(Vector2Int startLongitudeLatitude, HexMapSO rawHexMapSO, HeightDataManager heightDataManager) {
             layout = hexSet.GetScreenLayout();
             if (hexGenerator == null || hexGenerator.HexagonIdxDic == null) {
                 Debug.LogError("do not set hexGenerator!");
@@ -394,10 +416,10 @@ namespace LZ.WarGameMap.Runtime {
                 Point center = hex.Hex_To_Pixel(layout).ConvertToXZ();
 
                 // get height datas, then use them to generate hex grid...
-                TDList<float> heights = heightDataManager.SampleScopeFromHeightData(startLongitudeLatitude, center, hexSet.hexCalcuVertScope);
-                rawHexMapSO.AddGridTerrainData(mapIdx, hex, center, heights);
+                //TDList<float> heights = heightDataManager.SampleScopeFromHeightData(startLongitudeLatitude, center, hexSet.hexCalcuVertScope);
+                //rawHexMapSO.AddGridTerrainData(mapIdx, hex, center);
             }
-            rawHexMapSO.UpdateGridTerrainData();
+            //rawHexMapSO.UpdateGridTerrainData();
 
             Debug.Log($"generate over, RawHexMapSO can be use, grid : {hexGenerator.HexagonIdxDic.Count}");
         }

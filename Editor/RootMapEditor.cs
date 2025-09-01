@@ -71,7 +71,6 @@ namespace LZ.WarGameMap.MapEditor
                 CreateWindowObj<MountainEditor>(MapEditorClass.TerrainClass);
             }
 
-
             // װ�α༭
             if (!decorateFileNames.Contains(MapEditorEnum.PlantEditor)) 
             {
@@ -82,8 +81,11 @@ namespace LZ.WarGameMap.MapEditor
                 CreateWindowObj<WarFogEditor>(MapEditorClass.DecorateClass);
             }
 
-
             // gameplay
+            if (!gameplayFileNames.Contains(MapEditorEnum.HexGridTypeEditor))
+            {
+                CreateWindowObj<HexGridTypeEditor>(MapEditorClass.GamePlayClass);
+            }
             if (!gameplayFileNames.Contains(MapEditorEnum.CountryEditor))
             {
                 CreateWindowObj<CountryEditor>(MapEditorClass.GamePlayClass);
@@ -180,6 +182,7 @@ namespace LZ.WarGameMap.MapEditor
             
             var gamePlayWinGroup = new OdinMenuItem(tree, MapEditorClass.GamePlayClass, null);
             tree.MenuItems.Add(gamePlayWinGroup);
+            AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.HexGridTypeEditor);
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.CountryEditor);
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.FactionEditor);
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.PeopleEditor);

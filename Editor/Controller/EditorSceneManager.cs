@@ -203,8 +203,8 @@ namespace LZ.WarGameMap.MapEditor
         public void LoadHexScene(Material hexMat) {
             // TODO : 加载之前的对Hex的编辑结果进入 Scene 里面
             // TODO : hex 编辑结果 放到一张大纹理里面，考虑到 全地图的 HexGrid 一共 3000 x 3000，所以应该可以放得下
-
             InitHexScene();
+
             HexCtor.InitHexConsRectangle(hexMat);
         }
 
@@ -218,15 +218,12 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             //Debug.Log("now update scene hex!");
-
             double now = EditorApplication.timeSinceStartup;
             if (now - lastUpdateTime_Hex < updateTimeInterval_Hex) {
                 return;
             }
             lastUpdateTime_Hex = now;
-
             HexCtor.UpdateHex();
-
             //Debug.Log("update scene hex over!");
         }
 
@@ -400,11 +397,9 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         private void DrawHexMes() {
-
             // NOTE : 有潜在风险，这里需要与 HexCons 的UpdateHex 处进行同步
             Vector3 cameraPos = Camera.main.transform.position;
             Vector2Int clsIdx = ClusterSize.GetClusterIdxByPos(cameraPos);
-            
             clusterIdxBoundDict.Clear();
 
             // hex scope is small, so the data is small
@@ -415,7 +410,6 @@ namespace LZ.WarGameMap.MapEditor
                     if (i < 0 || i > hexSet.mapWidth - 1 || j < 0 || j > hexSet.mapHeight - 1) {
                         continue;
                     }
-
                     var curIdx = new Vector2Int(i, j);
                     ClusterBound clusterBound = new ClusterBound(i, j, hexSet.hexGridSize, hexSet.clusterSize);
                     clusterIdxBoundDict.Add(curIdx, clusterBound);

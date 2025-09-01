@@ -96,11 +96,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-
-            // TODO : 先吧 ProgressTimer 重写一遍，完善这个进度管理器
-            // TODO : 然后再添加上进度窗口UI
             // TODO : 有两个 cluster的时候会崩溃
-
             TerrainGenTask terrainGenTask = new TerrainGenTask(heightDataModels, terSet, TerrainCtor, 
                 clusterIdxList, shouldGenRiver, shouldGenLODBySimplify);
             int taskID = TaskManager.GetInstance().StartProgress(TaskTickLevel.Medium, terrainGenTask);
@@ -142,7 +138,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("构建地形-Hex流程")]
         [LabelText("当前操作Hex地图对象")]
-        public RawHexMapSO rawHexMapSO;
+        public HexMapSO rawHexMapSO;
 
         [FoldoutGroup("构建地形-Hex流程")]
         [LabelText("当前Hex地图材质")]
@@ -173,7 +169,7 @@ namespace LZ.WarGameMap.MapEditor
             heightDataManager.InitHeightDataManager(heightDataModels, terSet, hexSet, rawHexMapSO);
 
             // TODO : 不应该使用 高度图生成 RawHexMapSO
-            rawHexMapSO = CreateInstance<RawHexMapSO>();
+            rawHexMapSO = CreateInstance<HexMapSO>();
             rawHexMapSO.InitRawHexMap(EditorSceneManager.hexSet.mapWidth, EditorSceneManager.hexSet.mapHeight);
             HexCtor.GenerateRawHexMap(startLongitudeLatitude, rawHexMapSO, heightDataManager);
 
@@ -188,7 +184,7 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             rawHexMapTexture = new Texture2D(rawHexMapSO.width, rawHexMapSO.height);
-            foreach (var gridTerrainData in rawHexMapSO.HexMapGridTersList) {
+            foreach (var gridTerrainData in rawHexMapSO.GridTerDataList) {
                 Vector2Int pos = gridTerrainData.GetHexPos();
                 Color color = gridTerrainData.GetTerrainColor();
                 // TODO : 下面的生成步骤还是有问题！没有照顾到 hex 坐标的特性
@@ -251,7 +247,7 @@ namespace LZ.WarGameMap.MapEditor
             }
             
 
-            rawHexMapSO.UpdateGridTerrainData();
+            //rawHexMapSO.UpdateGridTerrainData();
             
             // TODO : hex 流程有待完善
             //TerrainCtor.BuildCluster(curClusterIdx_Hex.x, curClusterIdx_Hex.y); // ?

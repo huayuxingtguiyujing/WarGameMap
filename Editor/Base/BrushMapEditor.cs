@@ -6,8 +6,9 @@ using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
 {
-
-    // 需要对scene进行brush，或需要查看scene中地图信息的，继承该类
+    // 编辑器基类，提供功能 :
+    // (1) 支持对 scene 进行 brush，会呈现一张纹理
+    // (2) 支持在 scene 中查看地图 terrain/hexgrids 信息的，继承该类
     public abstract class BrushMapEditor : BaseMapEditor {
 
         protected HexSettingSO hexSet;
@@ -95,14 +96,8 @@ namespace LZ.WarGameMap.MapEditor
                 showTerrainScene = false;
                 showHexScene = false;
                 sceneManager.UpdateSceneView(showTerrainScene, showHexScene);
-
             }
-
-            if (hexmapDataTexManager == null || hexmapDataTexManager.IsInit == false) {
-                Debug.LogError("hexmapData tex manager not init!");
-                return;
-            }
-            hexmapDataTexManager.ShowHideTexture(enableBrush);
+            ShowHideTexture(enableBrush);
         }
 
         [FoldoutGroup("涂刷Hexmap纹理")]
@@ -176,7 +171,21 @@ namespace LZ.WarGameMap.MapEditor
         public override void Disable() { 
             base.Disable();
             sceneManager.UpdateSceneView(false, false);
+            if (enableBrush) 
+            {
+                ShowHideTexture(false);     // if open, close it
+            }
             lockSceneView = false;
+        }
+
+        private void ShowHideTexture(bool enableBrush)
+        {
+            if (hexmapDataTexManager == null)
+            {
+                DebugUtility.LogError("hexmapData tex manager is null");
+                return;
+            }
+            hexmapDataTexManager.ShowHideTexture(enableBrush);
         }
 
         protected override void OnMouseDown(Event e) {
@@ -184,9 +193,11 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
+            //Debug.Log(22222);
+
             // only valid when lock scene view
             Vector3 worldPos = GetMousePosToScene(e);
-            hexmapDataTexManager.PaintHexDataTexture(worldPos, brushScope, brushColor);
+            hexmapDataTexManager.PaintHexDataTexture_RectScope(worldPos, brushScope, brushColor);
             SceneView.RepaintAll();
         }
 
@@ -195,9 +206,11 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
+            //Debug.Log(333333);
+
             // only valid when lock scene view
             Vector3 worldPos = GetMousePosToScene(e);
-            hexmapDataTexManager.PaintHexDataTexture(worldPos, brushScope, brushColor);
+            hexmapDataTexManager.PaintHexDataTexture_RectScope(worldPos, brushScope, brushColor);
             SceneView.RepaintAll();
         }
 

@@ -27,6 +27,8 @@ namespace LZ.WarGameMap.Runtime {
 
         public const string TerrainHexmapDataPath = "Assets/WarGameMap/Terrain/HexmapData";
 
+        public const string TerrainHexmapGridDataPath = "Assets/WarGameMap/Terrain/HexmapData/GridData";
+
         // 地形 - 河流 山脉
         public const string RiverDataPath = "Assets/WarGameMap/Terrain/River";
 

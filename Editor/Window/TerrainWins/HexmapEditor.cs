@@ -14,15 +14,10 @@ using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
 
 namespace LZ.WarGameMap.MapEditor
 {
-
-    // NOTE: WARNING: fileName ±ØÐëºÍ EditorName Ò»Ñù
-    //[CreateAssetMenu(fileName = "Íø¸ñ±à¼­", menuName = "µØÍ¼/±à¼­Æ÷/Íø¸ñ±à¼­Æ÷")]
     [Serializable]
-    public class HexmapEditor : BaseMapEditor {
-
-
+    public class HexmapEditor : BaseMapEditor 
+    {
         public override string EditorName => MapEditorEnum.HexMapEditor;
-
 
         public static class TerrainColorEnum {
             public static Color RiverColor = Color.white;
@@ -628,7 +623,6 @@ namespace LZ.WarGameMap.MapEditor
             //    //}
             //}
         }
-
 
     }
 }

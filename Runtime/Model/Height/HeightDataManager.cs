@@ -1,7 +1,7 @@
 using LZ.WarGameCommon;
 using System.Collections.Generic;
 using UnityEngine;
-using static LZ.WarGameMap.Runtime.RawHexMapSO;
+using static LZ.WarGameMap.Runtime.HexMapSO;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -17,7 +17,7 @@ namespace LZ.WarGameMap.Runtime
 
         // needed when generate terrain by hexMapSO
         HexSettingSO HexSet;
-        RawHexMapSO RawHexMap;
+        HexMapSO RawHexMap;
 
         int srcWidth;
         int srcHeight;
@@ -93,7 +93,7 @@ namespace LZ.WarGameMap.Runtime
             heightDataModels = new List<HeightDataModel>();
         }
 
-        public void InitHeightDataManager(List<HeightDataModel> heightDataModels, TerrainSettingSO terSet, HexSettingSO HexSet, RawHexMapSO RawHexMap) {
+        public void InitHeightDataManager(List<HeightDataModel> heightDataModels, TerrainSettingSO terSet, HexSettingSO HexSet, HexMapSO RawHexMap) {
             this.heightDataModels = heightDataModels;
             srcWidth = heightDataModels[0].singleHeightFileSize;
             srcHeight = heightDataModels[0].singleHeightFileSize;
@@ -294,39 +294,39 @@ namespace LZ.WarGameMap.Runtime
             Vector2Int offsetHexPos = HexHelper.AxialToOffset(HexHelper.PixelToAxialHex(pos, HexSet.hexGridSize));
 
             // get the average height and other data
-            GridTerrainData grid = RawHexMap.GetTerrainData(offsetHexPos);
-            if(grid == null) {
-                return 0;
-            }
+            //GridTerrainData grid = RawHexMap.GetTerrainData(offsetHexPos);
+            //if(grid == null) {
+            //    return 0;
+            //}
 
-            Vector2 hexCenterPos = grid.GetHexCenter();
-            Vector2 vertCenterVec = pos - hexCenterPos;
-            float angle = Mathf.Atan2(vertCenterVec.y, vertCenterVec.x) * Mathf.Rad2Deg;
-            if (angle < 0) { angle += 360; }
+            //Vector2 hexCenterPos = grid.GetHexCenter();
+            //Vector2 vertCenterVec = pos - hexCenterPos;
+            //float angle = Mathf.Atan2(vertCenterVec.y, vertCenterVec.x) * Mathf.Rad2Deg;
+            //if (angle < 0) { angle += 360; }
 
             // get all neighbor
             Vector2Int[] neighbour = HexHelper.GetOffsetHexNeighbour(offsetHexPos);
-            GridTerrainData leftGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[0]);
-            GridTerrainData leftUpGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[1]);
-            GridTerrainData rightUpGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[2]);
-            GridTerrainData rightGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[3]);
-            GridTerrainData rightDownGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[4]);
-            GridTerrainData leftDownGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[5]);
-            
-            float height = grid.baseHeight;
-            if (angle >= 0 && angle <= 60) {
-                height = IntepWeightTriangle_Wrapper(grid, rightGrid, rightUpGrid, pos);
-            } else if (angle <= 120) {
-                height = IntepWeightTriangle_Wrapper(grid, rightUpGrid, leftUpGrid, pos);
-            } else if (angle <= 180) {
-                height = IntepWeightTriangle_Wrapper(grid, leftUpGrid, leftGrid, pos);
-            } else if (angle <= 240) {
-                height = IntepWeightTriangle_Wrapper(grid, leftGrid, leftDownGrid, pos);
-            } else if (angle <= 300) {
-                height = IntepWeightTriangle_Wrapper(grid, leftDownGrid, rightDownGrid, pos);
-            } else {
-                height = IntepWeightTriangle_Wrapper(grid, rightDownGrid, rightGrid, pos);
-            }
+            //GridTerrainData leftGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[0]);
+            //GridTerrainData leftUpGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[1]);
+            //GridTerrainData rightUpGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[2]);
+            //GridTerrainData rightGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[3]);
+            //GridTerrainData rightDownGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[4]);
+            //GridTerrainData leftDownGrid = RawHexMap.GetTerrainData(offsetHexPos + neighbour[5]);
+
+            float height = 0;   // grid.baseHeight
+            //if (angle >= 0 && angle <= 60) {
+            //    height = IntepWeightTriangle_Wrapper(grid, rightGrid, rightUpGrid, pos);
+            //} else if (angle <= 120) {
+            //    height = IntepWeightTriangle_Wrapper(grid, rightUpGrid, leftUpGrid, pos);
+            //} else if (angle <= 180) {
+            //    height = IntepWeightTriangle_Wrapper(grid, leftUpGrid, leftGrid, pos);
+            //} else if (angle <= 240) {
+            //    height = IntepWeightTriangle_Wrapper(grid, leftGrid, leftDownGrid, pos);
+            //} else if (angle <= 300) {
+            //    height = IntepWeightTriangle_Wrapper(grid, leftDownGrid, rightDownGrid, pos);
+            //} else {
+            //    height = IntepWeightTriangle_Wrapper(grid, rightDownGrid, rightGrid, pos);
+            //}
             //height = grid.baseHeight;
             float fix = 0;
             //float fix = terrainData.hillHeightFix * 0.2f * UnityEngine.Random.Range(-2, 3);
@@ -336,9 +336,9 @@ namespace LZ.WarGameMap.Runtime
 
         private float IntepWeightTriangle_Wrapper(GridTerrainData A, GridTerrainData B, GridTerrainData C, Vector2 P) {
             if (A == null || B == null || C == null) {
-                return A.baseHeight;
-            }
-            return IntepWeightTriangle(A.GetHexCenter(), B.GetHexCenter(), C.GetHexCenter(), A.baseHeight, B.baseHeight, C.baseHeight, P);
+                return 0;
+            }   // TODO : ÐèÒªÐÞÉÉ
+            return IntepWeightTriangle(A.GetHexCenter(), B.GetHexCenter(), C.GetHexCenter(), 0, 0, 0, P);
         }
 
         private float IntepWeightTriangle(Vector2 A, Vector2 B, Vector2 C, float wA, float wB, float wC, Vector2 P) {

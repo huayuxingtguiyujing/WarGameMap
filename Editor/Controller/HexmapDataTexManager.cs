@@ -43,6 +43,8 @@ namespace LZ.WarGameMap.MapEditor
 
         public bool IsInit {  get; private set; }
 
+        bool notShowInScene;
+
 
         #region init hexDataTexManager
 
@@ -50,20 +52,27 @@ namespace LZ.WarGameMap.MapEditor
             IsInit = false;
         }
 
-        public void InitHexmapDataTexture(int mapWdith, int mapHeight, int scale, Vector3 offset, GameObject parentObj, Material material) {
+        public void InitHexmapDataTexture(int mapWdith, int mapHeight, int scale, Vector3 offset, GameObject parentObj, Material material, bool notShowInScene = false) {
             this.mapWdith = mapWdith;
             this.mapHeight = mapHeight;
             this.scale = scale;
             this.offset = offset;
+            this.notShowInScene = notShowInScene;
             CreateHexDataMeshObj(scale, offset, parentObj);
             CreateRenderTexture(mapWdith, mapHeight);
             ApplyHexDataTexture(material);
             IsInit = true;
 
+            // Set notShowInScene true when you need this manager only manage texture and do not show in scene
+            if (notShowInScene)
+            {
+                ShowHideTexture(false);
+            }
+
             Debug.Log("init HexmapDataTextureManager over ");
         }
 
-        // this method can be used to set a Texture
+        // Use it to set a Texture
         public void InitHexmapDataTexture(Texture2D newTexture, int scale, Vector3 offset, GameObject parentObj, Material material) {
             this.mapWdith = newTexture.width;
             this.mapHeight = newTexture.height;
@@ -78,17 +87,17 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log("init HexmapDataTextureManager over ");
         }
 
-        private void CreateHexDataMeshObj(int scale, Vector3 offset, GameObject parentObj) {
-            this.parentObj = parentObj;
+        private void CreateHexDataMeshObj(int scale, Vector3 offset, GameObject texObj) {
+            this.parentObj = texObj;
 
-            meshRenderer = parentObj.GetComponent<MeshRenderer>();
+            meshRenderer = texObj.GetComponent<MeshRenderer>();
             if (meshRenderer == null) {
-                meshRenderer = parentObj.AddComponent<MeshRenderer>();
+                meshRenderer = texObj.AddComponent<MeshRenderer>();
             }
 
-            meshFilter = parentObj.GetComponent<MeshFilter>();
+            meshFilter = texObj.GetComponent<MeshFilter>();
             if (meshFilter == null) {
-                meshFilter = parentObj.AddComponent<MeshFilter>();
+                meshFilter = texObj.AddComponent<MeshFilter>();
             }
 
             // create the hex mesh by offset,resolution,scale
@@ -127,13 +136,16 @@ namespace LZ.WarGameMap.MapEditor
 
         private void ApplyHexDataTexture(Material material) {
             if (material == null) {
-                Debug.LogError("warn : material is null, you should use HexDataTex or the hexmap will be invisible in scene");
+                Debug.Log("HexmapDataTexManager warn : material is null, you should use HexDataTex or the hexmap will be invisible in scene");
+                return;
             }
 
             // 用 set property 系列的字段 设置Texture / renderTexture
             material.SetTexture("_HexmapDataTexture", texDataRenderTexture);
+            // Set brush Texture : _HexGridTexture
+            material.SetTexture("_HexGridTexture", texDataRenderTexture);
 
-            // set materials and show in scene
+            // Set materials and show in scene
             meshFilter.sharedMesh = hexTexMesh;
             meshRenderer.sharedMaterial = material;
 #if UNITY_EDITOR
@@ -148,7 +160,7 @@ namespace LZ.WarGameMap.MapEditor
             return texDataRenderTexture;
         }
 
-        public void PaintHexDataTexture(Vector3 worldPos, int scope, Color color) {
+        public void PaintHexDataTexture_RectScope(Vector3 worldPos, int scope, Color color) {
             Vector2Int pixelPos = TransWorldPosToPixel(worldPos);
 
             int left = Mathf.Clamp(pixelPos.x - scope, 0, mapWdith - 1);
@@ -194,6 +206,12 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log($"texture paint over! you paint {width * height} pixel");
         }
 
+        // TODO : 做一个适配 hexmap 的paint 方法
+        public void PaintHexDataTexture_Scope(List<Vector2Int> poss, Color color)
+        {
+
+        }
+
         private Vector2Int TransWorldPosToPixel(Vector3 worldPos) {
             // TODO : use offset and balabala to transfer!!!
             int pixelX = (int)(worldPos.x - offset.x);
@@ -206,6 +224,11 @@ namespace LZ.WarGameMap.MapEditor
         public void ShowHideTexture(bool flag) {
             if (!IsInit) {
                 Debug.LogError("hexmapDataTexture not init!");
+                return;
+            }
+            if(meshRenderer == null)
+            {
+                Debug.LogError("meshRenderer is null, but manager is inited!");
                 return;
             }
             meshRenderer.enabled = flag;

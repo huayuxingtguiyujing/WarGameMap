@@ -5,6 +5,13 @@ using System.IO;
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime {
+    public static class MapTerrainEnum
+    {
+        public const int ClusterSize = 512;
+
+        public const int TileSize = 128;
+    }
+
     [Serializable]
     [CreateAssetMenu(fileName = "TerrainSetting_Default", menuName = "WarGameMap/Set/TerrainSetting", order = 2)]
     public class TerrainSettingSO : MapSettingSO {

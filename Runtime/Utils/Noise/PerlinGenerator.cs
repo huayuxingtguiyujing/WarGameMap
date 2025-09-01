@@ -39,6 +39,7 @@ namespace LZ.WarGameMap.Runtime
     }
 
     // 这个似乎不是无缝的，请使用  PerlinNoise
+    [Obsolete("https://github.com/Auburn/FastNoiseLite 大佬带我飞升游戏开发星球吧[流泪][流泪][流泪]\\o/ \\o/\\o/\\o/\\o/\\o/\\o/")]
     public class PerlinGenerator : IDisposable {
         private int texWidth;
         private int texHeight;
@@ -106,7 +107,8 @@ namespace LZ.WarGameMap.Runtime
             }
         }
     }
-
+    
+    [Obsolete("https://github.com/Auburn/FastNoiseLite 大佬带我飞升游戏开发星球吧[流泪][流泪][流泪]\\o/ \\o/\\o/\\o/\\o/\\o/\\o/")]
     public static class SeamlessPerlin {
 
         private static readonly int[] permutation = {
@@ -188,7 +190,7 @@ namespace LZ.WarGameMap.Runtime
    
     }
 
-
+    // 建议使用 FastNoiseLite
     public struct PerlinNoise {
 
         struct Pixel {
@@ -258,6 +260,7 @@ namespace LZ.WarGameMap.Runtime
             }
 
             //colors[colorIndex] = float4(noise, noise, noise, 1);
+            //Vector3 rec = new Vector3(noise, noise, noise).normalized;
             Vector3 rec = new Vector4(noise, noise, noise, 1).normalized;
             return rec.x;
             //return noise;
@@ -416,11 +419,5 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
     }
-
-    public enum PN_ItpType {
-        E_Liner, E_Cosine, E_Cubic, E_Ease0, E_Ease1
-    };
-
-    // TODO : perlin noise 1 D
 
 }

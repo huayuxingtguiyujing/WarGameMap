@@ -65,7 +65,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
         public void InitTerrainCons(MapRuntimeSetting mapSet, TerrainSettingSO terSet, HexSettingSO hexSetting, List<HeightDataModel> heightDataModels, 
-            RawHexMapSO rawHexMapSO, Material mat, MapRiverData mapRiverData) {
+            HexMapSO rawHexMapSO, Material mat, MapRiverData mapRiverData) {
             heightDataManager = new HeightDataManager();
             heightDataManager.InitHeightDataManager(heightDataModels, terSet, hexSetting, rawHexMapSO);
             //heightDataManager.InitHexSet(hexSetting, rawHexMapSO);

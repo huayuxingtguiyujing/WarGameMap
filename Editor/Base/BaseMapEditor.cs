@@ -8,17 +8,17 @@ namespace LZ.WarGameMap.MapEditor {
     public abstract class BaseMapEditor: ScriptableObject {
         public abstract string EditorName { get; }
 
-        bool notInitScene = true;
+        protected bool notInitScene = true;
 
         protected EditorSceneManager sceneManager;    // 即 static instance
 
-        [FoldoutGroup("配置scene", -1)]
+        [FoldoutGroup("配置scene", -9)]
         [GUIColor(1f, 0f, 0f)]
         [ShowIf("notInitScene")]
         [LabelText("警告: 没有初始化Scene")]
         public string warningMessage = "请点击按钮初始化!";
 
-        [FoldoutGroup("配置scene", -1)]
+        [FoldoutGroup("配置scene", -9)]
         [LabelText("锁定SceneView")]
         [Tooltip("仅在锁定后，才可以进行绘制操作")]
         [OnValueChanged("OnLockSceneViewValueChanged")]
@@ -36,10 +36,10 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
 
-        [FoldoutGroup("配置scene", -1)]
+        [FoldoutGroup("配置scene", -9)]
         [Button("初始化地形配置", ButtonSizes.Medium)]
-        protected virtual void InitEditor() {
-            //sceneManager = EditorSceneManager.GetInstance();
+        protected virtual void InitEditor()
+        {
             notInitScene = false;
         }
 
