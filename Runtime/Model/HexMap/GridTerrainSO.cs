@@ -16,13 +16,19 @@ namespace LZ.WarGameMap.Runtime
         public static GridTerrainLayer DecorateLayer =  new GridTerrainLayer(3, "装饰层", "", true);
         public static GridTerrainLayer DynamicLayer =   new GridTerrainLayer(4, "动态层", "", true);
 
-        public static GridTerrainType PlainType =       new GridTerrainType(0, "Plain",     "平原",   new Color(0.55f, 0.75f, 0.45f, 1.0f), true);
+        public static GridTerrainType ShallowSeaType =  new GridTerrainType(0, "ShallowSea", "浅海", new Color(0.125f, 0.698f, 0.667f, 1.0f), true);
+        public static GridTerrainType DeepSeaType =     new GridTerrainType(0, "DeepSea", "深海", new Color(0, 0.47f, 0.62f, 1.0f), true);
+
+        public static GridTerrainType PlainType =       new GridTerrainType(1, "Plain",     "平原",   new Color(0.55f, 0.75f, 0.45f, 1.0f), true);
         public static GridTerrainType HillType =        new GridTerrainType(1, "Hill",      "丘陵",   new Color(0.40f, 0.60f, 0.30f, 1.0f), true);
         public static GridTerrainType MountainType =    new GridTerrainType(1, "Mountain",  "山地",   new Color(0.50f, 0.45f, 0.40f, 1.0f), true);
         public static GridTerrainType PlateauType =     new GridTerrainType(1, "Plateau",   "高原",   new Color(0.70f, 0.60f, 0.35f, 1.0f), true);
         public static GridTerrainType SnowType =        new GridTerrainType(1, "Snow",      "雪地",   new Color(1, 1, 1, 1.0f), true);
     }
 
+    // Storage the setting of GridTerrain
+    // Terrain layers : 
+    // Terrain types : 
     public class GridTerrainSO : ScriptableObject
     {
         static GridTerrainSO instance;
@@ -48,12 +54,8 @@ namespace LZ.WarGameMap.Runtime
 
         public int CurLayerNum;
 
-        public List<GridTerrainLayer> Base_GridLayerList;
-
         public List<GridTerrainLayer> GridLayerList = new List<GridTerrainLayer>();
 
-        public List<GridTerrainType> Base_GridTypeList;
-        
         public List<GridTerrainType> GridTypeList = new List<GridTerrainType>();
 
 
@@ -72,10 +74,10 @@ namespace LZ.WarGameMap.Runtime
 
         public void UpdateTerSO()
         {
-            if (!isInit)
+            //if (!isInit)
             {
                 // check and add base type
-                Base_GridLayerList = new List<GridTerrainLayer>
+                GridLayerList = new List<GridTerrainLayer>
                 {
                     BaseGridTerrainTypes.SeaLayer,
                     BaseGridTerrainTypes.BaseLayer,
@@ -83,8 +85,11 @@ namespace LZ.WarGameMap.Runtime
                     BaseGridTerrainTypes.DecorateLayer,
                     BaseGridTerrainTypes.DynamicLayer
                 };
-                Base_GridTypeList = new List<GridTerrainType>
+                GridTypeList = new List<GridTerrainType>
                 {
+                    BaseGridTerrainTypes.ShallowSeaType,
+                    BaseGridTerrainTypes.DeepSeaType,
+                    
                     BaseGridTerrainTypes.PlainType,
                     BaseGridTerrainTypes.HillType,
                     BaseGridTerrainTypes.MountainType,
@@ -109,22 +114,18 @@ namespace LZ.WarGameMap.Runtime
             }
 
             // All terrainType's layer must be correct, auto fix if not
-            HashSet<int> validLayer = new HashSet<int>(Base_GridLayerList.Count + GridLayerList.Count);
-            foreach (var layer in Base_GridLayerList)
-            {
-                validLayer.Add(layer.layerOrder);
-            }
+            HashSet<int> validLayer = new HashSet<int>(GridLayerList.Count);
             foreach (var layer in GridLayerList)
             {
                 validLayer.Add(layer.layerOrder);
             }
 
             // Will not check layer name... im lazy
-            HashSet<string> CurLayerNames = new HashSet<string>(Base_GridLayerList.Count + GridLayerList.Count);
+            HashSet<string> CurLayerNames = new HashSet<string>(GridLayerList.Count);
 
             // Name and chinese name and terrain color can not be the same 
-            HashSet<string> CurTerTypeNames = new HashSet<string>(Base_GridTypeList.Count + GridTypeList.Count);
-            HashSet<string> CurTerTypeChineseNames = new HashSet<string>(Base_GridTypeList.Count + GridTypeList.Count);
+            HashSet<string> CurTerTypeNames = new HashSet<string>(GridTypeList.Count);
+            HashSet<string> CurTerTypeChineseNames = new HashSet<string>(GridTypeList.Count);
             Action<List<GridTerrainType>> checkGridTerTypeList = (terrainTypeList) =>
             {
                 foreach (var type in terrainTypeList)
@@ -143,7 +144,6 @@ namespace LZ.WarGameMap.Runtime
                     }
                 }
             };
-            checkGridTerTypeList(Base_GridTypeList);
             checkGridTerTypeList(GridTypeList);
             return true;
         }
@@ -160,7 +160,6 @@ namespace LZ.WarGameMap.Runtime
                     GridLayerDict_LayerName.TryAdd(layers.layerName, layers);
                 }
             };
-            buildLayerDict(Base_GridLayerList);
             buildLayerDict(GridLayerList);
 
             GridTypeDict_Name.Clear();
@@ -173,38 +172,21 @@ namespace LZ.WarGameMap.Runtime
                     GridTypeDict_ChineseName.Add(type.terrainTypeChineseName, type);
                 }
             };
-            buildTypeDict(Base_GridTypeList);
             buildTypeDict(GridTypeList);
         }
 
         public void SaveGridTerSO(List<GridTerrainLayer> TerrainLayersList, List<GridTerrainType> TerrainTypesList)
         {
-            Base_GridLayerList.Clear();
             GridLayerList.Clear();
             foreach (var layer in TerrainLayersList)
             {
-                if (layer.IsBaseLayer)
-                {
-                    Base_GridLayerList.Add(layer);
-                }
-                else
-                {
-                    GridLayerList.Add(layer);
-                }
+                GridLayerList.Add(layer);
             }
 
-            Base_GridTypeList.Clear();
             GridTypeList.Clear();
             foreach (var type in TerrainTypesList)
             {
-                if (type.IsBaseType)
-                {
-                    Base_GridTypeList.Add(type);
-                }
-                else
-                {
-                    GridTypeList.Add(type);
-                }
+                GridTypeList.Add(type);
             }
             Debug.Log("GridTerrainSO instance call save!");
         }

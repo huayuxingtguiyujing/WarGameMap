@@ -1,7 +1,5 @@
 using LZ.WarGameMap.Runtime.HexStruct;
-using NUnit.Framework;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -30,11 +28,8 @@ namespace LZ.WarGameMap.Runtime
         //       C
     }
 
+    // This struct discribe the relation of point in a hex
     public struct HexAreaPointData {
-        // this struct discribe the relation of point in a hex
-        // 
-        //
-        //
 
         public Vector2 worldPos;
 
@@ -137,9 +132,12 @@ namespace LZ.WarGameMap.Runtime
                 }
                 scope--;
             }
-            Debug.Log($"iter time : {count}");
+            //Debug.Log($"iter time : {count}");
             return neighborList.ToList();
         }
+
+        // Hex grid lerp : 
+
 
 
         public static HexAreaPointData GetPointHexArea(Vector2 worldPos, Hexagon hex, Layout layout, float fix) {

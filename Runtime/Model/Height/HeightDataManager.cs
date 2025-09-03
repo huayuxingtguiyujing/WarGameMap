@@ -1,16 +1,12 @@
 using LZ.WarGameCommon;
 using System.Collections.Generic;
 using UnityEngine;
-using static LZ.WarGameMap.Runtime.HexMapSO;
 
 namespace LZ.WarGameMap.Runtime
 {
-
     // TODO : 写个支持多线程的 HeightDataManager
-
     public class HeightDataManager
     {
-
         //  自觉一点，不要改动 HeightDataModel 里的东西
         List<HeightDataModel> heightDataModels;
         public List<HeightDataModel> HeightDataModels { get { return heightDataModels; } }

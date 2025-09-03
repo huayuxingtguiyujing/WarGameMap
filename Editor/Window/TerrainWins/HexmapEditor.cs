@@ -10,8 +10,6 @@ using UnityEngine.UIElements;
 using Random = UnityEngine.Random;
 using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
 
-//using 
-
 namespace LZ.WarGameMap.MapEditor
 {
     [Serializable]
@@ -222,7 +220,7 @@ namespace LZ.WarGameMap.MapEditor
                         int neighborType = GetTerrainType(neighbor_offsetHex);
                         Color neighbor_Color = GetColorByType_Test(neighborType);
                         Color hex_Color = GetColorByType_Test(terrainType);
-                        landformColors[idx] = MathUtil.LinearLerp(hex_Color, neighbor_Color, hexData.ratioBetweenInnerAndOutter);
+                        landformColors[idx] = MathUtil.ColorLinearLerp(hex_Color, neighbor_Color, hexData.ratioBetweenInnerAndOutter);
 
                         break;
                     case OutHexAreaEnum.LeftCorner:
@@ -264,7 +262,7 @@ namespace LZ.WarGameMap.MapEditor
                     int neighborType = GetTerrainType(neighbor_offsetHex);
                     Color neighbor_Color = GetColorByType_Test(neighborType);
                     Color hex_Color = GetColorByType_Test(terrainType);
-                    landformColors[idx] = MathUtil.LinearLerp(hex_Color, neighbor_Color, hexData.ratioBetweenInnerAndOutter);
+                    landformColors[idx] = MathUtil.ColorLinearLerp(hex_Color, neighbor_Color, hexData.ratioBetweenInnerAndOutter);
                 }
             }
 
@@ -340,7 +338,7 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
 
-            // test method
+            // Test function
             private Color GetColorByType_Test(int type) {
                 //Debug.Log("trriger it!");
                 // NOTE : 这个方法目前是占位符, 之后要从地貌纹理上提取颜色
@@ -360,7 +358,6 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
 
-        
         }
 
         struct NoiseHexLandFormJob : IJobParallelFor {

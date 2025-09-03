@@ -1,10 +1,7 @@
-using Codice.Client.BaseCommands;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Mathematics;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
@@ -219,6 +216,20 @@ namespace LZ.WarGameMap.MapEditor
             pixelX /= scale;
             pixelZ /= scale;
             return new Vector2Int(pixelX, pixelZ);
+        }
+
+        public void SetRTPixel(List<Color> colors)
+        {
+            Texture2D temp = new Texture2D(mapWdith, mapHeight, TextureFormat.RGBA32, false);
+            temp.SetPixels(colors.ToArray());
+            temp.Apply();
+
+            RenderTexture prev = RenderTexture.active;
+            RenderTexture.active = texDataRenderTexture;
+            Graphics.Blit(temp, texDataRenderTexture);
+
+            RenderTexture.active = prev;
+            GameObject.DestroyImmediate(temp);
         }
 
         public void ShowHideTexture(bool flag) {

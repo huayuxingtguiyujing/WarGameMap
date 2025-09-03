@@ -1,12 +1,12 @@
 using LZ.WarGameMap.Runtime.HexStruct;
 using System;
 using System.Collections.Generic;
-using Unity.Mathematics;
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
     // HexMapSO : cv like map, it hold all grid's terrainData in hex map
+    // TODO : HexMap : 3000 * 3000, need lazy load
     [Serializable]
     public class HexMapSO : ScriptableObject {
 
@@ -14,12 +14,25 @@ namespace LZ.WarGameMap.Runtime
 
         public int height;
 
-        // TODO : hex 的地图规模预计是3000 * 3000 后续要动态加载，不能一次全部载入进去
-        public List<GridTerrainData> GridTerDataList;
+        public List<GridTerrainData> GridTerDataList;   // TODO : lazy load
 
         public List<byte> GridTerrainTypeList;
 
+        public bool IsDirty = false;
+
         public void InitRawHexMap(int width, int height) {
+            if (this.width == width && this.height == height && !IsDirty)
+            {
+                // Hex map is not change, so will not init
+                return;
+            }
+
+            // If IsDirty true, force to update
+            if (IsDirty)
+            {
+                IsDirty = false;
+            }
+
             this.width = width;
             this.height = height;
             GridTerDataList = new List<GridTerrainData>(width * height);
@@ -46,7 +59,10 @@ namespace LZ.WarGameMap.Runtime
             for(int i = 0; i < offsetHex.Count; i++)
             {
                 int idx = offsetHex[i].x * width + offsetHex[i].y;
-                GridTerrainTypeList[idx] = terrainTypeIdx;
+                if (idx >= 0 && idx < GridTerrainTypeList.Count)
+                {
+                    GridTerrainTypeList[idx] = terrainTypeIdx;
+                }
             }
         }
 
@@ -55,12 +71,29 @@ namespace LZ.WarGameMap.Runtime
             GridTerDataList[idx].InitGridTerrainData(hexIdx, hexagon, hexCenter);
         }
 
+        public byte GetGridTerrainData(Vector2Int offsetHex)
+        {
+            int idx = offsetHex.x * width + offsetHex.y;
+            if (GridTerrainTypeList.Count > idx && idx >= 0)
+            {
+                return GridTerrainTypeList[idx];    // idx
+            }
+            else
+            {
+                return 0;
+            }
+        }
 
         #region get/set 方法
 
         public GridTerrainData GetTerrainData(List<Vector2Int> offsetHex) {
             // TODO : offset coord
             return null;
+        }
+
+        public void SetDirty()
+        {
+            IsDirty = true;
         }
 
         #endregion

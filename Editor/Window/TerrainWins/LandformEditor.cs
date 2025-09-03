@@ -120,7 +120,6 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-
         struct LerpLandformJob : IJobParallelFor {
             [ReadOnly] public int lerpScope;
             [ReadOnly] public int resolution;
@@ -188,7 +187,6 @@ namespace LZ.WarGameMap.MapEditor
                 }
 
                 vertPos.y = heightDataManager.SampleFromHeightData(vertPos);    // startLongitudeLatitude, 
-
                 Color color = GetColorByHeight(vertPos.y);
                 idx = Mathf.Clamp(idx, 0, ExpTexResolution * ExpTexResolution - 1);
                 colors[idx] = color;
@@ -244,8 +242,6 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-
-
         [FoldoutGroup("构建地貌贴图")]
         [Button("保存当前地貌纹理", ButtonSizes.Medium)]
         private void SaveLandFormTex() {
@@ -253,14 +249,6 @@ namespace LZ.WarGameMap.MapEditor
             string texName = string.Format("landform_{0}x{0}_{1}", ExpTexResolution, dateTime.Ticks);
             TextureUtility.GetInstance().SaveTextureAsAsset(landformTexImportPath, texName, curHandleLandformTex);
         }
-
-
-
-        #endregion
-
-
-        #region 构建六边形地貌贴图
-        // NOTE : 
 
         #endregion
 

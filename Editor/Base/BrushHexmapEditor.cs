@@ -1,7 +1,7 @@
 using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector;
-using System.Collections;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -20,7 +20,7 @@ namespace LZ.WarGameMap.MapEditor
 
         protected HexmapConstructor HexCtor;
 
-        HexmapDataTexManager hexmapDataTexManager;
+        protected HexmapDataTexManager hexmapDataTexManager;
 
         protected override void InitMapSetting()
         {
@@ -37,6 +37,7 @@ namespace LZ.WarGameMap.MapEditor
             hexSet = EditorSceneManager.hexSet;
             FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
         }
+
 
         #region 涂刷Hexmap格子
 
@@ -62,7 +63,7 @@ namespace LZ.WarGameMap.MapEditor
         {
             if (enableBrush)
             {
-
+                // TODO : 每次切换的时候 是不是应该挂个啥回调？
             }
         }
 
@@ -79,6 +80,21 @@ namespace LZ.WarGameMap.MapEditor
             HexCtor.InitHexConsRectangle_Once(hexBrushMat);
             hexmapDataTexManager.InitHexmapDataTexture(hexSet.mapWidth, hexSet.mapHeight, 1, Vector3.zero, 
                 EditorSceneManager.mapScene.hexTextureParentObj, hexBrushMat, true);
+
+            List<Color> colors = new List<Color>(hexSet.mapWidth * hexSet.mapHeight);
+            for(int i = 0; i < hexSet.mapWidth; i++)
+            {
+                for(int j = 0;  j < hexSet.mapHeight; j++)
+                {
+                    colors.Add(new Color());
+                }
+            }
+
+            Parallel.ForEach(colors, (item, state, index) => 
+            {
+                colors[(int)index] = PaintHexGridWhenLoad((int)index);
+            });
+            hexmapDataTexManager.SetRTPixel(colors);
             Debug.Log($"build the hex grid map, width : {hexSet.mapWidth}, height : {hexSet.mapHeight}");
         }
 
@@ -129,9 +145,18 @@ namespace LZ.WarGameMap.MapEditor
             PaintHexRTEvent(offsetHexList);
         }
 
+        // Call it when paint hexRT
         protected virtual void PaintHexRTEvent(List<Vector2Int> offsetHexList)
         {
 
+        }
+
+        // Call it when click init hex grid map
+        protected virtual Color PaintHexGridWhenLoad(int index)
+        {
+            int i = index / hexSet.mapWidth;
+            int j = index % hexSet.mapHeight;
+            return Color.white;
         }
 
     }

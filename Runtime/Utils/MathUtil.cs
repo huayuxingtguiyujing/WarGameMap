@@ -10,9 +10,21 @@ namespace LZ.WarGameMap.Runtime
         /// <summary>
         /// 线性插值：返回从 a 到 b 的 ratio 位置的颜色
         /// </summary>
-        public static Color LinearLerp(Color a, Color b, float ratio) {
+        public static Color ColorLinearLerp(Color a, Color b, float ratio) {
             return Color.LerpUnclamped(a, b, ratio);
         }
+
+        public static float ColorInverseLerp(Color a, Color b, Color value)
+        {
+            Vector4 av = new Vector4(a.r, a.g, a.b, a.a);
+            Vector4 bv = new Vector4(b.r, b.g, b.b, b.a);
+            Vector4 vv = new Vector4(value.r, value.g, value.b, value.a);
+            Vector4 ab = bv - av;
+            Vector4 avv = vv - av;
+            float t = Vector4.Dot(avv, ab) / Vector4.Dot(ab, ab);
+            return Mathf.Clamp01(t);
+        }
+
 
         /// <summary>
         /// 加速减速插值：两端慢，中间快（基于 SmoothStep 曲线变形）

@@ -1,6 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor {
 
@@ -63,11 +60,6 @@ namespace LZ.WarGameMap.MapEditor {
 
         public static string NoiseToolEditor = "‘Î…˘±‡º≠π§æﬂ";
 
-    }
-
-    public static class MapBrushEnum {
-        
-        public static Color DefaultColor = Color.white;
     }
 
 }
