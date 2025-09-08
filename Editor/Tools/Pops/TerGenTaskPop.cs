@@ -11,17 +11,11 @@ namespace LZ.WarGameMap.MapEditor
         static string cancelGenStatuTxt = "中止生成";
         static string overGenStatuTxt = "生成完毕!";
 
-        private static string statuTxt;
-        private static float progress = 0f;
-
-        static Vector2 popSize = new Vector2(300, 150);
-
-        readonly Vector2 buttonSize = new Vector2(100, 30);
+        static string statuTxt;
+        static float progress = 0f;
 
         TerrainGenTask task;
 
-
-        //[MenuItem("WarGameMap/TerrainGenProcessPop")]
         public static TerGenTaskPop GetPopInstance()
         {
             return GetPopInstance<TerGenTaskPop>(popTitleTxt, popSize);
@@ -50,9 +44,6 @@ namespace LZ.WarGameMap.MapEditor
         public override void HideBasePop()
         {
             progress = 0f;
-            IsValid = false;
-
-            //UnityEditorManager.UnregisterUpdate(OnGUIDraw);
             base.HideBasePop();
         }
 
@@ -82,12 +73,7 @@ namespace LZ.WarGameMap.MapEditor
 
         private void ShowStatAndProgress()
         {
-            EditorGUILayout.Space(10);
-            EditorGUILayout.BeginHorizontal();
-            GUILayout.Space(10);
-            EditorGUILayout.LabelField(statuTxt, EditorStyles.boldLabel);
-            EditorGUILayout.EndHorizontal();
-            EditorGUILayout.Space(10);
+            ShowCenterStatTxt(statuTxt);
 
             float padding = 20f;
             Rect progressRect = EditorGUILayout.GetControlRect(false, 20);
@@ -101,24 +87,17 @@ namespace LZ.WarGameMap.MapEditor
 
         private void ShowTerGenTaskBtns(bool IsGenning)
         {
-            GUIStyle buttonStyle = new GUIStyle(GUI.skin.button)
-            {
-                fixedHeight = buttonSize.y,
-                stretchWidth = true,
-                margin = new RectOffset(10, 10, 5, 5),
-                alignment = TextAnchor.MiddleCenter
-            };
             EditorGUILayout.BeginHorizontal();
             {
                 EditorGUI.BeginDisabledGroup(!IsGenning);
-                if (GUILayout.Button("中止", buttonStyle))
+                if (GUILayout.Button("中止", normalButtonStyle))
                 {
                     EndTerGenTaskEvent(true);
                 }
                 EditorGUI.EndDisabledGroup();
 
                 EditorGUI.BeginDisabledGroup(!ShouldDisableConfirm(IsGenning));
-                if (GUILayout.Button("确认", buttonStyle))
+                if (GUILayout.Button("确认", normalButtonStyle))
                 {
                     EndTerGenTaskEvent(false);
                 }

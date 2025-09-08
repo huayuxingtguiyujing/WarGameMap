@@ -1,4 +1,5 @@
 using LZ.WarGameMap.Runtime;
+using LZ.WarGameMap.Runtime.Enums;
 using Sirenix.OdinInspector;
 using System;
 using UnityEditor;
@@ -107,7 +108,7 @@ namespace LZ.WarGameMap.MapEditor
             hexSet = EditorSceneManager.hexSet;
             terSet = EditorSceneManager.terSet;
             hexmapDataTexManager.InitHexmapDataTexture(hexSet.mapWidth, hexSet.mapHeight, hexTexScale, hexTextureOffset, 
-                EditorSceneManager.mapScene.hexTextureParentObj, hexmapTexMaterial);
+                EditorSceneManager.mapScene.hexTextureParentObj, hexmapTexMaterial, null);
         }
 
         [FoldoutGroup("Í¿Ë¢HexmapÎÆÀí")]

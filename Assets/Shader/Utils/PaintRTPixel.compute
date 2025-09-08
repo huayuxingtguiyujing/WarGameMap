@@ -1,0 +1,21 @@
+#pragma kernel PaintRTPixels
+
+struct Pixel
+{
+    int2 pos;
+};
+
+StructuredBuffer<Pixel> _Pixels;
+RWTexture2D<float4> _Result;
+float4 _Color;
+int _PixelCount;
+
+[numthreads(64, 1, 1)]
+void PaintRTPixels(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    if (idx >= _PixelCount) return;
+
+    int2 p = _Pixels[idx].pos;
+    _Result[p] = _Color;
+}

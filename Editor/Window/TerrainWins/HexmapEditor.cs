@@ -1,4 +1,5 @@
 using LZ.WarGameMap.Runtime;
+using LZ.WarGameMap.Runtime.Enums;
 using LZ.WarGameMap.Runtime.HexStruct;
 using Sirenix.OdinInspector;
 using System;

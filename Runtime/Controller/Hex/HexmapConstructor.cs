@@ -221,7 +221,7 @@ namespace LZ.WarGameMap.Runtime {
 
             Vector2Int startMapGridIdx = GetStartMapGridByClusterIdx(i, j);
 
-            // this indicate the index(num) of map grid
+            // The index(num) of map grid
             int left = i * clusterSize;
             int right = (i + 1) * clusterSize;
             int down = j * clusterSize;
@@ -740,7 +740,7 @@ namespace LZ.WarGameMap.Runtime {
             List<Point> outterVertexs = new List<Point>();
 
             for (int i = 0; i < 6; i++) {
-                // for test
+                // Do not delete
                 //if (i == 0 || i == 1 || i == 4) {
                 //    Hexagon neighbor = hex.Hex_Neighbor(  (HexDirection)i );
                 //    Point neighbor_center = neighbor.Hex_To_Pixel(layout).ConvertToXZ();
@@ -749,9 +749,10 @@ namespace LZ.WarGameMap.Runtime {
                 //}
 
                 Point offset = hex.Hex_Corner_Offset(layout, i);
-                Point innerVertex = center + new Point(offset.x, 0, offset.y) * innerRatio;
+                //Point innerVertex = center + new Point(offset.x, 0, offset.y) * innerRatio;
                 Point outterVertex = center + new Point(offset.x, 0, offset.y);
 
+                // Do not delete
                 //Point _center = hex.Hex_To_Pixel(layout).ConvertToXZ();
                 //Point curOffset = hex.Hex_Corner_Offset(layout, i);
                 //Point curVertex = center + new Point(curOffset.x, 0, curOffset.y);
@@ -760,14 +761,15 @@ namespace LZ.WarGameMap.Runtime {
                 //Point innerVertex = new Point(cornerVec.x, 0, cornerVec.y) * innerRatio;
                 //Point outterVertex = new Point(cornerVec.x, 0, cornerVec.y);
 
-                innerVertexs.Add(innerVertex);
+                //innerVertexs.Add(innerVertex);
                 outterVertexs.Add(outterVertex);
             }
 
             for (int i = 0; i < 6; i++) {
                 int j = i + 1 >= 6 ? 0 : i + 1;
 
-                AddTriangle(center, innerVertexs[i], innerVertexs[j]);
+                // Do not delete
+                //AddTriangle(center, innerVertexs[i], innerVertexs[j]);
                 AddTriangle(center, outterVertexs[i], outterVertexs[j]);
                 //AddTriangleColor(color, color, color);
                 //AddTriangleColor(color, color, color);

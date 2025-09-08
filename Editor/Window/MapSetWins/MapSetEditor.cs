@@ -1,4 +1,5 @@
 using LZ.WarGameMap.Runtime;
+using LZ.WarGameMap.Runtime.Enums;
 using Sirenix.OdinInspector;
 using System.Collections.Generic;
 using System.IO;

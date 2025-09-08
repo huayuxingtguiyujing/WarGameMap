@@ -1,5 +1,5 @@
 
-namespace LZ.WarGameMap.Runtime {
+namespace LZ.WarGameMap.Runtime.Enums {
     public static class MapStoreEnum
     {
 
@@ -56,6 +56,10 @@ namespace LZ.WarGameMap.Runtime {
         public const string NoiseTexOutputPath = "Assets/WarGameMap/Landform/Noise_Output";
         //public const string Path = "Assets/WarGameMap/Landform/Output";
 
+        // GamePlayÏà¹Ø
+        public const string GamePlayGridTerrainDataPath = "Assets/WarGameMap/GamePlay/GridTerData";
+
+        public const string GamePlayCountryDataPath = "Assets/WarGameMap/GamePlay/CountryData";
 
         // ±à¼­Æ÷´°¿Ú SO
         public static string MapWindowPath = "Assets/WarGameMap/EditorWindow";

@@ -1,6 +1,6 @@
-
 using LZ.WarGameCommon;
 using LZ.WarGameMap.Runtime;
+using LZ.WarGameMap.Runtime.Enums;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
@@ -184,7 +184,7 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             rawHexMapTexture = new Texture2D(rawHexMapSO.width, rawHexMapSO.height);
-            foreach (var gridTerrainData in rawHexMapSO.GridTerDataList) {
+            foreach (var gridTerrainData in rawHexMapSO.GridTerrainDataList) {
                 Vector2Int pos = gridTerrainData.GetHexPos();
                 Color color = gridTerrainData.GetTerrainColor();
                 // TODO : 下面的生成步骤还是有问题！没有照顾到 hex 坐标的特性

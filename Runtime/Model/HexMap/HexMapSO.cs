@@ -14,7 +14,7 @@ namespace LZ.WarGameMap.Runtime
 
         public int height;
 
-        public List<GridTerrainData> GridTerDataList;   // TODO : lazy load
+        public List<GridTerrainData> GridTerrainDataList;   // TODO : lazy load
 
         public List<byte> GridTerrainTypeList;
 
@@ -35,7 +35,7 @@ namespace LZ.WarGameMap.Runtime
 
             this.width = width;
             this.height = height;
-            GridTerDataList = new List<GridTerrainData>(width * height);
+            GridTerrainDataList = new List<GridTerrainData>(width * height);
             GridTerrainTypeList = new List<byte>(width * height);
             for(int i = 0; i < width; i++)
             {
@@ -47,7 +47,7 @@ namespace LZ.WarGameMap.Runtime
 
                     GridTerrainData gridTerrainData = new GridTerrainData();
                     gridTerrainData.InitGridTerrainData(offsetCoord, hexagon, hexCenter);
-                    GridTerDataList.Add(new GridTerrainData());
+                    GridTerrainDataList.Add(new GridTerrainData());
 
                     GridTerrainTypeList.Add(0);
                 }
@@ -68,7 +68,7 @@ namespace LZ.WarGameMap.Runtime
 
         public void UpdateGridTerrainData(int i, int j, Vector2Int hexIdx, Hexagon hexagon, Vector3 hexCenter) {
             int idx = i * width + j;
-            GridTerDataList[idx].InitGridTerrainData(hexIdx, hexagon, hexCenter);
+            GridTerrainDataList[idx].InitGridTerrainData(hexIdx, hexagon, hexCenter);
         }
 
         public byte GetGridTerrainData(Vector2Int offsetHex)
@@ -83,6 +83,7 @@ namespace LZ.WarGameMap.Runtime
                 return 0;
             }
         }
+
 
         #region get/set ·½·¨
 

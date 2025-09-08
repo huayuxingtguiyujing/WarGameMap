@@ -37,16 +37,15 @@ namespace LZ.WarGameMap.Runtime
         {
             if (instance == null)
             {
-                string assetPath = $"{MapStoreEnum.TerrainHexmapGridDataPath}/GridTerrainSO_Default.asset";
-                instance = AssetDatabase.LoadAssetAtPath<GridTerrainSO>(assetPath);
-                if (instance == null)
-                {
-                    instance = CreateInstance<GridTerrainSO>();
-                    AssetDatabase.CreateAsset(instance, assetPath);
-                    AssetDatabase.SaveAssets();
-                    AssetDatabase.Refresh();
-                    Debug.Log($"[GridTerrainSO] Created asset at {MapStoreEnum.TerrainHexmapGridDataPath}");
-                }
+                //instance = AssetDatabase.LoadAssetAtPath<GridTerrainSO>(assetPath);
+                //if (instance == null)
+                //{
+                //    instance = CreateInstance<GridTerrainSO>();
+                //    AssetDatabase.CreateAsset(instance, assetPath);
+                //    AssetDatabase.SaveAssets();
+                //    AssetDatabase.Refresh();
+                //    Debug.Log($"[GridTerrainSO] Created asset at {MapStoreEnum.TerrainHexmapGridDataPath}");
+                //}
             }
             return instance;
         }
@@ -59,7 +58,7 @@ namespace LZ.WarGameMap.Runtime
         public List<GridTerrainType> GridTypeList = new List<GridTerrainType>();
 
 
-        // For fastly get terrain infos
+        // For fastly get terrain info
         Dictionary<int, GridTerrainLayer> GridLayerDict_LayerOrder = new Dictionary<int, GridTerrainLayer>();
 
         Dictionary<string, GridTerrainLayer> GridLayerDict_LayerName = new Dictionary<string, GridTerrainLayer>();
@@ -68,13 +67,14 @@ namespace LZ.WarGameMap.Runtime
 
         Dictionary<string, GridTerrainType> GridTypeDict_ChineseName = new Dictionary<string, GridTerrainType>();
 
+        Dictionary<int, List<GridTerrainType>> GridLayer_TypeDict = new Dictionary<int, List<GridTerrainType>>();
 
         bool isInit = false;
 
 
         public void UpdateTerSO()
         {
-            //if (!isInit)
+            if (!isInit)
             {
                 // check and add base type
                 GridLayerList = new List<GridTerrainLayer>
@@ -100,7 +100,7 @@ namespace LZ.WarGameMap.Runtime
             }
 
             CheckGridTerInfo();
-            UpdateTerInfoDict();
+            UpdateInfoDict();
             //Debug.Log($" layer : {instance.Base_GridTypeLayerList.Count}, types : {instance.Base_GridTypeList}");
         }
 
@@ -148,7 +148,7 @@ namespace LZ.WarGameMap.Runtime
             return true;
         }
 
-        private void UpdateTerInfoDict()
+        private void UpdateInfoDict()
         {
             GridLayerDict_LayerOrder.Clear();
             GridLayerDict_LayerName.Clear();
@@ -158,6 +158,8 @@ namespace LZ.WarGameMap.Runtime
                 {
                     GridLayerDict_LayerOrder.TryAdd(layers.layerOrder, layers);
                     GridLayerDict_LayerName.TryAdd(layers.layerName, layers);
+
+                    GridLayer_TypeDict.TryAdd(layers.layerOrder, new List<GridTerrainType>());
                 }
             };
             buildLayerDict(GridLayerList);
@@ -170,6 +172,8 @@ namespace LZ.WarGameMap.Runtime
                 {
                     GridTypeDict_Name.Add(type.terrainTypeName, type);
                     GridTypeDict_ChineseName.Add(type.terrainTypeChineseName, type);
+
+                    GridLayer_TypeDict[type.terrainTypeLayer].Add(type);
                 }
             };
             buildTypeDict(GridTypeList);
@@ -191,7 +195,8 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log("GridTerrainSO instance call save!");
         }
 
-        #region get/set
+
+        #region get/set function
 
         public int GetLayerOrder()
         {
@@ -206,6 +211,12 @@ namespace LZ.WarGameMap.Runtime
         public GridTerrainLayer GetTerrainLayer(string layerName)
         {
             return GridLayerDict_LayerName[layerName];
+        }
+
+        public List<GridTerrainType> GetTerrainTypesByLayer(string layerName)
+        {
+            GridTerrainLayer gridTerrainLayer = GetTerrainLayer(layerName);
+            return GridLayer_TypeDict[gridTerrainLayer.layerOrder];
         }
 
         public GridTerrainType GetTerrainType(string typeName)

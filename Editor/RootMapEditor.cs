@@ -1,8 +1,10 @@
 using LZ.WarGameMap.Runtime;
+using LZ.WarGameMap.Runtime.Enums;
 using Sirenix.OdinInspector.Editor;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
+using LZ.WarGameMap.MapEditor;
 
 namespace LZ.WarGameMap.MapEditor
 {

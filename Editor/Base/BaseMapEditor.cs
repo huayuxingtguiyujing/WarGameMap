@@ -2,6 +2,7 @@ using UnityEngine;
 using Sirenix.OdinInspector;
 using UnityEditor;
 using LZ.WarGameMap.Runtime;
+using LZ.WarGameMap.Runtime.Enums;
 
 namespace LZ.WarGameMap.MapEditor {
 
@@ -23,6 +24,12 @@ namespace LZ.WarGameMap.MapEditor {
         [Tooltip("仅在锁定后，才可以进行绘制操作")]
         [OnValueChanged("OnLockSceneViewValueChanged")]
         public bool lockSceneView = true;
+
+        [FoldoutGroup("配置scene", -9)]
+        [LabelText("接收键盘输入")]
+        [Tooltip("仅为true时，接收键盘输入")]
+        [OnValueChanged("OnLockSceneViewValueChanged")]
+        public bool enableKeyCode = true;
 
         private void OnLockSceneViewValueChanged() {
 
@@ -64,7 +71,6 @@ namespace LZ.WarGameMap.MapEditor {
             }
         }
 
-
         #region behaviors
 
         public virtual void Enable() {
@@ -88,27 +94,90 @@ namespace LZ.WarGameMap.MapEditor {
         private int dragInterval = 5;
 
         protected virtual void OnSceneGUI(SceneView sceneView) {
-
-            HandleSceneDraw(); 
-            
-            if (!lockSceneView) {
-                return;
-            }
+            HandleSceneDraw();
 
             Event e = Event.current;
-            var eventType = Event.current.type;
-            if (e.button == 0) {
+            if (enableKeyCode)
+            {
+                OnKeyCodeUpEvent(e);
+            }
+            if (lockSceneView) {
+                OnButtonEvent(e);
+            }
+        }
+
+        private void OnKeyCodeUpEvent(Event e)
+        {
+            if (e.type == EventType.KeyUp)
+            {
+                switch (e.keyCode)
+                {
+                    case KeyCode.Q:
+                        OnKeyCodeQ();
+                        break;
+                    case KeyCode.W:
+                        OnKeyCodeW();
+                        break;
+                    case KeyCode.E:
+                        OnKeyCodeE();
+                        break;
+                    case KeyCode.A:
+                        OnKeyCodeA();
+                        break;
+                    case KeyCode.S:
+                        OnKeyCodeS();
+                        break;
+                    case KeyCode.D:
+                        OnKeyCodeD();
+                        break;
+                    case KeyCode.R:
+                        OnKeyCodeR();
+                        break;
+                    case KeyCode.F:
+                        OnKeyCodeF();
+                        break;
+
+                    // 数字键 0~9
+                    case KeyCode.Alpha0:
+                        OnKeyCodeAlphaNum(0);
+                        break;
+                    case KeyCode.Alpha1:
+                        OnKeyCodeAlphaNum(1);
+                        break;
+                    case KeyCode.Alpha2:
+                        OnKeyCodeAlphaNum(2);
+                        break;
+                    case KeyCode.Alpha3:
+                        OnKeyCodeAlphaNum(3);
+                        break;
+                    case KeyCode.Alpha4:
+                        OnKeyCodeAlphaNum(4);
+                        break;
+                    case KeyCode.Alpha5:
+                        OnKeyCodeAlphaNum(5);
+                        break;
+                }
+                e.Use();
+            }
+        }
+
+        private void OnButtonEvent(Event e)
+        {
+            //var eventType = Event.current.GetTypeForControl(controlID);
+            if (e.button == 0)
+            {
+                var eventType = Event.current.type;
                 var controlID = GUIUtility.GetControlID(FocusType.Passive);
                 GUIUtility.hotControl = controlID;
-                //var eventType = Event.current.GetTypeForControl(controlID);
-                switch (eventType) {
+                switch (eventType)
+                {
                     case EventType.MouseDrag:
                         curDragTriggerTime++;
-                        if (curDragTriggerTime < dragInterval) {
+                        if (curDragTriggerTime < dragInterval)
+                        {
                             return;
                         }
                         curDragTriggerTime = 0;
-
                         OnMouseDrag(e);
                         break;
                     case EventType.MouseUp:
@@ -121,31 +190,33 @@ namespace LZ.WarGameMap.MapEditor {
                         OnMouseMove(e);
                         break;
                 }
-
                 GUIUtility.hotControl = 0;
-            } else if (e.button == 1) {
             }
-
+            else if (e.button == 1)
+            {
+            }
         }
 
         #endregion
 
-        protected virtual void OnMouseUp(Event e) {
-        }
+        protected virtual void OnKeyCodeQ() { }
+        protected virtual void OnKeyCodeW() { }
+        protected virtual void OnKeyCodeE() { }
 
-        protected virtual void OnMouseDown(Event e) {
-        }
+        protected virtual void OnKeyCodeA() { }
+        protected virtual void OnKeyCodeS() { }
+        protected virtual void OnKeyCodeD(){ }
 
-        protected virtual void OnMouseMove(Event e) {
-            //SceneView.RepaintAll();
-        }
+        protected virtual void OnKeyCodeR(){ }
+        protected virtual void OnKeyCodeF(){ }
 
-        protected virtual void OnMouseDrag(Event e) {
-        }
+        protected virtual void OnKeyCodeAlphaNum(int num) { }
 
-        protected virtual void HandleSceneDraw() {
-        }
-
+        protected virtual void OnMouseUp(Event e) { }
+        protected virtual void OnMouseDown(Event e) { }
+        protected virtual void OnMouseMove(Event e) { }
+        protected virtual void OnMouseDrag(Event e) { }
+        protected virtual void HandleSceneDraw() { }
 
         protected Vector3 GetMousePosToScene(Event e) {
             SceneView sceneView = SceneView.currentDrawingSceneView;

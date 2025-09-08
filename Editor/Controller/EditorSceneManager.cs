@@ -4,6 +4,7 @@ using System.IO;
 using UnityEditor;
 using UnityEngine;
 using LZ.WarGameMap.Runtime;
+using LZ.WarGameMap.Runtime.Enums;
 using static LZ.WarGameMap.Runtime.TerrainMeshDataBinder;
 
 namespace LZ.WarGameMap.MapEditor

@@ -4,8 +4,22 @@ using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
 {
-    public class MountainEditor : BrushMapEditor {
+    public class MountainEditor : BrushHexmapEditor 
+    {
         public override string EditorName => MapEditorEnum.MountainEditor;
+
+        protected override void InitEditor()
+        {
+            base.InitEditor();
+            InitMapSetting();
+            Debug.Log("init moutain Editor over !");
+        }
+
+        protected override BrushHexmapSetting GetBrushSetting()
+        {
+            throw new System.NotImplementedException();
+        }
+
 
     }
 }

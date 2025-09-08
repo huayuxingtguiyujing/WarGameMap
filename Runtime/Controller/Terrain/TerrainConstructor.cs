@@ -11,7 +11,9 @@ namespace LZ.WarGameMap.Runtime
 {
     using GetSimplifierCall = Func<int, int, int, int, int, TerrainSimplifier>;
 
-    public enum TerMeshGenMethod {
+    [Obsolete]
+    public enum TerMeshGenMethod 
+    {
         TIFHeight,
         HexData,
     }
@@ -38,7 +40,7 @@ namespace LZ.WarGameMap.Runtime
         public Material terMaterial;
 
         public bool hasInit = false;
-        // NOTE : will change to private
+        // NOTE : should change to private
 
         // cluster list
         private TDList<TerrainCluster> clusterList;
@@ -49,7 +51,6 @@ namespace LZ.WarGameMap.Runtime
                 return clusterList; 
             }
         }
-
 
         // height data
         private HeightDataManager heightDataManager;
@@ -267,7 +268,6 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-
         #region 序列化/反序列化 terrain mesh 数据
 
         // TODO : 要大改了
@@ -307,7 +307,6 @@ namespace LZ.WarGameMap.Runtime
         }
 
         #endregion
-
 
         #region runtime updating
 
@@ -469,7 +468,7 @@ namespace LZ.WarGameMap.Runtime
             return validClusterNum;
         }
 
-        // quad tree NOTE : 不要删掉！！
+        // Quad tree NOTE : 不要删掉！！
         /*#region use quad tree LOD init and dynamic switching
 
         //*List<GameObject> heightClusters;
@@ -720,8 +719,5 @@ namespace LZ.WarGameMap.Runtime
             //UpdateTileNeighbours();
         }
         #endregion*/
-
     }
-
-
 }

@@ -1,3 +1,4 @@
+using LZ.WarGameMap.Runtime.Enums;
 using LZ.WarGameMap.Runtime;
 using Sirenix.OdinInspector;
 using System;

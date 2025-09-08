@@ -28,7 +28,7 @@ Shader "WarGameMap/Terrain/TerrainHeightSmooth"
         // hex setting
         _HexGridScale("Hex Grid Scale", Float) = 2
         _HexGridSize("Hex Grid Size", Range(1, 300)) = 20
-        _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0.01, 1)) = 0.1
+        _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0.001, 1)) = 0.1
         _HexGridTypeTexture("Hex Grid Texture", 2D) = "white" {}
     }
 
@@ -158,11 +158,11 @@ Shader "WarGameMap/Terrain/TerrainHeightSmooth"
 
                 // 光照：主方向光 + 环境光
                 float4 finalColor = float4(ApplySimpleLight(baseColor.rgb, i.normalWS), 1.0);
-                // return finalColor;
+                return finalColor;
 
                 // build hex outline!
-                float3 outlineColor = GetHexOutlineColor(i.worldPos, finalColor.xyz);
-                return float4(outlineColor, 1); //  finalColor.a;
+                // float3 outlineColor = GetHexOutlineColor(i.worldPos, finalColor.xyz);
+                // return float4(outlineColor, 1); //  finalColor.a;
             }
 
 

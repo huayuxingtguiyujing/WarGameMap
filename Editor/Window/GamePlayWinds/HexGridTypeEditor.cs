@@ -1,12 +1,10 @@
-using LZ.WarGameCommon;
 using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.HexStruct;
+using LZ.WarGameMap.Runtime.Enums;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Unity.Collections;
-using UnityEditor;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
@@ -23,22 +21,22 @@ namespace LZ.WarGameMap.MapEditor
             LoadHexMapSO();
             Debug.Log("init hex grid type Editor over !");
         }
+        
+        protected override BrushHexmapSetting GetBrushSetting()
+        {
+            throw new System.NotImplementedException();
+        }
 
-        //SerializedObject serializedGridTerrainSO;
-        GridTerrainSO gridTerrainSO;
-
-        List<GridTerrainLayer> layerList;
-        List<GridTerrainType> terrainTypeList;
 
         private void LoadTerrainType()
         {
-            gridTerrainSO = GridTerrainSO.GetInstance();
+            FindOrCreateSO<GridTerrainSO>(ref gridTerrainSO, MapStoreEnum.GamePlayGridTerrainDataPath, "GridTerrainSO_Default.asset");
             gridTerrainSO.UpdateTerSO();
 
             TerrainLayersList.Clear();
             TerrainTypesList.Clear();
 
-            // load base list and etc
+            // Load layer and all terrainType
             foreach (var layer in gridTerrainSO.GridLayerList)
             {
                 TerrainLayersList.Add(layer.CopyObject());
@@ -53,18 +51,8 @@ namespace LZ.WarGameMap.MapEditor
 
         private void LoadHexMapSO()
         {
-            string soName = $"RawHexMap_{hexSet.mapWidth}x{hexSet.mapHeight}_{UnityEngine.Random.Range(0, 100)}.asset";
-            string RawHexPath = exportHexMapDataPath + $"/{soName}";
-            if (hexMapSO == null)
-            {
-                hexMapSO = AssetDatabase.LoadAssetAtPath<HexMapSO>(RawHexPath);
-                if (hexMapSO == null)
-                {
-                    hexMapSO = CreateInstance<HexMapSO>();
-                    AssetDatabase.CreateAsset(hexMapSO, RawHexPath);
-                    Debug.Log($"successfully create Hex Map, path : {RawHexPath}");
-                }
-            }
+            string assetDefaultName = $"RawHexMap_{hexSet.mapWidth}x{hexSet.mapHeight}_{UnityEngine.Random.Range(0, 100)}.asset";
+            FindOrCreateSO(ref hexMapSO, exportHexMapDataPath, assetDefaultName);
             hexMapSO.InitRawHexMap(EditorSceneManager.hexSet.mapWidth, EditorSceneManager.hexSet.mapHeight);
         }
 
@@ -80,7 +68,9 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("编辑使用的地形")]
         [ValueDropdown("GetTerrainTypesList")]
         [OnValueChanged("OnCurGriTerrainChanged")]
-        public string CurGridTerrainName;
+        public string CurCurGridTerrainTypeName;
+
+        int CurGridTerrainTypeIndex;
 
         GridTerrainType CurGridTerrain;
 
@@ -100,10 +90,96 @@ namespace LZ.WarGameMap.MapEditor
             {
                 return;
             }
-            CurGridTerrain = gridTerrainSO.GetTerrainType(CurGridTerrainName);
+            SetTerrainTypeByCurIdx();
+        }
+
+        private void GetPreTerrainType()
+        {
+            CurGridTerrainTypeIndex--;
+            FixCurTerrainTypeIdx();
+            CurCurGridTerrainTypeName = TerrainTypesList[CurGridTerrainTypeIndex].terrainTypeName;
+            SetTerrainTypeByCurIdx();
+        }
+
+        private void GetNextTerrainType()
+        {
+            CurGridTerrainTypeIndex++;
+            FixCurTerrainTypeIdx();
+            CurCurGridTerrainTypeName = TerrainTypesList[CurGridTerrainTypeIndex].terrainTypeName;
+            SetTerrainTypeByCurIdx();
+        }
+
+        private void FixCurTerrainTypeIdx()
+        {
+            if (CurGridTerrainTypeIndex > TerrainTypesList.Count - 1)
+            {
+                CurGridTerrainTypeIndex = 0;
+            }
+            else if (CurGridTerrainTypeIndex < 0)
+            {
+                CurGridTerrainTypeIndex = TerrainTypesList.Count - 1;
+            }
+        }
+
+        private void SetTerrainTypeByCurIdx()
+        {
+            // Reset when index is not valid
+            CurGridTerrain = gridTerrainSO.GetTerrainType(CurCurGridTerrainTypeName);
             SetBrushColor(CurGridTerrain.terrainEditColor);
             Debug.Log($"now you choose terrain type : {CurGridTerrain.terrainTypeName}");
         }
+
+
+
+        [FoldoutGroup("格子地形数据编辑")]
+        [LabelText("格子地形源数据SO")]
+        public GridTerrainSO gridTerrainSO;
+
+        [FoldoutGroup("格子地形数据编辑")]
+        [LabelText("显示指定Layer的地形")]
+        [ValueDropdown("GetTerrainLayersList")]
+        [OnValueChanged("OnCurFilterLayerChanged")]
+        public string CurFilterLayerName;
+
+        string AllLayerFilter = "所有层级";
+
+        private IEnumerable<ValueDropdownItem<string>> GetTerrainLayersList()
+        {
+            List<ValueDropdownItem<string>> dropDownItemList = new List<ValueDropdownItem<string>>() {
+                new ValueDropdownItem<string>(AllLayerFilter, AllLayerFilter)
+            };
+            foreach (var terrainLayer in TerrainLayersList)
+            {
+                dropDownItemList.Add(new ValueDropdownItem<string>(terrainLayer.layerName, terrainLayer.layerName));
+            }
+            return dropDownItemList;
+        }
+
+        private void OnCurFilterLayerChanged()
+        {
+            if (notInitScene)
+            {
+                return;
+            }
+
+            TerrainTypesList.Clear();
+            if (CurFilterLayerName == AllLayerFilter)
+            {
+                foreach (var type in gridTerrainSO.GridTypeList)
+                {
+                    TerrainTypesList.Add(type.CopyObject());
+                }
+            }
+            else
+            {
+                List<GridTerrainType> layerTypes = gridTerrainSO.GetTerrainTypesByLayer(CurFilterLayerName);
+                foreach (var type in layerTypes)
+                {
+                    TerrainTypesList.Add(type.CopyObject());
+                }
+            }
+        }
+
 
         [FoldoutGroup("格子地形数据编辑")]
         [LabelText("地形层级")] 
@@ -118,7 +194,6 @@ namespace LZ.WarGameMap.MapEditor
         private void SaveTerrainTypeDatas()
         {
             gridTerrainSO.SaveGridTerSO(TerrainLayersList, TerrainTypesList);
-
         }
 
         #endregion
@@ -223,7 +298,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         [FoldoutGroup("格子地形数据导出")]
-        [LabelText("当前格子数据")]
+        [LabelText("格子地图数据")]
         public HexMapSO hexMapSO;
 
         [FoldoutGroup("格子地形数据导出")]
@@ -236,7 +311,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("格子地形数据导出")]
         [LabelText("导出位置")]
-        public string exportHexMapDataPath = MapStoreEnum.TerrainHexmapGridDataPath;
+        public string exportHexMapDataPath = MapStoreEnum.GamePlayGridTerrainDataPath;
 
         [FoldoutGroup("格子地形数据导出")]
         [Button("生成格子编辑结果", ButtonSizes.Medium)]
@@ -290,10 +365,22 @@ namespace LZ.WarGameMap.MapEditor
             string texName = string.Format("hexGridColorMap{0}x{0}_{1}", terSet.clusterSize, dateTime.Ticks);
             TextureUtility.GetInstance().SaveTextureAsAsset(exportHexMapDataPath, texName, hexMapTexture);
         }
-        
+
         #endregion
 
-        
+        protected override void OnKeyCodeW()
+        {
+            base.OnKeyCodeW();
+            GetNextTerrainType();
+        }
+
+        protected override void OnKeyCodeS()
+        {
+            base.OnKeyCodeS();
+            GetPreTerrainType();
+        }
+
+
         protected override void PaintHexRTEvent(List<Vector2Int> offsetHexList)
         {
             base.PaintHexRTEvent(offsetHexList);
@@ -334,7 +421,6 @@ namespace LZ.WarGameMap.MapEditor
                 {
                     return (byte)i;
                 }
-
             }
             return 0;
         }

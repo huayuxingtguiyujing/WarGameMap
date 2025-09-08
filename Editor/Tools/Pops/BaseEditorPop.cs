@@ -5,6 +5,17 @@ namespace LZ.WarGameMap.MapEditor
 {
     internal abstract class BaseEditorPop : EditorWindow
     {
+        protected static readonly Vector2 popSize = new Vector2(300, 150);
+        protected static readonly Vector2 buttonSize = new Vector2(100, 30);
+
+        protected readonly GUIStyle normalButtonStyle = new GUIStyle(GUI.skin.button)
+        {
+            fixedHeight = buttonSize.y,
+            stretchWidth = true,
+            margin = new RectOffset(10, 10, 5, 5),
+            alignment = TextAnchor.MiddleCenter
+        };
+
 
         public bool IsValid;
 
@@ -23,18 +34,36 @@ namespace LZ.WarGameMap.MapEditor
             //OnGUIHided();
         }
 
-        protected virtual void OnGUIHided() { IsValid = false; }
-
         private void OnGUI()
         {
             OnGUIDraw();
         }
 
+        protected virtual void OnGUIDraw() { }
+
+        protected virtual void OnGUIHided() { IsValid = false; }
+
+        protected void ShowCenterStatTxt(string confirmContent)
+        {
+            EditorGUILayout.Space(10);
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Space(10);
+            EditorGUILayout.LabelField(confirmContent, EditorStyles.boldLabel);
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.Space(10);
+        }
+
+        protected void ClosePop()
+        {
+            if (this)
+            {
+                this.Close();
+            }
+        }
+
         public virtual void ShowBasePop(params object[] args) { IsValid = true; }
 
         public virtual void HideBasePop() { IsValid = false; }
-
-        protected virtual void OnGUIDraw() { }
 
     }
 }

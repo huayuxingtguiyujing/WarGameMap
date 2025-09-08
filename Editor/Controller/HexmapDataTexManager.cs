@@ -1,3 +1,4 @@
+using LZ.WarGameMap.Runtime;
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -30,6 +31,8 @@ namespace LZ.WarGameMap.MapEditor
 
         RenderTexture texDataRenderTexture;
 
+        ComputeShader paintRTShader;
+
         MeshRenderer meshRenderer;
 
         MeshFilter meshFilter;
@@ -49,12 +52,13 @@ namespace LZ.WarGameMap.MapEditor
             IsInit = false;
         }
 
-        public void InitHexmapDataTexture(int mapWdith, int mapHeight, int scale, Vector3 offset, GameObject parentObj, Material material, bool notShowInScene = false) {
+        public void InitHexmapDataTexture(int mapWdith, int mapHeight, int scale, Vector3 offset, GameObject parentObj, Material material, ComputeShader paintRTShader, bool notShowInScene = false) {
             this.mapWdith = mapWdith;
             this.mapHeight = mapHeight;
             this.scale = scale;
             this.offset = offset;
             this.notShowInScene = notShowInScene;
+            this.paintRTShader = paintRTShader;
             CreateHexDataMeshObj(scale, offset, parentObj);
             CreateRenderTexture(mapWdith, mapHeight);
             ApplyHexDataTexture(material);
@@ -203,13 +207,8 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log($"texture paint over! you paint {width * height} pixel");
         }
 
-        // TODO : 做一个适配 hexmap 的paint 方法
-        public void PaintHexDataTexture_Scope(List<Vector2Int> poss, Color color)
+        private Vector2Int TransWorldPosToPixel(Vector3 worldPos)
         {
-
-        }
-
-        private Vector2Int TransWorldPosToPixel(Vector3 worldPos) {
             // TODO : use offset and balabala to transfer!!!
             int pixelX = (int)(worldPos.x - offset.x);
             int pixelZ = (int)(worldPos.z - offset.z);
@@ -217,6 +216,19 @@ namespace LZ.WarGameMap.MapEditor
             pixelZ /= scale;
             return new Vector2Int(pixelX, pixelZ);
         }
+
+        // For hexmap paint
+        RenderTexturePainter renderTexturePainter;
+
+        public void PaintHexDataTexture_Scope(List<Vector2Int> poss, Color color)
+        {
+            if(renderTexturePainter == null)
+            {
+                renderTexturePainter = new RenderTexturePainter(this.paintRTShader, texDataRenderTexture);
+            }
+            renderTexturePainter.PaintPixels(poss, color);
+        }
+
 
         public void SetRTPixel(List<Color> colors)
         {

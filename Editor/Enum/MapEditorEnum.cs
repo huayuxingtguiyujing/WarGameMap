@@ -46,7 +46,7 @@ namespace LZ.WarGameMap.MapEditor {
         // GamePlay
         public static string HexGridTypeEditor = "六边形格属性编辑";
 
-        public static string CountryEditor = "区域与城镇编辑";
+        public static string CountryEditor = "区域编辑";
 
         public static string FactionEditor = "地图势力编辑";
         
@@ -54,7 +54,8 @@ namespace LZ.WarGameMap.MapEditor {
         
         public static string ResourceEditor = "资源编辑";
 
-
+        public static string CityEditor = "城镇编辑";       // TODO : 待建！
+        
         // 通用工具
         public static string TextureToolEditor = "地形纹理编辑工具";
 

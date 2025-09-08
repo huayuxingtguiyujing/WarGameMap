@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using static LZ.WarGameMap.Runtime.FastNoiseLite;
 using UnityEngine.Rendering;
 using Sirenix.OdinInspector;
 using System;
+using LZ.WarGameMap.Runtime;
+using static LZ.WarGameMap.Runtime.FastNoiseLite;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -14,6 +15,7 @@ namespace LZ.WarGameMap.Runtime
         [SerializeField] Texture2D moutainTexture;
         [SerializeField] Color MoutainColor;
         [SerializeField] Color PlainColor;
+        [SerializeField] int interuptRandomSeed = 196;
 
         [Header("Terrain Setting")]
         [SerializeField] int terrainSize = 512;
@@ -44,6 +46,7 @@ namespace LZ.WarGameMap.Runtime
 
         List<Vector3> vertex = new List<Vector3>();
         List<int> triangles = new List<int>();
+        List<Vector2> uvs = new List<Vector2>();
         List<Vector3> normals = new List<Vector3>();
 
         private void Awake()
@@ -113,7 +116,7 @@ namespace LZ.WarGameMap.Runtime
             fastNoiseLite.SetFractalWeightedStrength(weightedStrength);
             fastNoiseLite.SetFractalPingPongStrength(pingpongStrength);
 
-            interuptNoiseLite = new FastNoiseLite(501);
+            interuptNoiseLite = new FastNoiseLite(interuptRandomSeed);
             interuptNoiseLite.SetNoiseType(NoiseType.Perlin);
             interuptNoiseLite.SetFrequency(0.01f);
         }
@@ -125,21 +128,34 @@ namespace LZ.WarGameMap.Runtime
 
             vertex = new List<Vector3>(terrainSize * terrainSize);
             normals = new List<Vector3>(terrainSize * terrainSize);
+            uvs = new List<Vector2>(terrainSize * terrainSize);
             Vector3 upNormal = new Vector3(0, 1, 0);
             for (int i = 0; i < terrainSize; i++)
             {
                 for (int j = 0; j < terrainSize; j++)
                 {
+                    Vector2 curUv = new Vector2(i / terrainSize, j / terrainSize);
+
                     Vector2Int interuptedIdx = InterpretWithNoise(i, j);
                     Color color = moutainTexture.GetPixel(interuptedIdx.x, interuptedIdx.y);
                     float ratio = MathUtil.ColorInverseLerp(PlainColor, MoutainColor, color);
 
-                    float noise = fastNoiseLite.GetNoise(i, j) * ratio + baseHeight;
-                    noise = Mathf.Pow(noise, elevation);
+                    float noise = Mathf.Abs(fastNoiseLite.GetNoise(i, j)) * ratio + baseHeight;
+                    
+                    if (noise > 1)
+                    {
+                        noise = Mathf.Pow(noise, elevation);
+                    }
+                    else
+                    {
+                        noise = Mathf.Pow(noise, 1 / elevation);
+                    }
+
                     float height = noise * heightFix;
 
                     vertex.Add(new Vector3(i, height, j));
                     normals.Add(upNormal);
+                    uvs.Add(curUv);
                 }
             }
 
@@ -161,6 +177,7 @@ namespace LZ.WarGameMap.Runtime
                     triangles.Add(upIdx);
                 }
             }
+
 
             mesh.SetVertices(vertex);
             mesh.SetTriangles(triangles, 0);
