@@ -128,7 +128,7 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             hexmapDataTexManager.InitHexmapDataTexture(hexmapTex, hexTexScale, hexTextureOffset,
-                EditorSceneManager.mapScene.hexTextureParentObj, hexmapTexMaterial);
+                EditorSceneManager.mapScene.hexTextureParentObj, hexmapTexMaterial, null);
         }
 
         [FoldoutGroup("Í¿Ë¢HexmapÎÆÀí")]

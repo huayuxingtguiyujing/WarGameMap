@@ -16,7 +16,7 @@ namespace LZ.WarGameMap.MapEditor
         private static void InitMapEditor() {
 
             if (!AssetDatabase.IsValidFolder(MapStoreEnum.WarGameMapRootPath)) {
-                string folderName = AssetsUtility.GetInstance().GetFolderFromPath(MapStoreEnum.WarGameMapRootPath);
+                string folderName = AssetsUtility.GetFolderFromPath(MapStoreEnum.WarGameMapRootPath);
                 AssetDatabase.CreateFolder(MapStoreEnum.WarGameMapRootPath, folderName);
                 Debug.Log(string.Format("create file folder : {0}", MapStoreEnum.MapWindowPath));
             }
@@ -43,11 +43,11 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             // get HashSet(window objs name) in folders
-            HashSet<string> mapsetFileNames = AssetsUtility.GetInstance().GetFileNames(mapsetPath);
-            HashSet<string> terrainFileNames = AssetsUtility.GetInstance().GetFileNames(terrainPath);
-            HashSet<string> decorateFileNames = AssetsUtility.GetInstance().GetFileNames(decoratePath);
-            HashSet<string> gameplayFileNames = AssetsUtility.GetInstance().GetFileNames(gameplayPath);
-            HashSet<string> toolFileNames = AssetsUtility.GetInstance().GetFileNames(toolPath);
+            HashSet<string> mapsetFileNames = AssetsUtility.GetFileNames(mapsetPath);
+            HashSet<string> terrainFileNames = AssetsUtility.GetFileNames(terrainPath);
+            HashSet<string> decorateFileNames = AssetsUtility.GetFileNames(decoratePath);
+            HashSet<string> gameplayFileNames = AssetsUtility.GetFileNames(gameplayPath);
+            HashSet<string> toolFileNames = AssetsUtility.GetFileNames(toolPath);
 
             if (!mapsetFileNames.Contains(MapEditorEnum.MapSetEditor)) {
                 CreateWindowObj<MapSetEditor>(MapEditorClass.MapSetClass);

@@ -9,7 +9,7 @@ namespace LZ.WarGameMap.MapEditor
     {
         static GUIContent confirmPopTitleTxt = new GUIContent("提示窗口");
 
-        static string countryDelContent = "是否将区域的子区域移动到其他临近区域中，否则子区域将全部删除";
+        static string countryDelContent = "提示：你正在删除区域数据";
 
         public static CountryDeletePop GetPopInstance()
         {
@@ -49,11 +49,14 @@ namespace LZ.WarGameMap.MapEditor
 
         private void ShowEnableToggle()
         {
+            EditorGUILayout.Space(15);
             enableMoveToggle = EditorGUILayout.Toggle("保留并转移子区域", enableMoveToggle);
+            EditorGUILayout.Space(15);
         }
 
         private void ShowConfirmBtns()
         {
+            EditorGUILayout.Space(15);
             EditorGUILayout.BeginHorizontal();
             {
                 if (GUILayout.Button("确认", normalButtonStyle))

@@ -8,7 +8,7 @@ namespace LZ.WarGameMap.MapEditor
         protected static readonly Vector2 popSize = new Vector2(300, 150);
         protected static readonly Vector2 buttonSize = new Vector2(100, 30);
 
-        protected readonly GUIStyle normalButtonStyle = new GUIStyle(GUI.skin.button)
+        protected static GUIStyle normalButtonStyle = new GUIStyle(GUI.skin.button)
         {
             fixedHeight = buttonSize.y,
             stretchWidth = true,

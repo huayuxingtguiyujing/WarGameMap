@@ -11,7 +11,7 @@ namespace LZ.WarGameMap.Runtime
     {
         public AssetsUtility() { }
 
-        public string CombinedPath(string filePath, string fileName) {
+        public static string CombinedPath(string filePath, string fileName) {
             if (!Directory.Exists(filePath)) {
                 Directory.CreateDirectory(filePath);
             }
@@ -33,7 +33,7 @@ namespace LZ.WarGameMap.Runtime
             return filePath.Replace("\\", "/");
         }
 
-        public string GetFolderFromPath(string filePath) {
+        public static string GetFolderFromPath(string filePath) {
             string trimmedPath = filePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             string lastFolderName = Path.GetFileName(trimmedPath);
             return lastFolderName;
@@ -42,7 +42,20 @@ namespace LZ.WarGameMap.Runtime
 
         #region get file infos from folder
 
-        public HashSet<string> GetFileNames(string folderPath) {
+        public static List<string> GetFileNames(string folderPath, string suffix)
+        {
+            var result = new List<string>();
+            if (!Directory.Exists(folderPath))
+            {
+                return result;
+            }
+
+            var files = Directory.GetFiles(folderPath, "*" + suffix, SearchOption.TopDirectoryOnly);
+            result.AddRange(files);
+            return result;
+        }
+
+        public static HashSet<string> GetFileNames(string folderPath) {
             string[] guids = AssetDatabase.FindAssets("", new[] { folderPath });
 
             HashSet<string> terrainFileNames = new HashSet<string>();
@@ -58,7 +71,8 @@ namespace LZ.WarGameMap.Runtime
 
 
         #region save load asset
-        public void SaveAssets<T>(string path, string assetName, T asset) where T : UnityEngine.Object {
+
+        public static void SaveAssets<T>(string path, string assetName, T asset) where T : UnityEngine.Object {
             if (assetName == null) {
                 return;
             }
@@ -80,7 +94,7 @@ namespace LZ.WarGameMap.Runtime
             AssetDatabase.Refresh();
         }
 
-        public T LoadAssets<T>(string path, string assetName) where T : UnityEngine.Object {
+        public static T LoadAssets<T>(string path, string assetName) where T : UnityEngine.Object {
             if (assetName == null) {
                 return null;
             }

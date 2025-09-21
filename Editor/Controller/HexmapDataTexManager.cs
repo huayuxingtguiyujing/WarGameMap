@@ -31,6 +31,119 @@ namespace LZ.WarGameMap.MapEditor
 
         RenderTexture texDataRenderTexture;
 
+        // RT data cache
+        class RTDataCache : IDisposable
+        {
+            int mapWidth;
+            int mapHeight;
+            int curTexCacheIndex = 0;
+            int texDataCacheNum = 4;
+
+            int curPageIndex = -1;
+
+            List<Color> texDataCache = new List<Color>();
+
+            Texture2D cacheDataTex;     // use it to quickly switch texture
+
+            public bool IsValid { get; private set; }
+
+            public RTDataCache() { IsValid = false; }
+
+            public RTDataCache(int texDataCacheNum, int mapWidth, int mapHeight)
+            {
+                this.mapWidth = mapWidth;
+                this.mapHeight = mapHeight;
+                this.texDataCacheNum = texDataCacheNum;
+                int capa = texDataCacheNum * mapWidth * mapHeight;
+                texDataCache = new List<Color>(capa);
+                texDataCache.FillInList(capa);
+                IsValid = true;
+            }
+
+            public void InitTexCache(int index, List<Color> colors)
+            {
+                if (!IsValid)
+                {
+                    Debug.Log($"Not a valid RTDataCache!");
+                    return;
+                }
+                if (texDataCacheNum <= index || index < 0)
+                {
+                    Debug.Log($"invalid index : {index}, the tex data num is : {texDataCacheNum}");
+                    return;
+                }
+                int offset = index * mapHeight * mapWidth;
+
+                Color[] buffer = new Color[texDataCache.Count];
+                colors.CopyTo(0, buffer, offset, colors.Count);
+                for (int i = 0; i < colors.Count; i++)
+                {
+                    texDataCache[offset + i] = buffer[i];
+                }
+            }
+
+            public void PaintTexCache(List<Vector2Int> poss, Color color)
+            {
+                int length = mapHeight * mapWidth;
+                int offset = curPageIndex * length;
+                foreach (var pos in poss)
+                {
+                    if(CheckIndexValid(pos))
+                    {
+                        int index = offset + pos.y * mapWidth + pos.x;
+                        texDataCache[index] = color;
+                    }
+                }
+            }
+
+            private bool CheckIndexValid(Vector2Int pos)
+            {
+                int index = pos.y * mapWidth + pos.x;
+                return index >= 0 && index < mapHeight * mapWidth;
+            }
+
+            public Texture2D SwitchToTexCache(int index)
+            {
+                if (!IsValid)
+                {
+                    Debug.Log($"Not a valid RTDataCache!");
+                    return null;
+                }
+                if (texDataCacheNum <= index || index < 0)
+                {
+                    Debug.Log($"invalid index : {index}, the tex data num is : {texDataCacheNum}");
+                    return null;
+                }
+
+                this.curPageIndex = index;
+                if (cacheDataTex == null)
+                {
+                    cacheDataTex = new Texture2D(mapWidth, mapHeight);
+                }
+                int offset = index * mapHeight * mapWidth;
+                cacheDataTex.SetPixels(texDataCache.GetRange(offset, mapHeight * mapWidth).ToArray());
+                cacheDataTex.Apply();
+
+                Debug.Log($"Now, switch to tex cache index : {index}, length : {mapHeight * mapWidth}");
+
+                return cacheDataTex;
+            }
+
+            public void Dispose()
+            {
+                if(cacheDataTex != null)
+                {
+                    GameObject.DestroyImmediate(cacheDataTex);
+                }
+                texDataCache.Clear();
+            }
+        }
+
+        RTDataCache rtDataCache = new RTDataCache();
+
+        bool useTexDataCache = false;
+        
+
         ComputeShader paintRTShader;
 
         MeshRenderer meshRenderer;
@@ -52,13 +165,15 @@ namespace LZ.WarGameMap.MapEditor
             IsInit = false;
         }
 
-        public void InitHexmapDataTexture(int mapWdith, int mapHeight, int scale, Vector3 offset, GameObject parentObj, Material material, ComputeShader paintRTShader, bool notShowInScene = false) {
+        public void InitHexmapDataTexture(int mapWdith, int mapHeight, int scale, Vector3 offset, GameObject parentObj, Material material, ComputeShader paintRTShader, bool notShowInScene = false, bool useTexCache = false, int texCacheNum = 1) {
             this.mapWdith = mapWdith;
             this.mapHeight = mapHeight;
             this.scale = scale;
             this.offset = offset;
             this.notShowInScene = notShowInScene;
+            this.useTexDataCache = useTexCache;
             this.paintRTShader = paintRTShader;
+
             CreateHexDataMeshObj(scale, offset, parentObj);
             CreateRenderTexture(mapWdith, mapHeight);
             ApplyHexDataTexture(material);
@@ -69,21 +184,38 @@ namespace LZ.WarGameMap.MapEditor
             {
                 ShowHideTexture(false);
             }
+            if (useTexDataCache)
+            {
+                CreateTexDataCache(texCacheNum);
+            }
 
             Debug.Log("init HexmapDataTextureManager over ");
         }
 
         // Use it to set a Texture
-        public void InitHexmapDataTexture(Texture2D newTexture, int scale, Vector3 offset, GameObject parentObj, Material material) {
+        public void InitHexmapDataTexture(Texture2D newTexture, int scale, Vector3 offset, GameObject parentObj, Material material, ComputeShader paintRTShader, bool notShowInScene = false, bool useTexCache = false, int texCacheNum = 1) {
             this.mapWdith = newTexture.width;
             this.mapHeight = newTexture.height;
             this.scale = scale;
             this.offset = offset;
+            this.notShowInScene = notShowInScene;
+            this.useTexDataCache = useTexCache;
+            this.paintRTShader = paintRTShader;
+
             CreateHexDataMeshObj(scale, offset, parentObj);
             CreateRenderTexture(mapWdith, mapHeight);
             Graphics.Blit(newTexture, texDataRenderTexture);
             ApplyHexDataTexture(material);
             IsInit = true;
+
+            if (notShowInScene)
+            {
+                ShowHideTexture(false);
+            }
+            if (useTexDataCache)
+            {
+                CreateTexDataCache(texCacheNum);
+            }
 
             Debug.Log("init HexmapDataTextureManager over ");
         }
@@ -152,6 +284,21 @@ namespace LZ.WarGameMap.MapEditor
 #if UNITY_EDITOR
             UnityEditor.EditorUtility.SetDirty(meshRenderer);
 #endif
+        }
+
+        private void CreateTexDataCache(int texDataCacheNum)
+        {
+            rtDataCache = new RTDataCache(texDataCacheNum, mapWdith, mapHeight);
+        }
+
+        // Call it when you refresh scene (AssetDatabase.Refresh())
+        public void UpdateHexManager()
+        {
+            if(meshRenderer is null)
+            {
+                return;
+            }
+            ApplyHexDataTexture(meshRenderer.sharedMaterial);
         }
 
         #endregion
@@ -227,8 +374,28 @@ namespace LZ.WarGameMap.MapEditor
                 renderTexturePainter = new RenderTexturePainter(this.paintRTShader, texDataRenderTexture);
             }
             renderTexturePainter.PaintPixels(poss, color);
+
+            if (useTexDataCache)
+            {
+                rtDataCache.PaintTexCache(poss, color);
+            }
         }
 
+        // Tex data cache, support scene need many RT data
+        // TODO : NEED TEST
+        public void InitTexCache(int index, List<Color> colors)
+        {
+            rtDataCache.InitTexCache(index, colors);
+            Debug.Log("now you init index : {index} texture cache data");
+        }
+
+        // TODO : NEED TEST
+        public void SwitchToTexCache(int index)
+        {
+            Texture2D cacheDataTex = rtDataCache.SwitchToTexCache(index);
+            Graphics.Blit(cacheDataTex, texDataRenderTexture);
+            RenderTexture.active = texDataRenderTexture;
+        }
 
         public void SetRTPixel(List<Color> colors)
         {
@@ -258,12 +425,12 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         public void Dispose() {
-            // release the data
             if (texDataRenderTexture!= null) {
                 texDataRenderTexture.Release();
                 texDataRenderTexture = null;
             }
-            
+            rtDataCache.Dispose();
+
             IsInit = false;
         }
     

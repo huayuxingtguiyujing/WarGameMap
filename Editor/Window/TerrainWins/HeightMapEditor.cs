@@ -98,7 +98,7 @@ namespace LZ.WarGameMap.MapEditor
 
         private void SerializeHeightMap(string outputPath, string outputName, string[] inputFilePaths, int size) {
 
-            string outputFile = AssetsUtility.GetInstance().CombinedPath(outputPath, outputName);
+            string outputFile = AssetsUtility.CombinedPath(outputPath, outputName);
             using (FileStream fs = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write)) {
                 using (BinaryWriter writer = new BinaryWriter(fs)) {
                     // file header : fileNum, single fileSize  // Int32
@@ -314,7 +314,7 @@ namespace LZ.WarGameMap.MapEditor
                     }
 
                     Debug.Log($"header info, num of files : {fileNum}, single SO file size : {singleFileWidth}");
-                    string assetFullPath = AssetsUtility.GetInstance().CombinedPath(deserlOutputFilePath, modelName);
+                    string assetFullPath = AssetsUtility.CombinedPath(deserlOutputFilePath, modelName);
                     AssetDatabase.CreateAsset(heightDataModel, assetFullPath);
                     AssetDatabase.SaveAssets();
                 }

@@ -1,7 +1,10 @@
 using Sirenix.OdinInspector;
+using Sirenix.Utilities.Editor;
 using System;
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
+using static UnityEditor.Experimental.GraphView.GraphView;
 
 namespace LZ.WarGameMap.Runtime.Model
 {
@@ -40,9 +43,9 @@ namespace LZ.WarGameMap.Runtime.Model
     }
 
     [Serializable]
-    public class CountryData
+    public class CountryData : CSVInterface
     {
-        [LabelText("所属行政层级"), ReadOnly]
+        [LabelText("所属行政层级")]   // ReadOnly
         public int Layer;
 
         [LabelText("名称")]
@@ -55,7 +58,7 @@ namespace LZ.WarGameMap.Runtime.Model
         public Color CountryColor;
 
         [LabelText("是否是最小区划")]
-        public bool IsMinCountry => (Layer >= BaseCountryDatas.MaxCountryLayer);
+        public bool IsMinCountry => (Layer >= BaseCountryDatas.MaxLayerNum);
 
         [LabelText("有效"), ReadOnly]
         public bool IsValid;
@@ -77,8 +80,9 @@ namespace LZ.WarGameMap.Runtime.Model
             IsValid = false;
         }
 
-        public CountryData(string countryName, string countryDesc, Color countryColor)
+        public CountryData(int layer, string countryName, string countryDesc, Color countryColor)
         {
+            Layer = layer;
             CountryName = countryName;
             CountryDesc = countryDesc;
             CountryColor = countryColor;
@@ -87,7 +91,7 @@ namespace LZ.WarGameMap.Runtime.Model
 
         public static CountryData GetRootCountryData()
         {
-            return new CountryData(BaseCountryDatas.RootCountryLayerIndex, 0, BaseCountryDatas.RootCountryLayerName, "", 
+            return new CountryData(BaseCountryDatas.RootLayerIndex, 0, BaseCountryDatas.RootLayerName, "", 
                 BaseCountryDatas.NotValidCountryColor, false, 0);
         }
 
@@ -102,7 +106,7 @@ namespace LZ.WarGameMap.Runtime.Model
             IsValid = true;
         }
 
-        // TODO : 有问题现在，ParentCountry 与其他 index 要自动生成，不能用 copy的
+        // TODO : 现在有问题，ParentCountry 与其他 index 要自动生成，不能用 copy的
         public void CopyCountryData(CountryData other)
         {
             Layer = other.Layer;
@@ -160,6 +164,44 @@ namespace LZ.WarGameMap.Runtime.Model
                 }
             }
         }
+
+        #region Serialize
+
+        public string Serialize()
+        {
+            StringBuilder sb = new StringBuilder();
+            sb.Append(CSVUtil.FormatValue(Layer));
+            sb.Append(",");
+            sb.Append(CSVUtil.FormatValue(CountryName));
+            sb.Append(",");
+            sb.Append(CSVUtil.FormatValue(CountryDesc));
+            sb.Append(",");
+            sb.Append(CSVUtil.FormatValue(CountryColor));
+            sb.Append(",");
+            sb.Append(CSVUtil.FormatValue(IsValid));
+            sb.Append(",");
+            sb.Append(CSVUtil.FormatValue(ParentCountry));
+            sb.Append(",");
+            sb.Append(CSVUtil.FormatValue(IndexInLayer));
+            sb.Append(",");
+            sb.Append(CSVUtil.FormatValue(ChildCountry));
+            return sb.ToString();
+        }
+
+        public void Deserialize(string lineData)
+        {
+            string[] datas = lineData.Split(',');
+            Layer           = (int)CSVUtil.ParseValue(datas[0], typeof(int));
+            CountryName     = (string)CSVUtil.ParseValue(datas[1], typeof(string));
+            CountryDesc     = (string)CSVUtil.ParseValue(datas[2], typeof(string));
+            CountryColor    = (Color)CSVUtil.ParseValue(datas[3], typeof(Color));
+            IsValid         = (bool)CSVUtil.ParseValue(datas[4], typeof(bool));
+            ParentCountry   = (ushort)CSVUtil.ParseValue(datas[5], typeof(ushort));
+            IndexInLayer    = (ushort)CSVUtil.ParseValue(datas[6], typeof(ushort));
+            ChildCountry    = (List<ushort>)CSVUtil.ParseValue(datas[7], typeof(List<ushort>));
+        }
+
+        #endregion
 
     }
 }

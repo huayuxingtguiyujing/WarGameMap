@@ -135,7 +135,6 @@ namespace LZ.WarGameMap.MapEditor
         // TODO : 下面一整块在后续都会被去除掉！！不再使用高度图来构建 Hex 的地图，可能仅会通过高度图确定某个地区的地形
         // 然后再用新的类cv的流程去构建地图
 
-
         [FoldoutGroup("构建地形-Hex流程")]
         [LabelText("当前操作Hex地图对象")]
         public HexMapSO rawHexMapSO;
@@ -223,7 +222,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         private void CheckExportPath() {
-            string mapSOFolerName = AssetsUtility.GetInstance().GetFolderFromPath(exportHexMapSOPath);
+            string mapSOFolerName = AssetsUtility.GetFolderFromPath(exportHexMapSOPath);
             if (!AssetDatabase.IsValidFolder(exportHexMapSOPath)) {
                 AssetDatabase.CreateFolder(MapStoreEnum.TerrainRootPath, mapSOFolerName);
             }
@@ -302,7 +301,7 @@ namespace LZ.WarGameMap.MapEditor
                     }
 
                     Vector2Int LL = new Vector2Int(cluster.longitude, cluster.latitude);
-                    string outputFile = AssetsUtility.GetInstance().CombinedPath(exportHandleMeshPath,
+                    string outputFile = AssetsUtility.CombinedPath(exportHandleMeshPath,
                         GetMeshDataName(terrainWidth, terrainHeight, LL));
 
                     // NOTE : 用这个方法导出的文件一个cluster有80mb，引以为戒

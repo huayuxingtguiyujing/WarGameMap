@@ -24,7 +24,7 @@ namespace LZ.WarGameMap.MapEditor
         
         protected override BrushHexmapSetting GetBrushSetting()
         {
-            throw new System.NotImplementedException();
+            return BrushHexmapSetting.Default;
         }
 
 

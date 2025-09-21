@@ -51,7 +51,7 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
         protected virtual void InitMapSetting() {
-            string mapSetFolerName = AssetsUtility.GetInstance().GetFolderFromPath(MapStoreEnum.WarGameMapSettingPath);
+            string mapSetFolerName = AssetsUtility.GetFolderFromPath(MapStoreEnum.WarGameMapSettingPath);
             if (!AssetDatabase.IsValidFolder(MapStoreEnum.WarGameMapSettingPath)) {
                 AssetDatabase.CreateFolder(MapStoreEnum.WarGameMapRootPath, mapSetFolerName);
             }

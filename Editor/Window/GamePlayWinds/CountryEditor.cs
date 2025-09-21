@@ -4,10 +4,16 @@ using LZ.WarGameMap.Runtime.Model;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.VersionControl;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
 {
+
+    using ShowChildCall = Action<int, string, string, bool>;
+
     public class CountryEditor : BrushHexmapEditor
     {
         public override string EditorName => MapEditorEnum.CountryEditor;
@@ -18,12 +24,13 @@ namespace LZ.WarGameMap.MapEditor
             InitMapSetting();
             LoadCountrySO();
             InitCountryEditData();
+            InitCurChooseSet();
             Debug.Log("country editor has inited!");
         }
 
         protected override BrushHexmapSetting GetBrushSetting()
         {
-            throw new System.NotImplementedException();
+            return new BrushHexmapSetting() { texCacheNum = 4, useTexCache = true};
         }
 
         private void LoadCountrySO()
@@ -35,18 +42,23 @@ namespace LZ.WarGameMap.MapEditor
         private void InitCountryEditData()
         {
             CountryLayerFilter.Clear();
-            CountryLayerFilter.Add(new CountryLayerWrapper(BaseCountryDatas.RootCountryLayerIndex, BaseCountryDatas.RootCountryLayerName, GetCountryDataByParentEvent, ShowChildCountryEvent));
 
+            // 9.21 : Now we dont need root layer as filter
+            // 0 Index is root country layer
+            //CountryLayerFilter.Add(new CountryLayerWrapper(BaseCountryDatas.RootLayerIndex, BaseCountryDatas.RootLayerName, GetCountryDataByParentEvent, ShowChildCountryEvent));
+
+            // (1~lastIdx - 1) Index is other country layer
+            // We do not need the min country layer
             List<CountryLayer> allLayers = countrySO.GetAllCountryLayer();
-            for (int i = 0; i < allLayers.Count; i++)
+            for (int i = 0; i < allLayers.Count - 1; i++)
             {
                 CountryLayerWrapper countryLayerWrapper = new CountryLayerWrapper(allLayers[i], GetCountryDataByParentEvent, ShowChildCountryEvent);
                 CountryLayerFilter.Add(countryLayerWrapper);
             }
 
             CurEditingChildCountryData.Clear();
-            // TODO : 初始化时展示 根层级的子区域
-            ShowChildCountryEvent(BaseCountryDatas.RootCountryLayerIndex, BaseCountryDatas.RootCountryLayerName, BaseCountryDatas.NotValidCountryName);
+            // When inited, show root layer's countryData
+            ShowChildCountryEvent(BaseCountryDatas.RootLayerIndex, BaseCountryDatas.RootLayerName, BaseCountryDatas.NotValidCountryName, true);
         }
 
         private List<CountryData> GetCountryDataByParentEvent(int parentLayerLevel)
@@ -62,17 +74,19 @@ namespace LZ.WarGameMap.MapEditor
                 return new List<CountryData>();
             }
             CountryData curCountryData = countrySO.GetCountryDataByName(ParentCountryDataName);
+            //Debug.Log($"call get country data by parent! parent level : {parentLayerLevel}, got country name : {curCountryData.CountryName}");
             return countrySO.GetChildCountryData(curCountryData);
         }
 
-        private void ShowChildCountryEvent(int LayerLevel, string LayerName, string CurCountryDataName)
+        private void ShowChildCountryEvent(int LayerLevel, string LayerName, string CurCountryDataName, bool resetRearFilter)
         {
             // Set edit data
             CurEditingLayer = LayerName;
             CurEditingLayerIndex = LayerLevel;
-            if (CurEditingLayerIndex == BaseCountryDatas.RootCountryLayerIndex)
+            _CurEditingLayerIndex = LayerLevel;
+            if (CurEditingLayerIndex == BaseCountryDatas.RootLayerIndex)
             {
-                CurChooseCountryName = BaseCountryDatas.RootCountryLayerName;
+                CurChooseCountryName = BaseCountryDatas.RootLayerName;
             }
             else
             {
@@ -99,24 +113,18 @@ namespace LZ.WarGameMap.MapEditor
             // Deep copy, Add child countryData
             for (int i = 0; i < childCountryData.Count; i++)
             {
-                CurEditingChildCountryData.Add(new CountryDataWrapper(childCountryData[i]));
+                CurEditingChildCountryData.Add(new CountryDataWrapper(childCountryData[i], DeleteCountryDataEvent, UpdateLockEvent));
+            }
+
+            // Reset rear filter's CurCountryName as "无"
+            for(int i = 0; i < CountryLayerFilter.Count; i++)
+            {
+                if (CountryLayerFilter[i].LayerLevel > LayerLevel)
+                {
+                    CountryLayerFilter[i].CurCountryName = BaseCountryDatas.NotValidCountryName;
+                }
             }
             Debug.Log($"show child data num : {childCountryData.Count}");
-        }
-
-        private void ChooseCountryDataEdit(string OriginCountryName)
-        {
-            
-        }
-
-        private void ConfirmEditEvent(CountryData countryData)
-        {
-            // Sync with cur wrapper
-        }
-
-        private void ChooseCountryDataPaint()
-        {
-
         }
 
         private void DeleteCountryDataEvent(string OriginCountryName)
@@ -130,17 +138,72 @@ namespace LZ.WarGameMap.MapEditor
 
             Action<bool> confirmDelEvent = (moveChildCountry) => 
             {
-                ConfirmDeleteEvent(countryData.Layer, countryData, moveChildCountry);
+                countrySO.RemoveCountryData(countryData, moveChildCountry);
+
+                // Remove from country data wrapper
+                for (int i = CurEditingChildCountryData.Count - 1; i >= 0; i--)
+                {
+                    if (CurEditingChildCountryData[i].OriginCountryName == OriginCountryName)
+                    {
+                        CurEditingChildCountryData.RemoveAt(i);
+                        break;
+                    }
+                }
             };
-            CountryDeletePop.GetPopInstance().ShowBasePop(countryData, confirmDelEvent, null);
+            CountryDeletePop instance = CountryDeletePop.GetPopInstance();
+            instance.ShowBasePop(countryData, confirmDelEvent, null);
         }
 
-        private void ConfirmDeleteEvent(int layerLevel, CountryData countryData, bool moveChildCountry)
+        private void InitCurChooseSet()
         {
-            countrySO.RemoveCountryData(layerLevel, countryData, moveChildCountry);
+            CurCountryName = BaseCountryDatas.NotValidCountryName;
+            CurPaintColor = BaseCountryDatas.NotValidCountryColor;
+            CurPaintCountryData = null;
         }
 
+        // TODO : 需要性能优化...现在有点慢了
+        protected override void PostBuildHexGridMap() 
+        {
+            int mapWidth = hexSet.mapWidth;
+            int mapHeight = hexSet.mapHeight;
+            BrushHexmapSetting setting = GetBrushSetting();
+            int pageNum = setting.texCacheNum;
+            List<Color> hexColors = new List<Color>(mapHeight * mapWidth * pageNum);
 
+            for (int j = 0; j < mapHeight; j++)
+            {
+                for (int i = 0; i < mapWidth; i++)
+                {
+                    Vector2Int idx = new Vector2Int(i, j);
+                    List<CountryData> countryDatas = countrySO.GetGridCountry(idx);
+                    for(int layer = 0; layer < countryDatas.Count; layer++)
+                    {
+                        if (countryDatas[layer] != null)
+                        {
+                            hexColors.Add(countryDatas[layer].CountryColor);
+                        }
+                        else
+                        {
+                            hexColors.Add(BaseCountryDatas.NotValidCountryColor);
+                        }
+                    }
+                }
+            }
+
+            // Init every layer's texture cache data
+            for (int offset = 0; offset < pageNum; offset++)
+            {
+                List<Color> layerColors = new List<Color>(mapHeight * mapWidth);
+                for(int i = 0; i < mapHeight * mapWidth; i++)
+                {
+                    layerColors.Add(hexColors[i * pageNum + offset]);
+                }
+                hexmapDataTexManager.InitTexCache(offset, layerColors);
+            }
+
+            hexmapDataTexManager.SwitchToTexCache(0);
+        }
+        
         #region 区域数据编辑
 
         [FoldoutGroup("区域数据编辑")]
@@ -159,14 +222,16 @@ namespace LZ.WarGameMap.MapEditor
 
             [HorizontalGroup("CountryLayerWrapper"), LabelText("选中区域")]
             [ValueDropdown("GetLayerCountryDatas")]
-            //[OnValueChanged("OnCountryLayerFilterChanged")]
-            public string CurCountryName = "无";
+            [OnValueChanged("OnCountryLayerFilterChanged")]
+            public string CurCountryName = BaseCountryDatas.NotValidCountryName;
+
+            private string LastCountryName = BaseCountryDatas.NotValidCountryName;
 
             Func<int, List<CountryData>> GetCountryDataByParent;
 
-            Action<int, string, string> ShowChildCountryCall;
+            ShowChildCall ShowChildCountryCall;
 
-            public CountryLayerWrapper(CountryLayer layer, Func<int, List<CountryData>> getCountryDataByParent, Action<int, string, string> showChildCountry)
+            public CountryLayerWrapper(CountryLayer layer, Func<int, List<CountryData>> getCountryDataByParent, ShowChildCall showChildCountry)
             {
                 this.LayerLevel = layer.LayerLevel;
                 this.LayerName = layer.LayerName;
@@ -174,7 +239,7 @@ namespace LZ.WarGameMap.MapEditor
                 ShowChildCountryCall = showChildCountry;
             }
 
-            public CountryLayerWrapper(int LayerLevel, string LayerName, Func<int, List<CountryData>> getCountryDataByParent, Action<int, string, string> showChildCountry)
+            public CountryLayerWrapper(int LayerLevel, string LayerName, Func<int, List<CountryData>> getCountryDataByParent, ShowChildCall showChildCountry)
             {
                 this.LayerLevel = LayerLevel;
                 this.LayerName = LayerName;
@@ -189,6 +254,7 @@ namespace LZ.WarGameMap.MapEditor
                 };
                 if (LayerLevel < 0 || GetCountryDataByParent == null)
                 {
+                    Debug.Log($"layer level : {LayerLevel}, get parent call : {GetCountryDataByParent == null}");
                     return dropDownItemList;
                 }
 
@@ -197,20 +263,23 @@ namespace LZ.WarGameMap.MapEditor
                 {
                     dropDownItemList.Add(new ValueDropdownItem<string>(countryData.CountryName, countryData.CountryName));
                 }
+                //Debug.Log($"get all country data by choosen parent, num : {layerCountryDatas.Count}");
                 return dropDownItemList;
             }
 
-            [HorizontalGroup("CountryLayerWrapper")]
-            [Button("展示子区域")]
-            private void ShowChildCountry()
+            //[HorizontalGroup("CountryLayerWrapper")]
+            //[Button("展示子区域")]
+            public void OnCountryLayerFilterChanged()
             {
                 if (ShowChildCountryCall == null)
                 {
-                    Debug.LogError("ShowChildCountryCall is null!");
+                    Debug.LogError("ShowChildCountryCall is null! should call InitEditor firstlt");
                     return;
                 }
-                ShowChildCountryCall(LayerLevel, LayerName, CurCountryName);
+                ShowChildCountryCall(LayerLevel, LayerName, CurCountryName, LastCountryName != CurCountryName);
+                LastCountryName = CurCountryName;
             }
+
         }
 
         [FoldoutGroup("区域数据编辑")]
@@ -220,22 +289,23 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("区域数据编辑")]
         [LabelText("选中区域所在层级"), ReadOnly]
         public string CurEditingLayer           = BaseCountryDatas.NotValidLayerName;
-
+        
         private int CurEditingLayerIndex        = BaseCountryDatas.NotValidLayerIndex;
+        static int _CurEditingLayerIndex;
 
         [FoldoutGroup("区域数据编辑")]
         [LabelText("选中区域名称"), ReadOnly]
         public string CurChooseCountryName      = BaseCountryDatas.NotValidCountryName;
 
-        [FoldoutGroup("区域数据编辑")]
-        [LabelText("正在涂刷的区域名称"), ReadOnly]
-        public string CurPaintingCountryName    = BaseCountryDatas.NotValidCountryName;
-
-        private CountryData paintCountryData = null;
+        HashSet<string> lockEditSet = new HashSet<string>();        // Cur locking country names
 
         [Serializable]
         public class CountryDataWrapper
         {
+            [HorizontalGroup("CountryData"), LabelText("锁定")]
+            [OnValueChanged("UpdateLockEdit")]
+            public bool IsLock;
+
             // Field only to show
             [HorizontalGroup("CountryData"), LabelText("原名称"), ReadOnly]
             public string OriginCountryName;    // Do not mod it!!!
@@ -251,29 +321,35 @@ namespace LZ.WarGameMap.MapEditor
             [HideInInspector]
             public bool IsValid => countryData.IsValid;
 
+
+            Action<string> DeleteCountryData;
+            Action UpdateLockEvent;
+
             public CountryDataWrapper()
             {
                 OriginCountryName = BaseCountryDatas.NotValidCountryName;
-                this.countryData = new CountryData(BaseCountryDatas.NotValidCountryName, "", BaseCountryDatas.NotValidCountryColor);
+                this.countryData = new CountryData(_CurEditingLayerIndex + 1, BaseCountryDatas.NotValidCountryName, "", BaseCountryDatas.NotValidCountryColor);
                 SyncWithCountryData();
             }
 
-            // TODO : 构造函数没搞完
-            public CountryDataWrapper(CountryData countryData)
+            public CountryDataWrapper(CountryData countryData, Action<string> DeleteCountryData, Action UpdateLockEvent)
             {
                 this.countryData = new CountryData();
                 this.countryData.CopyCountryData(countryData);
                 OriginCountryName = countryData.CountryName;
+                this.DeleteCountryData = DeleteCountryData;
+                this.UpdateLockEvent = UpdateLockEvent;
                 SyncWithCountryData();
             }
 
-            public void CopyCountryData(CountryData countryData)
+            public void CopyCountryData(CountryData countryData, Action<string> DeleteCountryData, Action UpdateLockEvent)
             {
                 this.countryData.CopyCountryData(countryData);
                 OriginCountryName = countryData.CountryName;
+                this.DeleteCountryData = DeleteCountryData;
+                this.UpdateLockEvent = UpdateLockEvent;
                 SyncWithCountryData();
             }
-
 
             [HorizontalGroup("CountryData"), Button("进行编辑")]
             private void ChooseCountryDataEdit()
@@ -288,7 +364,13 @@ namespace LZ.WarGameMap.MapEditor
                 {
                     OriginCountryName = countryData.CountryName;
                 }
-                //this.countryData.CopyCountryData(countryData);
+
+                // Set color if color is not valid
+                if (countryData.CountryColor == BaseCountryDatas.NotValidCountryColor)
+                {
+                    countryData.CountryColor = MapColorUtil.GetValidColor_Random();
+                }
+                
                 SyncWithCountryData();
                 countryData.SetValidCountryData();
                 Debug.Log($"edit over, now CountryData {countryData.CountryName} is valid");
@@ -297,13 +379,16 @@ namespace LZ.WarGameMap.MapEditor
             [HorizontalGroup("CountryData"), Button("删除数据")]
             private void RemoveCountryData()
             {
-                // TODO : 只有使用该操作，才会 真正删除 CountryData
-                Debug.Log($"remove this countryData, origin name : {OriginCountryName}, name : {CountryName}");
-            }
-
-            private void ConfirmDeleteEvent()
-            {
-
+                // NOTE : Only though this way, you can del CountryData
+                if (DeleteCountryData != null)
+                {
+                    DeleteCountryData(OriginCountryName);
+                    Debug.Log($"remove this countryData, origin name : {OriginCountryName}, cur name : {CountryName}");
+                }
+                else
+                {
+                    Debug.LogError("DeleteCountryData is null, you can init again");
+                }
             }
 
             private void SyncWithCountryData()
@@ -312,10 +397,16 @@ namespace LZ.WarGameMap.MapEditor
                 CountryColor = countryData.CountryColor;
             }
 
+            private void UpdateLockEdit()
+            {
+                UpdateLockEvent?.Invoke();
+            }
+
             public CountryData GetCountryData()
             {
                 return this.countryData;
             }
+        
         }
 
         [FoldoutGroup("区域数据编辑")]
@@ -327,7 +418,6 @@ namespace LZ.WarGameMap.MapEditor
         [Button("一键设置区域颜色", ButtonSizes.Medium)]
         private void SetCountryDataColor()
         {
-            // TODO : 完成它
         }
 
         [FoldoutGroup("区域数据编辑")]
@@ -339,7 +429,7 @@ namespace LZ.WarGameMap.MapEditor
                 Debug.LogError($"not valid layer index : {CurEditingLayerIndex}");
                 return;
             }
-            if (CurChooseCountryName == BaseCountryDatas.NotValidCountryName && CurEditingLayerIndex != BaseCountryDatas.RootCountryLayerIndex)
+            if (CurChooseCountryName == BaseCountryDatas.NotValidCountryName && CurEditingLayerIndex != BaseCountryDatas.RootLayerIndex)
             {
                 Debug.LogError("you have not choosen a parent area");
                 return;
@@ -357,38 +447,207 @@ namespace LZ.WarGameMap.MapEditor
                 {
                     // If found country data, then sync with it
                     originData.CopyCountryData(wrapper.GetCountryData());
-                    wrapper.CopyCountryData(originData);
+                    wrapper.CopyCountryData(originData, DeleteCountryDataEvent, UpdateLockEvent);
                 }
                 else
                 {
                     countrySO.AddCountryData(CurEditingLayerIndex, CurChooseCountryName, wrapper.GetCountryData());
                 }
             }
-            countrySO.DebugAllLayerCountryData();
+            //countrySO.DebugAllLayerCountryData();
             //countrySO.SaveCountryDatas(CurEditingLayerIndex, CurEditingCountry, CurEditingChildCountryData);
+
+            EditorUtility.SetDirty(countrySO);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            UpdateHexTexManager();
         }
 
-        [FoldoutGroup("区域数据编辑")]
-        [Button("保存CountrySO", ButtonSizes.Medium)]
-        private void SaveCountrySO()
+        private void UpdateLockEvent()
         {
-            // TODO : 是否还需要这个方法？
-            //countrySO.SaveCountrySO();
+            lockEditSet.Clear();
+            foreach (var wrapper in CurEditingChildCountryData)
+            {
+                if (wrapper.IsLock)
+                {
+                    lockEditSet.Add(wrapper.OriginCountryName);
+                }
+            }
         }
 
         #endregion
-
 
         #region 区域涂刷编辑
 
-        // TODO : complete it
+        [FoldoutGroup("区域涂刷编辑")]
+        [LabelText("当前涂刷的 CountryName")]
+        [ValueDropdown("GetCurFilterCountryData")]
+        [OnValueChanged("OnCurPaintCountryChanged")]
+        public string CurCountryName = BaseCountryDatas.NotValidCountryName;
+
+        [FoldoutGroup("区域涂刷编辑")]
+        [LabelText("当前涂刷的 Country 颜色"), ReadOnly]
+        public Color CurPaintColor = BaseCountryDatas.NotValidCountryColor;
+
+        private CountryData CurPaintCountryData = null;
+
+        private IEnumerable<ValueDropdownItem<string>> GetCurFilterCountryData()
+        {
+            List<ValueDropdownItem<string>> dropDownItemList = new List<ValueDropdownItem<string>>();
+            if (CurEditingChildCountryData.Count == 0)
+            {
+                return dropDownItemList;
+            }
+
+            foreach (var wrapper in CurEditingChildCountryData)
+            {
+                dropDownItemList.Add(new ValueDropdownItem<string>(wrapper.OriginCountryName, wrapper.OriginCountryName));
+            }
+            return dropDownItemList;
+        }
+
+        private void OnCurPaintCountryChanged()
+        {
+            CurPaintCountryData = countrySO.GetCountryDataByName(CurCountryName);
+            if (CurPaintCountryData is null)
+            {
+                Debug.LogError($"Can not get country data, country name : {CurCountryName}");
+                return;
+            }
+            CurPaintColor = CurPaintCountryData.CountryColor;
+            SetBrushColor(CurPaintColor);
+
+            // Switch cur RT data
+            hexmapDataTexManager.SwitchToTexCache(CurPaintCountryData.Layer);
+        }
+
+        [FoldoutGroup("区域涂刷编辑")]
+        [LabelText("保存位置")]
+        public string saveCountryTexPath = MapStoreEnum.GamePlayCountryDataPath;
+
+        [FoldoutGroup("区域涂刷编辑")]
+        [Button("保存绘制结果", ButtonSizes.Medium)]
+        private void SavePaintResult()
+        {
+            EditorUtility.SetDirty(countrySO);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            UpdateHexTexManager();
+            Debug.Log($"已成功保存: {countrySO.name}");
+        }
+
+        [FoldoutGroup("区域涂刷编辑")]
+        [Tooltip("点击后可以让相邻区域的颜色保证不同")]
+        [Button("一键修复区域颜色", ButtonSizes.Medium)]
+        private void FixCountryColor()
+        {
+            // TODO : 需要遍历纹理，找到各个区域 对应的纹理地区，然后重新设置颜色
+        }
+
+        [FoldoutGroup("区域涂刷编辑")]
+        [Button("导入区域分布纹理", ButtonSizes.Medium)]
+        private void ImportCountryTexture()
+        {
+            
+        }
+
+        [FoldoutGroup("区域涂刷编辑")]
+        [Button("导出区域分布纹理", ButtonSizes.Medium)]
+        private void ExportCountryTexture()
+        {
+            
+        }
 
         #endregion
 
+        #region 区域数据导入导出
 
-        protected override bool EnablePaintHex(Vector2Int offsetHexPos) { 
-            return true; 
+        [FoldoutGroup("区域数据导入导出")]
+        [LabelText("导入/导出位置"), ReadOnly]
+        public string exportCountryFilePath = MapStoreEnum.GamePlayCountryCSVDataPath;
+
+        [FoldoutGroup("区域数据导入导出")]
+        [LabelText("导入时清空区域数据")]
+        public bool clearCountrySOWhenLoad = false;
+
+        [FoldoutGroup("区域数据导入导出")]
+        [Button("导入区域数据excel表", ButtonSizes.Medium)]
+        private void ImportCountryFile()
+        {
+            countrySO.LoadCSV(exportCountryFilePath, clearCountrySOWhenLoad);
+            AssetDatabase.Refresh();
         }
+
+        [FoldoutGroup("区域数据导入导出")]
+        [Button("导出区域数据excel表", ButtonSizes.Medium)]
+        private void ExportCountryFile()
+        {
+            countrySO.SaveCSV(exportCountryFilePath);
+            AssetDatabase.Refresh();
+        }
+
+        #endregion
+
+        protected override bool EnablePaintHex(Vector2Int offsetHexPos) 
+        { 
+            if(countrySO is null || CurPaintCountryData is null)
+            {
+                return false;
+            }
+
+            if (!countrySO.IsValidIndice(offsetHexPos))
+            {
+                return false;
+            }
+
+            // 越界
+            if (offsetHexPos.x < 0 || offsetHexPos.x >= hexSet.mapWidth || offsetHexPos.y < 0 || offsetHexPos.y >= hexSet.mapHeight)
+            {
+                return false;
+            }
+
+            List<CountryData> countryList = countrySO.GetGridCountry(offsetHexPos);
+            CountryData parentData = countrySO.GetParentCountryData(CurPaintCountryData);
+            int editingLayer = CurPaintCountryData.Layer;
+
+            //  If paint grid is not cur countrydata's parent data, forbid it
+            if (countrySO.IsValidLayer(parentData.Layer) && countryList[parentData.Layer] != parentData)
+            {
+                Debug.LogError("Not father country, so can not paint!");
+                return false;
+            }
+
+            // If locked edit, return false
+            CountryData thisLayerData = countryList[editingLayer];
+            if(thisLayerData is null)
+            {
+                return true;
+            }
+            if (!thisLayerData.IsValid)
+            {
+                return false;
+            }
+            if (lockEditSet.Contains(thisLayerData.CountryName))
+            {
+                return false;
+            }
+            return true;
+        }
+
+        protected override void PaintHexRTEvent(List<Vector2Int> offsetHexList) 
+        {
+            if (CurPaintCountryData is null)
+            {
+                Debug.LogError("Cur painting country data is null, so can not paint");
+                return;
+            }
+            foreach (var offsetHex in offsetHexList)
+            {
+                countrySO.SetGridCountry(offsetHex, CurPaintCountryData);
+            }
+            Debug.Log($"You paint grid : {offsetHexList.Count}");
+        }
+
 
         public override void Disable()
         {

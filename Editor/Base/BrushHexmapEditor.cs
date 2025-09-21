@@ -46,7 +46,10 @@ namespace LZ.WarGameMap.MapEditor
         {
             public bool enableBrush = true;           // 允许涂刷
             public bool enableKeyCode = false;        // 允许使用快捷键
-            //public bool enableBrush;    //
+            public bool useTexCache = false;          // 开启 HexmapDataTexManager 的缓存
+            public int texCacheNum = 4;               // 缓存页数
+
+            public static BrushHexmapSetting Default = new BrushHexmapSetting();
         }
 
         protected abstract BrushHexmapSetting GetBrushSetting();
@@ -88,15 +91,17 @@ namespace LZ.WarGameMap.MapEditor
         {
             if(hexmapDataTexManager == null)
             {
-                Debug.LogError("hexmapDataTexManager is null!");
+                Debug.LogError("hexmapDataTexManager is null! you should init editor firstly");
                 return;
             }
+
+            BrushHexmapSetting brushSetting = GetBrushSetting();
 
             // TODO : 如果是 3000*3000 规格的地图，Mesh数据会到800MB，要动态加载？
             HexCtor.InitHexConsRectangle_Once(hexBrushMat);
             
             hexmapDataTexManager.InitHexmapDataTexture(hexSet.mapWidth, hexSet.mapHeight, 1, Vector3.zero, 
-                EditorSceneManager.mapScene.hexTextureParentObj, hexBrushMat, paintRTShader, true);
+                EditorSceneManager.mapScene.hexTextureParentObj, hexBrushMat, paintRTShader, true, brushSetting.useTexCache, brushSetting.texCacheNum);
 
             List<Color> colors = new List<Color>(hexSet.mapWidth * hexSet.mapHeight);
             for(int i = 0; i < hexSet.mapWidth; i++)
@@ -112,6 +117,7 @@ namespace LZ.WarGameMap.MapEditor
                 colors[(int)index] = PaintHexGridWhenLoad((int)index);
             });
             hexmapDataTexManager.SetRTPixel(colors);
+            PostBuildHexGridMap();
             Debug.Log($"build the hex grid map, width : {hexSet.mapWidth}, height : {hexSet.mapHeight}");
         }
 
@@ -131,6 +137,9 @@ namespace LZ.WarGameMap.MapEditor
         {
             this.brushColor = brushColor;
         }
+
+        // Call it when you need handle when BuildHexGridMap over
+        protected virtual void PostBuildHexGridMap() { }
 
         #endregion
 
@@ -199,7 +208,7 @@ namespace LZ.WarGameMap.MapEditor
             Vector2Int offsetHexPos = HexHelper.AxialToOffset(HexHelper.PixelToAxialHex(pos, hexSet.hexGridSize));
             List<Vector2Int> offsetHexList = HexHelper.GetOffsetHexNeighbour_Scope(offsetHexPos, brushScope);
 
-            Debug.Log($"now paint grid num : {offsetHexList.Count}");
+            //Debug.Log($"now paint grid num : {offsetHexList.Count}");
             for (int i = offsetHexList.Count - 1; i >= 0; i--)
             {
                 if (!EnablePaintHex(offsetHexList[i]))
@@ -224,6 +233,10 @@ namespace LZ.WarGameMap.MapEditor
         // Call it when click init hex grid map
         protected virtual Color PaintHexGridWhenLoad(int index) { return Color.white; }
 
+        protected void UpdateHexTexManager()
+        {
+            hexmapDataTexManager.UpdateHexManager();
+        }
 
         public override void Enable()
         {

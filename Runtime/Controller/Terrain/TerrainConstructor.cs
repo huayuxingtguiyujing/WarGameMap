@@ -21,7 +21,6 @@ namespace LZ.WarGameMap.Runtime
     /// <summary>
     /// 此类用于构建地形Mesh，基于高度图应用到 MeshRender 上
     /// </summary>
-    //[ExecuteInEditMode]
     public class TerrainConstructor : MonoBehaviour
     {
 

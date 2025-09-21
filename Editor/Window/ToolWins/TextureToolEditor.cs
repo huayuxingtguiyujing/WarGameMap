@@ -129,7 +129,6 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-
         #region 纹理混合测试
 
         [FoldoutGroup("纹理混合测试")]
@@ -201,31 +200,32 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-
         #region SDF纹理处理
 
+        [FoldoutGroup("SDF纹理处理")]
+        [LabelText("SDF提示")]
+        [ReadOnly]
+        public string sdfNote = "请到路径 : Utils/SDFGenSample.cs，该文件为 Mono，挂接到场景并配置即可生成 SDF 纹理";
 
         [FoldoutGroup("SDF纹理处理")]
         [LabelText("源纹理")]
         public Texture2D originTexture;
 
-        [FoldoutGroup("SDF纹理处理")]
-        [LabelText("SDF纹理")]
-        public Texture2D sdfTexture;
+        //[FoldoutGroup("SDF纹理处理")]
+        //[LabelText("SDF纹理")]
+        //public Texture2D sdfTexture;
 
-        [FoldoutGroup("SDF纹理处理")]
-        [Button("生成SDF纹理", ButtonSizes.Medium)]
-        private void GetSDFTexture()
-        {
+        //[FoldoutGroup("SDF纹理处理")]
+        //[Button("生成SDF纹理", ButtonSizes.Medium)]
+        //private void GetSDFTexture()
+        //{
+        //}
 
-        }
-
-        [FoldoutGroup("SDF纹理处理")]
-        [Button("保存SDF纹理", ButtonSizes.Medium)]
-        private void SaveSDFTexture()
-        {
-
-        }
+        //[FoldoutGroup("SDF纹理处理")]
+        //[Button("保存SDF纹理", ButtonSizes.Medium)]
+        //private void SaveSDFTexture()
+        //{
+        //}
 
         #endregion
 

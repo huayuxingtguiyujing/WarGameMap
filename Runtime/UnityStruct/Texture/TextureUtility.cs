@@ -103,7 +103,7 @@ namespace LZ.WarGameMap.Runtime
                 Directory.CreateDirectory(path);
             }
 
-            AssetsUtility.GetInstance().SaveAssets<Texture2D>(path, textureFileName, texture);
+            AssetsUtility.SaveAssets<Texture2D>(path, textureFileName, texture);
         }
 
         // TODO : test it
@@ -122,7 +122,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
         private Texture2D LoadTexture(string path, string textureName) {
-            return AssetsUtility.GetInstance().LoadAssets<Texture2D>(path, textureName);
+            return AssetsUtility.LoadAssets<Texture2D>(path, textureName);
         }
 
         #endregion
