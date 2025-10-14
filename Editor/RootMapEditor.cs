@@ -4,7 +4,6 @@ using Sirenix.OdinInspector.Editor;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using LZ.WarGameMap.MapEditor;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -84,9 +83,9 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             // gameplay
-            if (!gameplayFileNames.Contains(MapEditorEnum.HexGridTypeEditor))
+            if (!gameplayFileNames.Contains(MapEditorEnum.GridTerrainEditor))
             {
-                CreateWindowObj<HexGridTypeEditor>(MapEditorClass.GamePlayClass);
+                CreateWindowObj<GridTerrainEditor>(MapEditorClass.GamePlayClass);
             }
             if (!gameplayFileNames.Contains(MapEditorEnum.CountryEditor))
             {
@@ -165,7 +164,15 @@ namespace LZ.WarGameMap.MapEditor
 
         private OdinMenuItem curSelected;
 
-        protected override OdinMenuTree BuildMenuTree() {
+        private static BaseMapEditor curMapEditor;
+
+        public static bool IsCurMapEditor(BaseMapEditor mapEditor) 
+        { 
+            return curMapEditor == mapEditor; 
+        }
+
+        protected override OdinMenuTree BuildMenuTree() 
+        {
             var tree = new OdinMenuTree();
             tree.DefaultMenuStyle = OdinMenuStyle.TreeViewStyle;
             tree.AddAllAssetsAtPath(MapEditorClass.MapSetClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.MapSetClass, typeof(BaseMapEditor), true);
@@ -184,7 +191,7 @@ namespace LZ.WarGameMap.MapEditor
             
             var gamePlayWinGroup = new OdinMenuItem(tree, MapEditorClass.GamePlayClass, null);
             tree.MenuItems.Add(gamePlayWinGroup);
-            AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.HexGridTypeEditor);
+            AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.GridTerrainEditor);
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.CountryEditor);
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.FactionEditor);
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.PeopleEditor);
@@ -195,7 +202,8 @@ namespace LZ.WarGameMap.MapEditor
             return tree;
         }
 
-        static void AddWinEditorAsMenuItem(OdinMenuTree tree, OdinMenuItem terrainWinGroup, string winClassName,  string winEditorName) {
+        static void AddWinEditorAsMenuItem(OdinMenuTree tree, OdinMenuItem terrainWinGroup, string winClassName,  string winEditorName) 
+        {
             string winEditorMenuPath = MapStoreEnum.MapWindowPath + "/" + winClassName + "/" + winEditorName;
             string winEditorAssetPath = MapStoreEnum.MapWindowPath + "/" + winClassName + "/" + winEditorName + ".asset";
             BaseMapEditor winEditorObj = (BaseMapEditor)AssetDatabase.LoadAssetAtPath(winEditorAssetPath, typeof(BaseMapEditor));
@@ -203,8 +211,8 @@ namespace LZ.WarGameMap.MapEditor
             terrainWinGroup.ChildMenuItems.Add(terrainWin);
         }
 
-        #region behaviors
 
+        #region behaviors
 
         protected override void OnEnable() {
             base.OnEnable();
@@ -238,7 +246,7 @@ namespace LZ.WarGameMap.MapEditor
                     }
 
                     curSelected = selected;
-                    BaseMapEditor curMapEditor = curSelected.Value as BaseMapEditor;
+                    curMapEditor = curSelected.Value as BaseMapEditor;
                     if (curMapEditor != null) {
                         curMapEditor.Enable();
                     }
@@ -246,8 +254,6 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
         }
-
-        // TODO : 怎么全局禁用
 
         protected override void OnDestroy() {
             // OdinMenuEditorWindow will call this function when it is closed

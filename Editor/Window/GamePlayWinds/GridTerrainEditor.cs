@@ -1,59 +1,107 @@
 using LZ.WarGameMap.Runtime;
-using LZ.WarGameMap.Runtime.HexStruct;
 using LZ.WarGameMap.Runtime.Enums;
+using LZ.WarGameMap.Runtime.HexStruct;
+using LZ.WarGameMap.Runtime.Model;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using UnityEditor;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
 {
-    public class HexGridTypeEditor : BrushHexmapEditor
+    public class GridTerrainEditor : BrushHexmapEditor
     {
-        public override string EditorName => MapEditorEnum.HexGridTypeEditor;
+        public override string EditorName => MapEditorEnum.GridTerrainEditor;
 
         protected override void InitEditor()
         {
             base.InitEditor();
             InitMapSetting();
             LoadTerrainType();
-            LoadHexMapSO();
-            Debug.Log("init hex grid type Editor over !");
+            LoadMountainData();
+            Debug.Log("Init grid terrrain editor over !");
         }
         
         protected override BrushHexmapSetting GetBrushSetting()
         {
-            return BrushHexmapSetting.Default;
+            BrushHexmapSetting setting = new BrushHexmapSetting();
+            setting.enableKeyCode = true;
+            setting.useTexCache = true;
+            setting.texCacheNum = 2;    // Grid Terrain + Mountain Grid
+            return setting;
         }
-
 
         private void LoadTerrainType()
         {
             FindOrCreateSO<GridTerrainSO>(ref gridTerrainSO, MapStoreEnum.GamePlayGridTerrainDataPath, "GridTerrainSO_Default.asset");
-            gridTerrainSO.UpdateTerSO();
+            gridTerrainSO.UpdateTerSO(hexSet.mapWidth, hexSet.mapHeight);
 
             TerrainLayersList.Clear();
             TerrainTypesList.Clear();
 
             // Load layer and all terrainType
-            foreach (var layer in gridTerrainSO.GridLayerList)
+            foreach (var layer in gridTerrainSO.GridTerrainLayerList)
             {
                 TerrainLayersList.Add(layer.CopyObject());
             }
 
-            foreach (var type in gridTerrainSO.GridTypeList)
+            foreach (var type in gridTerrainSO.GridTerrainTypeList)
             {
                 TerrainTypesList.Add(type.CopyObject());
             }
             //Debug.Log($"load terrain types over, TerrainLayersList : {TerrainLayersList.Count}, TerrainTypesList : {TerrainTypesList.Count}");
         }
 
-        private void LoadHexMapSO()
+        private void LoadMountainData()
         {
-            string assetDefaultName = $"RawHexMap_{hexSet.mapWidth}x{hexSet.mapHeight}_{UnityEngine.Random.Range(0, 100)}.asset";
-            FindOrCreateSO(ref hexMapSO, exportHexMapDataPath, assetDefaultName);
-            hexMapSO.InitRawHexMap(EditorSceneManager.hexSet.mapWidth, EditorSceneManager.hexSet.mapHeight);
+            if(gridTerrainSO == null)
+            {
+                Debug.LogError("GridTerrainSO not loaded!");
+                return;
+            }
+            MountainDataWrappers.Clear();
+            MountainID_Wrapper_Dict.Clear();
+            int index = 0;
+            foreach (var mountainData in gridTerrainSO.MountainDatas)
+            {
+                MountainDataWrapper wrapper = new MountainDataWrapper(mountainData, PaintMountainData, DeleteMountainData, ConfigMountainData);
+                MountainDataWrappers.Add(wrapper);
+                MountainID_Wrapper_Dict.Add(mountainData.MountainID, wrapper);
+                index++;
+            }
+        }
+
+        protected override void PostBuildHexGridMap()
+        {
+            // Use Grid Terrain Set first layer
+            List<Color> gridTerrainColors = hexmapDataTexManager.GetHexDataTexColors();
+            hexmapDataTexManager.InitTexCache(0, gridTerrainColors);
+
+            int mapWidth = hexSet.mapWidth;
+            int mapHeight = hexSet.mapHeight;
+            List<Color> mountainColors = new List<Color>(mapHeight * mapWidth);
+            for (int j = 0; j < mapHeight; j++)
+            {
+                for (int i = 0; i < mapWidth; i++)
+                {
+                    Vector2Int idx = new Vector2Int(i, j);
+                    bool IsMountain = gridTerrainSO.GetGridIsMountain(idx);
+                    if (IsMountain)
+                    {
+                        int mountainID = gridTerrainSO.GetGridMountainID(idx);
+                        mountainColors.Add(MapColorUtil.GetRandomColor(mountainID));
+                    }
+                    else
+                    {
+                        mountainColors.Add(MapColorUtil.NotValidColor);
+                    }
+                }
+            }
+            hexmapDataTexManager.InitTexCache(1, mountainColors);
+
+            hexmapDataTexManager.SwitchToTexCache(0);
         }
 
         public override void Destory()
@@ -91,6 +139,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
             SetTerrainTypeByCurIdx();
+            UpdateEditingMountain();
         }
 
         private void GetPreTerrainType()
@@ -123,12 +172,20 @@ namespace LZ.WarGameMap.MapEditor
 
         private void SetTerrainTypeByCurIdx()
         {
-            // Reset when index is not valid
+            // Find cur terrain type index
+            for(int i = 0;  i < TerrainTypesList.Count; i++)
+            {
+                if(CurCurGridTerrainTypeName == TerrainTypesList[i].terrainTypeName)
+                {
+                    CurGridTerrainTypeIndex = i;
+                    break;
+                }
+            }
+
             CurGridTerrain = gridTerrainSO.GetTerrainType(CurCurGridTerrainTypeName);
             SetBrushColor(CurGridTerrain.terrainEditColor);
-            Debug.Log($"now you choose terrain type : {CurGridTerrain.terrainTypeName}");
+            Debug.Log($"Now choose terrain type : {CurGridTerrain.terrainTypeName}");
         }
-
 
 
         [FoldoutGroup("格子地形数据编辑")]
@@ -165,7 +222,7 @@ namespace LZ.WarGameMap.MapEditor
             TerrainTypesList.Clear();
             if (CurFilterLayerName == AllLayerFilter)
             {
-                foreach (var type in gridTerrainSO.GridTypeList)
+                foreach (var type in gridTerrainSO.GridTerrainTypeList)
                 {
                     TerrainTypesList.Add(type.CopyObject());
                 }
@@ -194,6 +251,11 @@ namespace LZ.WarGameMap.MapEditor
         private void SaveTerrainTypeDatas()
         {
             gridTerrainSO.SaveGridTerSO(TerrainLayersList, TerrainTypesList);
+            EditorUtility.SetDirty(gridTerrainSO);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            UpdateHexTexManager();
+            Debug.Log($"Save terrain type datas, save terrain grid datas. grid num : {gridTerrainSO.GridCount}");
         }
 
         #endregion
@@ -298,10 +360,6 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         [FoldoutGroup("格子地形数据导出")]
-        [LabelText("格子地图数据")]
-        public HexMapSO hexMapSO;
-
-        [FoldoutGroup("格子地形数据导出")]
         [LabelText("grid地形颜色纹理")]
         public Texture2D hexMapTexture;         // Storage all grid's terrain color in a texture (cluster size)
 
@@ -329,7 +387,7 @@ namespace LZ.WarGameMap.MapEditor
             Vector2 offset = new Vector2(longitudeAndLatitude.x * clusterSize, longitudeAndLatitude.y * clusterSize);
             HexGridMapTexHelper gridMapTexHelper = new HexGridMapTexHelper(
                 hexSet.GetScreenLayout(), clusterSize, hexSet.hexGridSize,  0.7f, offset,
-                colors, hexMapSO.GetGridTerrainData, GetGridTerrainTypeColorByIdx);
+                colors, gridTerrainSO.GetGridTerrainDataIdx, gridTerrainSO.GetGridTerrainTypeColorByIdx);
 
             // Do not delete
             //for(int i = 0; i < clusterSize; i++)
@@ -368,23 +426,279 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
+
+        #region 山脉编辑
+
+        [Serializable]
+        public class MountainDataWrapper
+        {
+            [HorizontalGroup("MountainDataWrapper"), LabelText("编辑中"), ReadOnly]
+            public bool IsEditing;
+
+            // TODO : 如果处于锁定修改状态，则不允许被涂刷所覆盖
+            [HorizontalGroup("MountainDataWrapper"), LabelText("锁定")]
+            public bool LockEditing;
+
+            [HorizontalGroup("MountainDataWrapper"), LabelText("ID"), ReadOnly]
+            public int MountainID;
+
+            [HorizontalGroup("MountainDataWrapper"), LabelText("名称")]
+            public string MountainName;
+
+            public MountainData mountainData { get; private set; }
+
+            Action<int, MountainData> PaintMountainEvent;
+            Action<int, MountainData> DeleteMountainEvent;
+            Action<int, MountainData> ConfigMountainEvent;
+
+            public MountainDataWrapper() { mountainData = null; }
+
+            public MountainDataWrapper(MountainData mountainData, Action<int, MountainData> PaintMountainEvent, Action<int, MountainData> DeleteMountainEvent, Action<int, MountainData> ConfigMountainEvent)
+            {
+                IsEditing = false;
+                this.mountainData = mountainData;
+                MountainID = mountainData.MountainID;
+                MountainName = mountainData.MountainName;
+                this.PaintMountainEvent = PaintMountainEvent;
+                this.DeleteMountainEvent = DeleteMountainEvent;
+                this.ConfigMountainEvent = ConfigMountainEvent;
+            }
+
+            [HorizontalGroup("MountainDataWrapper")]
+            [Button("涂刷山脉")]
+            private void PaintCurMountain()
+            {
+                if (PaintMountainEvent == null)
+                {
+                    Debug.LogError("Mountain event is null");
+                    return;
+                }
+                PaintMountainEvent.Invoke(MountainID, mountainData);
+                IsEditing = true;
+            }
+
+            [HorizontalGroup("MountainDataWrapper")]
+            [Button("删除")]
+            private void DeleteMountain()
+            {
+                if (DeleteMountainEvent == null)
+                {
+                    Debug.LogError("Mountain event is null");
+                    return;
+                }
+                DeleteMountainEvent.Invoke(MountainID, mountainData);
+            }
+
+            [HorizontalGroup("MountainDataWrapper")]
+            [Button("配置")]
+            private void ConfigMountain()
+            {
+                if (ConfigMountainEvent == null)
+                {
+                    Debug.LogError("Paint mountain event is null");
+                    return;
+                }
+                ConfigMountainEvent.Invoke(MountainID, mountainData);
+            }
+
+            public void SyncMountainData()
+            {
+                mountainData.MountainName = this.MountainName;
+            }
+
+            public bool IsMountainValid()
+            {
+                return mountainData.IsMountainValid();
+            }
+        }
+
+
+        bool IsEditingMountain = false;
+        bool IsNotEditingMountain => !IsEditingMountain;
+
+        [FoldoutGroup("山脉编辑")]
+        [GUIColor(1f, 1f, 0f)]
+        [ShowIf("IsNotEditingMountain")]
+        [LabelText("警告: "), ReadOnly]
+        public string warningEditMountainNotValid = "当前并不在编辑山脉";
+
+        private void UpdateEditingMountain(bool enterFlag = false)
+        {
+            if (CurCurGridTerrainTypeName != BaseGridTerrainTypes.MountainType.terrainTypeName || CurEditingMountain == null)
+            {
+                if (IsEditingMountain)
+                {
+                    Parallel.ForEach(MountainDataWrappers, (wrapper) =>
+                    {
+                        wrapper.IsEditing = false;
+                    });
+                    Debug.LogError($"Wrong statu, cur editing mountain is null or cur terrain name is not mountain!");
+                    IsEditingMountain = false;
+                    // Switch to gridTerrain scene
+                    hexmapDataTexManager.SwitchToTexCache(0);
+                }
+                return;
+            }
+            bool changeFlag = IsEditingMountain != enterFlag;
+            IsEditingMountain = enterFlag;
+            Debug.Log($"Change editing mountain statu, edit statu : {enterFlag}");
+
+            // Do not change, so do nothing
+            if (!changeFlag)
+            {
+                return;
+            }
+
+            // Refresh scene hexmap, load gridTerrain (0) or mountain (1)
+            if (IsEditingMountain)
+            {
+                hexmapDataTexManager.SwitchToTexCache(1);
+            }
+            else
+            {
+                hexmapDataTexManager.SwitchToTexCache(0);
+            }
+        }
+
+        int LastEditingWrapperIdx = -1;
+
+        MountainData CurEditingMountain;        // TODO : use it in painting
+
+        [FoldoutGroup("山脉编辑")]
+        [LabelText("山脉列表")]
+        public List<MountainDataWrapper> MountainDataWrappers = new List<MountainDataWrapper>();
+
+        Dictionary<int, MountainDataWrapper> MountainID_Wrapper_Dict = new Dictionary<int, MountainDataWrapper>();
+
+        [FoldoutGroup("山脉编辑")]
+        [Button("新增山脉", ButtonSizes.Medium)]
+        private void AddMountainData()
+        {
+            if (gridTerrainSO == null)
+            {
+                Debug.LogError("Grid Terrain SO is null!");
+                return;
+            }
+            int curIdx = MountainDataWrappers.Count;
+            MountainData mountainData = gridTerrainSO.GetNewMountainData();
+            MountainDataWrapper wrapper = new MountainDataWrapper(mountainData, PaintMountainData, DeleteMountainData, ConfigMountainData);
+            MountainDataWrappers.Add(wrapper);
+        }
+
+        [FoldoutGroup("山脉编辑")]
+        [Button("保存山脉", ButtonSizes.Medium)]
+        private void SaveMountainDatas()
+        {
+            if (gridTerrainSO == null)
+            {
+                Debug.LogError("Grid Terrain SO is null!");
+                return;
+            }
+            List<MountainData> validMountainDatas = new List<MountainData>(MountainDataWrappers.Count);
+            foreach (var wrapper in MountainDataWrappers)
+            {
+                wrapper.SyncMountainData();
+                if (wrapper.IsMountainValid())
+                {
+                    validMountainDatas.Add(wrapper.mountainData);
+                }
+            }
+            gridTerrainSO.SaveMountainData(validMountainDatas);
+
+            EditorUtility.SetDirty(gridTerrainSO);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            UpdateHexTexManager();
+            Debug.Log($"Save mountain data success, valid mountain num : {validMountainDatas.Count}");
+        }
+
+        private void PaintMountainData(int mountainID, MountainData mountainData)
+        {
+            // Force change cur terrain type
+            Parallel.ForEach(MountainDataWrappers, (wrapper) =>
+            {
+                wrapper.IsEditing = false;
+            });
+            CurCurGridTerrainTypeName = BaseGridTerrainTypes.MountainType.terrainTypeName;
+            OnCurGriTerrainChanged();
+            CurEditingMountain = mountainData;
+
+            CurEditingMountain.UpdateMountainData();
+            UpdateEditingMountain(true);
+        }
+
+        private void DeleteMountainData(int mountainID, MountainData mountainData)
+        {
+            for(int i = MountainDataWrappers.Count - 1; i >= 0; i--)
+            {
+                if (MountainDataWrappers[i].MountainID == mountainID)
+                {
+                    MountainDataWrappers.RemoveAt(i);
+                    MountainID_Wrapper_Dict.Remove(mountainID);
+                    break;
+                }
+            }
+        }
+
+        // TODO : 打开一个山脉噪声配置窗口
+        private void ConfigMountainData(int mountainID, MountainData mountainData)
+        {
+
+        }
+
+        #endregion
+
         protected override void OnKeyCodeW()
         {
             base.OnKeyCodeW();
-            GetNextTerrainType();
+            GetPreTerrainType();
         }
 
         protected override void OnKeyCodeS()
         {
             base.OnKeyCodeS();
-            GetPreTerrainType();
+            GetNextTerrainType();
         }
 
+        // TODO : TEST IT
+        protected override bool EnablePaintHex(Vector2Int offsetHexPos) 
+        {
+            // If Cur using mountain and do not set mountain data, disable paint
+            if (gridTerrainSO == null)
+            {
+                Debug.LogError("Grid Terrain SO is null!");
+                return false;
+            }
+
+            if (!IsEditingMountain)
+            {
+                return true;
+            }
+
+            if (IsEditingMountain && CurEditingMountain == null)
+            {
+                Debug.LogError("Editing Mountain but have not data!");
+                return false;
+            }
+
+            bool IsMountain = gridTerrainSO.GetGridIsMountain(offsetHexPos);
+            if (IsMountain)
+            {
+                // If mountain wrapper is locked, can not mod it
+                int mountainID = gridTerrainSO.GetGridMountainID(offsetHexPos);
+                MountainDataWrapper wrapper = MountainID_Wrapper_Dict[mountainID];
+                if (wrapper.LockEditing)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         protected override void PaintHexRTEvent(List<Vector2Int> offsetHexList)
         {
             base.PaintHexRTEvent(offsetHexList);
-            if (hexMapSO == null)
+            if (gridTerrainSO == null)
             {
                 Debug.LogError("hexMapSO is null");
                 return;
@@ -396,12 +710,19 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             byte idx = (byte)GetIdxByCurGridTerrain();
-            hexMapSO.UpdateGridTerrainData(offsetHexList, idx);
+            gridTerrainSO.UpdateGridTerrainData(offsetHexList, idx);
+
+            // TODO : 颜色 要同步地 刷到 hexdatamanager 当中，要完成两个层次的同步
+
+            if (IsEditingMountain)
+            {
+                CurEditingMountain.AddMountainGrid(offsetHexList);
+            }
         }
 
         protected override Color PaintHexGridWhenLoad(int index)
         {
-            if (hexMapSO == null)
+            if (gridTerrainSO == null)
             {
                 Debug.LogError("hexMapSO is null");
                 return Color.white;
@@ -409,8 +730,8 @@ namespace LZ.WarGameMap.MapEditor
             int i = index / hexSet.mapWidth;
             int j = index % hexSet.mapHeight;
             Vector2Int offsetHex = new Vector2Int(j, i);
-            byte terrainTypeIdx = hexMapSO.GetGridTerrainData(offsetHex);
-            return GetGridTerrainTypeColorByIdx(terrainTypeIdx);
+            byte terrainTypeIdx = gridTerrainSO.GetGridTerrainDataIdx(offsetHex);
+            return gridTerrainSO.GetGridTerrainTypeColorByIdx(terrainTypeIdx);
         }
 
         private byte GetIdxByCurGridTerrain()
@@ -423,11 +744,6 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
             return 0;
-        }
-
-        private Color GetGridTerrainTypeColorByIdx(byte i)
-        {
-            return TerrainTypesList[i].terrainEditColor;
         }
 
     }

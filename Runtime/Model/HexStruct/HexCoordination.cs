@@ -40,7 +40,7 @@ namespace LZ.WarGameMap.Runtime.HexStruct {
     }
 
     /// <summary>
-    /// 点类, 专供 GameMap
+    /// Point in world not in hex
     /// </summary>
     public struct Point {
         public readonly double x, y;

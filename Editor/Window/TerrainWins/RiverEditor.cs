@@ -10,12 +10,10 @@ using Unity.Jobs;
 using UnityEngine.Experimental.Rendering;
 using ReadOnlyAttribute = Sirenix.OdinInspector.ReadOnlyAttribute;
 using Unity.Mathematics;
-//using LZ.WarGameCommon;
+using System.ComponentModel;
 
 namespace LZ.WarGameMap.MapEditor
 {
-    using RvClusterPixelDict = Dictionary<Vector2Int, List<Vector2Int>>;
-
     public struct PaintRiverTextureJob : IJobParallelFor
     {
         [ReadOnly] public int rvTexSize;
@@ -109,25 +107,25 @@ namespace LZ.WarGameMap.MapEditor
         [Serializable]
         public class PaintRiverRTData : IDisposable {
 
+            [HorizontalGroup("PaintRiverRTData"), LabelText("RT物体"), ReadOnly]
             public GameObject paintRTObj;
 
             MeshRenderer renderer;
 
-            public Material paintRTMat;
-
+            [HorizontalGroup("PaintRiverRTData"), LabelText("RT资产"), ReadOnly]
             public RenderTexture renderTexture;
 
+            [HorizontalGroup("PaintRiverRTData"), LabelText("RT序号"), ReadOnly]
             public Vector2Int rtClusterIdx;
 
-            public PaintRiverRTData(GameObject paintRTObj, MeshRenderer renderer, RenderTexture renderTexture, Material paintRTMat, Vector2Int rtClusterIdx) {
+            public PaintRiverRTData(GameObject paintRTObj, MeshRenderer renderer, RenderTexture renderTexture, Vector2Int rtClusterIdx) {
                 this.paintRTObj = paintRTObj;
                 this.renderer = renderer;
                 this.renderTexture = renderTexture;
-                //this.paintRTMat = paintRTMat;
                 this.rtClusterIdx = rtClusterIdx;
             }
 
-            // update renderTexture's position
+            // Update renderTexture's position
             public void UpdateRTData(Vector2Int rtClusterIdx, int clusterSize) {
                 this.rtClusterIdx = rtClusterIdx;
                 paintRTObj.transform.position = new Vector3(
@@ -281,7 +279,6 @@ namespace LZ.WarGameMap.MapEditor
                     editRiverDataDict.Add(editRvData.riverID, editRvData);
                 }
             }
-            
         }
 
         [FoldoutGroup("河流编辑", 0)]
@@ -303,15 +300,19 @@ namespace LZ.WarGameMap.MapEditor
 
         [Serializable]
         [InlineProperty]
-        public class EditingRiverData : IDisposable {
-            //Game
+        public class EditingRiverData : IDisposable 
+        {
+            [HorizontalGroup("PaintRiverRTData"), LabelText("河流ID")]
             public ushort riverID;
 
+            [HorizontalGroup("PaintRiverRTData"), LabelText("河流名称")]
             public string riverName;
 
-            public RiveStartData riverStart = MapRiverData.UnvalidRvStart;
-
+            [HorizontalGroup("PaintRiverRTData"), LabelText("河流obj"), ReadOnly]
             public GameObject riverDataObj;
+
+            [LabelText("河流起点")]
+            public RiveStartData riverStart = MapRiverData.UnvalidRvStart;
 
             [LabelText("河流存在的地块")]
             public List<Vector2Int> existTerrainClusterIDs;
@@ -359,7 +360,7 @@ namespace LZ.WarGameMap.MapEditor
                 ChooseRiverEvent.Invoke(riverID, this);
             }
 
-            [HorizontalGroup("RiverBtns"), Button("编辑起点")]
+            [HorizontalGroup("RiverBtns"), Button("编辑起点（暂时没用）")]
             private void EditStart() {
                 EditStartEvent.Invoke(riverID, this);
             }
@@ -570,7 +571,7 @@ namespace LZ.WarGameMap.MapEditor
             block.SetFloat("_GridNum", clusterSize / terSet.paintRTSizeScale);
             renderer.SetPropertyBlock(block);
 
-            PaintRiverRTData paintRiverRTData = new PaintRiverRTData(paintRiverParentObj, renderer, renderTexture, paintRTMat, clusterIdx);
+            PaintRiverRTData paintRiverRTData = new PaintRiverRTData(paintRiverParentObj, renderer, renderTexture, clusterIdx);
 
             paintRTDatas.Add(paintRiverRTData);
             paintRTDatasDict.Add(clusterIdx, paintRiverRTData);
@@ -690,21 +691,6 @@ namespace LZ.WarGameMap.MapEditor
             AssetDatabase.Refresh();
         }
 
-        [Obsolete]
-        private void DrawBezierInScene(BezierCurve bezierCurve, string riverName) {
-
-            GameObject bezierSignParent = new GameObject($"bezeierCurve_{riverName}");
-            bezierSignParent.transform.parent = RiverBezierParentTrans;
-
-            for(int i = 0; i < bezierCurve.Nodes.Count; i++) {
-                GameObject signGo = Instantiate(signObj, bezierSignParent.transform);
-                signGo.transform.position = bezierCurve.Nodes[i].position;
-                signGo.name = $"bezierNode_{i}";
-            }
-            // the draw logic function is below this class code
-        }
-
-
         private void DeleteRiverEvent(ushort riverID, EditingRiverData riverData) {
             riverData.Dispose();
             for (int i = editRiverDatas.Count - 1; i >=0; i--) {
@@ -743,7 +729,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         [FoldoutGroup("河流数据")]
-        [Button("保存河流数据", ButtonSizes.Medium)]
+        [Button("保存河流数据（暂时没用）", ButtonSizes.Medium)]
         private void SaveAllRiver() {
             // TODO : save all to mapRiverData
 
@@ -761,7 +747,7 @@ namespace LZ.WarGameMap.MapEditor
         #region 河流纹理
 
         [FoldoutGroup("河流纹理")]
-        [Button("保存河流数据", ButtonSizes.Medium)]
+        [Button("保存河流数据", ButtonSizes.Medium), ReadOnly]
         public string riverTexturePath = MapStoreEnum.RiverTexDataPath;
 
         
@@ -779,7 +765,6 @@ namespace LZ.WarGameMap.MapEditor
             TextureUtility.GetInstance().SaveTextureAsAsset(riverTexturePath, texName, riverTex);
             GameObject.DestroyImmediate(riverTex);
         }
-
 
         private string GetRiverTexName()
         {

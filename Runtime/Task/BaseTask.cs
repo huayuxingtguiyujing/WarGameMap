@@ -1,8 +1,6 @@
-using log4net.Core;
 using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
-using UnityEditor.VersionControl;
+using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -17,7 +15,8 @@ namespace LZ.WarGameMap.Runtime
     {
         Initing,
         Running,
-        Completed
+        Completed,
+        Aborted         // Not completed but be aborted
     }
 
     // A BaseTask is a task, for all task in program : load/network/etc
@@ -35,13 +34,13 @@ namespace LZ.WarGameMap.Runtime
         public TaskStatu TaskStat { get; private set; }
 
 
-        TaskNode RootTask = new TaskNode("", 0, null, "");
+        TaskNode RootTask = new TaskNode(" Root Task ", 0, null, "");
 
         public readonly long TimeOutMs;
         public readonly long StartTimeMs;
 
         protected Stopwatch stopwatch;
-        protected Action<long, bool> ProgressOverCall;
+        protected Action<long, bool> ProgressOverCall;      // It will be called when task over
 
         TaskNode curChildTask;
         int curChildTaskIdx = -1;
@@ -87,14 +86,20 @@ namespace LZ.WarGameMap.Runtime
                 stopwatch.Stop();
                 costTime = stopwatch.ElapsedMilliseconds;
             }
-            ProgressOverCall?.Invoke(costTime, abortFlag);
-            ProgressOverCall = null;
 
-            DebugUtility.Log($"end task, ...... BaseTask, cost time : {costTime}, abortFlag : {abortFlag}", DebugPriority.High);
+            if (abortFlag)
+            {
+                TaskStat = TaskStatu.Aborted;
+            }
+            else
+            {
+                ProgressOverCall?.Invoke(costTime, abortFlag);
+                ProgressOverCall = null;
+                TaskStat = TaskStatu.Completed;
+            }
 
             RootTask.EndTask();
-
-            TaskStat = TaskStatu.Completed;
+            DebugUtility.Log($"end task, ...... BaseTask, cost time : {costTime} ms, is aborted : {abortFlag}", DebugPriority.High);
         }
 
         public virtual float GetProgress(out string curStatuTxt)
@@ -103,7 +108,7 @@ namespace LZ.WarGameMap.Runtime
             float totalWeight = RootTask.GetTotalWeight();
             curStatuTxt = RootTask.GetCurStatTxt();
             //DebugUtility.Log($"weight : {weight}, totalWeight : {totalWeight}, progress : {weight / totalWeight}, status txt : {curStatuTxt}", DebugPriority.High);
-            return weight / totalWeight;
+            return Mathf.Clamp01(weight / totalWeight);
         }
 
 
@@ -112,13 +117,10 @@ namespace LZ.WarGameMap.Runtime
             RootTask.AddChildTask(taskNode);
         }
 
-        public virtual void GoNextChildTask(int level)
+        public virtual void GoNextChildTask()
         {
-            // find first running, and over it
-            //DebugUtility.Log($"child cur task : {GetTaskName()}, progress : {GetProgress(out _)} : ", DebugPriority.High);
-            //DebugTask();
-            RootTask.GoNextChildTask(level);
-            DebugUtility.Log($"child go next task : {GetTaskName()}, progress : {GetProgress(out _)} : ", DebugPriority.High);
+            RootTask.GoNextChildTask();
+            DebugUtility.Log($"child go next task : {RootTask.GetCurStatTxt()}, progress : {GetProgress(out _)} : ", DebugPriority.High);
             //DebugTask();
         }
 

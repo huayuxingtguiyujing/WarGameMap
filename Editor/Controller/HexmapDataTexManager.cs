@@ -74,11 +74,11 @@ namespace LZ.WarGameMap.MapEditor
                 }
                 int offset = index * mapHeight * mapWidth;
 
-                Color[] buffer = new Color[texDataCache.Count];
-                colors.CopyTo(0, buffer, offset, colors.Count);
+                //Color[] buffer = new Color[texDataCache.Count];
+                //colors.CopyTo(0, buffer, offset, colors.Count);
                 for (int i = 0; i < colors.Count; i++)
                 {
-                    texDataCache[offset + i] = buffer[i];
+                    texDataCache[offset + i] = colors[i];
                 }
             }
 
@@ -159,13 +159,15 @@ namespace LZ.WarGameMap.MapEditor
         bool notShowInScene;
 
 
-        #region init hexDataTexManager
+        #region Init hexDataTexManager
 
         public HexmapDataTexManager() {
             IsInit = false;
         }
 
-        public void InitHexmapDataTexture(int mapWdith, int mapHeight, int scale, Vector3 offset, GameObject parentObj, Material material, ComputeShader paintRTShader, bool notShowInScene = false, bool useTexCache = false, int texCacheNum = 1) {
+        public void InitHexmapDataTexture(int mapWdith, int mapHeight, int scale, Vector3 offset, 
+            GameObject parentObj, Material material, ComputeShader paintRTShader, 
+            bool notShowInScene = false, bool useTexCache = false, int texCacheNum = 1, FilterMode filterMode = FilterMode.Bilinear) {
             this.mapWdith = mapWdith;
             this.mapHeight = mapHeight;
             this.scale = scale;
@@ -175,7 +177,7 @@ namespace LZ.WarGameMap.MapEditor
             this.paintRTShader = paintRTShader;
 
             CreateHexDataMeshObj(scale, offset, parentObj);
-            CreateRenderTexture(mapWdith, mapHeight);
+            CreateRenderTexture(mapWdith, mapHeight, filterMode);
             ApplyHexDataTexture(material);
             IsInit = true;
 
@@ -189,11 +191,13 @@ namespace LZ.WarGameMap.MapEditor
                 CreateTexDataCache(texCacheNum);
             }
 
-            Debug.Log("init HexmapDataTextureManager over ");
+            //Debug.Log("Init HexmapDataTextureManager over ");
         }
 
         // Use it to set a Texture
-        public void InitHexmapDataTexture(Texture2D newTexture, int scale, Vector3 offset, GameObject parentObj, Material material, ComputeShader paintRTShader, bool notShowInScene = false, bool useTexCache = false, int texCacheNum = 1) {
+        public void InitHexmapDataTexture(Texture2D newTexture, int scale, Vector3 offset, 
+            GameObject parentObj, Material material, ComputeShader paintRTShader, 
+            bool notShowInScene = false, bool useTexCache = false, int texCacheNum = 1, FilterMode filterMode = FilterMode.Bilinear) {
             this.mapWdith = newTexture.width;
             this.mapHeight = newTexture.height;
             this.scale = scale;
@@ -203,7 +207,7 @@ namespace LZ.WarGameMap.MapEditor
             this.paintRTShader = paintRTShader;
 
             CreateHexDataMeshObj(scale, offset, parentObj);
-            CreateRenderTexture(mapWdith, mapHeight);
+            CreateRenderTexture(mapWdith, mapHeight, filterMode);
             Graphics.Blit(newTexture, texDataRenderTexture);
             ApplyHexDataTexture(material);
             IsInit = true;
@@ -257,12 +261,13 @@ namespace LZ.WarGameMap.MapEditor
             hexTexMesh.uv = uvs;
         }
 
-        private void CreateRenderTexture(int mapWdith, int mapHeight) {
+        private void CreateRenderTexture(int mapWdith, int mapHeight, FilterMode filterMode) {
             if(texDataRenderTexture != null) {
                 texDataRenderTexture.Release();
             }
             texDataRenderTexture = new RenderTexture(mapWdith, mapHeight, 16);
             texDataRenderTexture.enableRandomWrite = true;
+            texDataRenderTexture.filterMode = filterMode;
             texDataRenderTexture.Create(); 
             RenderTexture.active = texDataRenderTexture;
         }
@@ -304,8 +309,61 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
+        #region Cache tex data
+
+        // Tex data cache, support scene need many RT data
+        public void InitTexCache(int index, List<Color> colors)
+        {
+            rtDataCache.InitTexCache(index, colors);
+            Debug.Log($"now you init index : {index} texture cache data");
+        }
+
+        public void SwitchToTexCache(int index)
+        {
+            Texture2D cacheDataTex = rtDataCache.SwitchToTexCache(index);
+            Graphics.Blit(cacheDataTex, texDataRenderTexture);
+            RenderTexture.active = texDataRenderTexture;
+        }
+
+        #endregion
+
+
         public RenderTexture GetHexDataTexture() {
             return texDataRenderTexture;
+        }
+
+        public List<Color> GetHexDataTexColors()
+        {
+            return TextureUtility.GetRTColorList(texDataRenderTexture);
+        }
+
+        public void SetRTPixel(List<Color> colors)
+        {
+            Texture2D temp = new Texture2D(mapWdith, mapHeight, TextureFormat.RGBA32, false);
+            temp.SetPixels(colors.ToArray());
+            temp.Apply();
+
+            RenderTexture prev = RenderTexture.active;
+            RenderTexture.active = texDataRenderTexture;
+            Graphics.Blit(temp, texDataRenderTexture);
+
+            RenderTexture.active = prev;
+            GameObject.DestroyImmediate(temp);
+        }
+
+        public void ShowHideTexture(bool flag)
+        {
+            if (!IsInit)
+            {
+                Debug.LogError("hexmapDataTexture not init!");
+                return;
+            }
+            if (meshRenderer == null)
+            {
+                Debug.LogError("meshRenderer is null, but manager is inited!");
+                return;
+            }
+            meshRenderer.enabled = flag;
         }
 
         public void PaintHexDataTexture_RectScope(Vector3 worldPos, int scope, Color color) {
@@ -375,53 +433,11 @@ namespace LZ.WarGameMap.MapEditor
             }
             renderTexturePainter.PaintPixels(poss, color);
 
+            // 为什么山脉editor当中，这里不会被触发?
             if (useTexDataCache)
             {
                 rtDataCache.PaintTexCache(poss, color);
             }
-        }
-
-        // Tex data cache, support scene need many RT data
-        // TODO : NEED TEST
-        public void InitTexCache(int index, List<Color> colors)
-        {
-            rtDataCache.InitTexCache(index, colors);
-            Debug.Log("now you init index : {index} texture cache data");
-        }
-
-        // TODO : NEED TEST
-        public void SwitchToTexCache(int index)
-        {
-            Texture2D cacheDataTex = rtDataCache.SwitchToTexCache(index);
-            Graphics.Blit(cacheDataTex, texDataRenderTexture);
-            RenderTexture.active = texDataRenderTexture;
-        }
-
-        public void SetRTPixel(List<Color> colors)
-        {
-            Texture2D temp = new Texture2D(mapWdith, mapHeight, TextureFormat.RGBA32, false);
-            temp.SetPixels(colors.ToArray());
-            temp.Apply();
-
-            RenderTexture prev = RenderTexture.active;
-            RenderTexture.active = texDataRenderTexture;
-            Graphics.Blit(temp, texDataRenderTexture);
-
-            RenderTexture.active = prev;
-            GameObject.DestroyImmediate(temp);
-        }
-
-        public void ShowHideTexture(bool flag) {
-            if (!IsInit) {
-                Debug.LogError("hexmapDataTexture not init!");
-                return;
-            }
-            if(meshRenderer == null)
-            {
-                Debug.LogError("meshRenderer is null, but manager is inited!");
-                return;
-            }
-            meshRenderer.enabled = flag;
         }
 
         public void Dispose() {

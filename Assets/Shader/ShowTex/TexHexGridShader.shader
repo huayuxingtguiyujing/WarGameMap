@@ -67,7 +67,8 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
                 int x_idx = hex.x;
                 int y_idx = hex.y;
 
-                float2 hex_uv = float2(x_idx , y_idx ) * _HexGridTexture_TexelSize.xy;
+                // float2 hex_uv = float2(x_idx , y_idx ) * _HexGridTexture_TexelSize.xy;
+                float2 hex_uv = (float2(x_idx, y_idx) + 0.5) * _HexGridTexture_TexelSize.xy;
 
                 half3 gridColor = tex2D(_HexGridTexture, hex_uv);
                 // return half4(gridColor, c.a);

@@ -163,6 +163,48 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
+        #region 临时纹理生成
+
+
+        [FoldoutGroup("临时纹理生成")]
+        [Button("临时纹理生成", ButtonSizes.Medium)]
+        private void GenTempTex()
+        {
+            int width = 256, height = 256;
+            Texture2D tex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+
+            Color[] colors = new Color[width * height];
+            for (int i = 0; i < colors.Length; i++)
+                colors[i] = Color.white;
+
+            //Vector2Int[] bluePixels = new Vector2Int[7] {
+            //    new Vector2Int(0,0), new Vector2Int(0,1), new Vector2Int(0,2),
+            //    new Vector2Int(1,0), new Vector2Int(1,1), new Vector2Int(1,2),
+            //    new Vector2Int(3,3),
+            //}; 
+            Vector2Int[] bluePixels = new Vector2Int[7] {
+                new Vector2Int(4,4), new Vector2Int(4,3), new Vector2Int(4,2),
+                new Vector2Int(3,4), new Vector2Int(3,3), new Vector2Int(3,2),
+                new Vector2Int(2,3),
+            };
+            //Vector2Int[] bluePixels = new Vector2Int[1] {
+            //    new Vector2Int(0,0)
+            //};
+            foreach (var p in bluePixels)
+            {
+                if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < height)
+                    colors[p.y * width + p.x] = Color.blue;
+            }
+
+            tex.SetPixels(colors);
+            tex.Apply();
+            TextureUtility.GetInstance().SaveTextureAsAsset(exportPath, "Temp_test_01.png", tex);
+        }
+
+
+        #endregion
+
         // TODO : 这个功能还要吗？要不要保留呢
         #region 地形mesh处理
 

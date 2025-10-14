@@ -4,9 +4,7 @@ using LZ.WarGameMap.Runtime.Model;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
-using UnityEditor.VersionControl;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
@@ -124,7 +122,7 @@ namespace LZ.WarGameMap.MapEditor
                     CountryLayerFilter[i].CurCountryName = BaseCountryDatas.NotValidCountryName;
                 }
             }
-            Debug.Log($"show child data num : {childCountryData.Count}");
+            //Debug.Log($"show child data num : {childCountryData.Count}");
         }
 
         private void DeleteCountryDataEvent(string OriginCountryName)
@@ -254,7 +252,7 @@ namespace LZ.WarGameMap.MapEditor
                 };
                 if (LayerLevel < 0 || GetCountryDataByParent == null)
                 {
-                    Debug.Log($"layer level : {LayerLevel}, get parent call : {GetCountryDataByParent == null}");
+                    //Debug.Log($"layer level : {LayerLevel}, get parent call : {GetCountryDataByParent == null}");
                     return dropDownItemList;
                 }
 
@@ -415,12 +413,6 @@ namespace LZ.WarGameMap.MapEditor
         public List<CountryDataWrapper> CurEditingChildCountryData = new List<CountryDataWrapper>();
 
         [FoldoutGroup("区域数据编辑")]
-        [Button("一键设置区域颜色", ButtonSizes.Medium)]
-        private void SetCountryDataColor()
-        {
-        }
-
-        [FoldoutGroup("区域数据编辑")]
         [Button("保存子区域编辑结果", ButtonSizes.Medium)]
         private void SaveChildCountrySO()
         {
@@ -454,13 +446,21 @@ namespace LZ.WarGameMap.MapEditor
                     countrySO.AddCountryData(CurEditingLayerIndex, CurChooseCountryName, wrapper.GetCountryData());
                 }
             }
-            //countrySO.DebugAllLayerCountryData();
-            //countrySO.SaveCountryDatas(CurEditingLayerIndex, CurEditingCountry, CurEditingChildCountryData);
+            
+            // 在Texture上面显示区域名称
+
 
             EditorUtility.SetDirty(countrySO);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             UpdateHexTexManager();
+        }
+
+        [FoldoutGroup("区域数据编辑")]
+        [Button("展示根层级子区域", ButtonSizes.Medium)]
+        private void ShowHighestCountryDatas()
+        {
+            ShowChildCountryEvent(BaseCountryDatas.RootLayerIndex, BaseCountryDatas.RootLayerName, BaseCountryDatas.NotValidCountryName, true);
         }
 
         private void UpdateLockEvent()
@@ -544,27 +544,17 @@ namespace LZ.WarGameMap.MapEditor
             // TODO : 需要遍历纹理，找到各个区域 对应的纹理地区，然后重新设置颜色
         }
 
-        [FoldoutGroup("区域涂刷编辑")]
-        [Button("导入区域分布纹理", ButtonSizes.Medium)]
-        private void ImportCountryTexture()
-        {
-            
-        }
-
-        [FoldoutGroup("区域涂刷编辑")]
-        [Button("导出区域分布纹理", ButtonSizes.Medium)]
-        private void ExportCountryTexture()
-        {
-            
-        }
-
         #endregion
 
         #region 区域数据导入导出
 
         [FoldoutGroup("区域数据导入导出")]
-        [LabelText("导入/导出位置"), ReadOnly]
-        public string exportCountryFilePath = MapStoreEnum.GamePlayCountryCSVDataPath;
+        [LabelText("区域数据导入/导出位置"), ReadOnly]
+        public string exportCountryDatasFilePath = MapStoreEnum.GamePlayCountryCSVDataPath;
+
+        [FoldoutGroup("区域数据导入导出")]
+        [LabelText("区域纹理导入/导出位置"), ReadOnly]
+        public string exportCountryTexFilePath = MapStoreEnum.GamePlayCountryTexDataPath;
 
         [FoldoutGroup("区域数据导入导出")]
         [LabelText("导入时清空区域数据")]
@@ -574,7 +564,7 @@ namespace LZ.WarGameMap.MapEditor
         [Button("导入区域数据excel表", ButtonSizes.Medium)]
         private void ImportCountryFile()
         {
-            countrySO.LoadCSV(exportCountryFilePath, clearCountrySOWhenLoad);
+            countrySO.LoadCSV(exportCountryDatasFilePath, clearCountrySOWhenLoad);
             AssetDatabase.Refresh();
         }
 
@@ -582,12 +572,47 @@ namespace LZ.WarGameMap.MapEditor
         [Button("导出区域数据excel表", ButtonSizes.Medium)]
         private void ExportCountryFile()
         {
-            countrySO.SaveCSV(exportCountryFilePath);
+            countrySO.SaveCSV(exportCountryDatasFilePath);
             AssetDatabase.Refresh();
+        }
+
+        [FoldoutGroup("区域数据导入导出")]
+        [Button("导入区域分布纹理", ButtonSizes.Medium)]
+        private void ImportCountryTexture()
+        {
+            // TODO : 要新建一个文件夹，将每层的Country数据用于导入导出
+            // exportCountryTexFilePath
+        }
+
+        [FoldoutGroup("区域数据导入导出")]
+        [Button("导出区域分布纹理", ButtonSizes.Medium)]
+        private void ExportCountryTexture()
+        {
+
         }
 
         #endregion
 
+        #region 测试 CountryManager 的功能（之后可以删掉，因为功能要集成到HexCons里面
+
+        [FoldoutGroup("测试 CountryManager")]
+        [Button("初始化 CountryManager", ButtonSizes.Medium)]
+        private void InitCountryManager()
+        {
+            HexCtor.InitCountry(countrySO);
+        }
+
+        [FoldoutGroup("测试 CountryManager")]
+        [Button("通过 CountryManager 设置区域间的颜色", ButtonSizes.Medium)]
+        private void SetColorByCountryManager()
+        {
+            HexCtor.UpdateCountryColor();
+            // 还需要重新调用一次 Init 
+        }
+
+        #endregion
+
+        // TODO : 现在山脉、浅海、深海不能作为区域的一部分
         protected override bool EnablePaintHex(Vector2Int offsetHexPos) 
         { 
             if(countrySO is null || CurPaintCountryData is null)
@@ -636,11 +661,6 @@ namespace LZ.WarGameMap.MapEditor
 
         protected override void PaintHexRTEvent(List<Vector2Int> offsetHexList) 
         {
-            if (CurPaintCountryData is null)
-            {
-                Debug.LogError("Cur painting country data is null, so can not paint");
-                return;
-            }
             foreach (var offsetHex in offsetHexList)
             {
                 countrySO.SetGridCountry(offsetHex, CurPaintCountryData);

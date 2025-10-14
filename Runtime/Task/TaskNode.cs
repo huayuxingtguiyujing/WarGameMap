@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -23,6 +24,25 @@ namespace LZ.WarGameMap.Runtime
         public bool IsNodeOver;
 
         public bool IsLeaf() => (ChildTaskList.Count == 0);
+
+        // Use it to check a node's child is task node
+        // Task node means node is corresponding to a Actual Task
+        public bool IsAllChildLeaf()
+        {
+            if (ChildTaskList.Count == 0)
+            {
+                return false;
+            }
+
+            foreach (var childTask in ChildTaskList)
+            {
+                if (!childTask.IsLeaf())
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         public TaskNode() { Progress = 0f; }
 
@@ -56,7 +76,7 @@ namespace LZ.WarGameMap.Runtime
         {
             if (IsLeaf())
             {
-                return Progress * Weight;
+                return Mathf.Clamp01(Progress) * Weight;
             }
             else
             {
@@ -118,7 +138,7 @@ namespace LZ.WarGameMap.Runtime
             }
             else
             {
-                // find uncomplete task, and cache it
+                // Find uncomplete task, and cache it
                 if (curChildTask == null || curChildTask.IsNodeOver)
                 {
                     for (int i = 0; i < ChildTaskList.Count; i++)
@@ -142,14 +162,16 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        // NOTE : taskNode is a tree, level is depth
-        public void GoNextChildTask(int level = 1)
+        // NOTE : taskNode is a tree, level is the depth
+        public void GoNextChildTask()
         {
             if (!CheckNodeValid())
             {
                 DebugUtility.LogError($"node is not valid : {IsNodeOver}, curChildTask : {curChildTask != null}");
+                return;
             }
 
+            // If no child, do nothing
             if (IsLeaf() || IsNodeOver)
             {
                 //DebugTask();
@@ -157,33 +179,36 @@ namespace LZ.WarGameMap.Runtime
                 return;
             }
 
-            if (level > 1)
+            if (!IsAllChildLeaf())
             {
-                level--;
-                curChildTask.GoNextChildTask(level);
-                return;
-            }
-
-            // go next child task, if no child, do nothing, will not influence child's child
-            // find first running, and over it
-            curChildTask.EndTask();
-            int nextChildTaskIdx = curChildTaskIdx + 1;
-            if (nextChildTaskIdx < ChildTaskList.Count)
-            {
-                curChildTask = ChildTaskList[nextChildTaskIdx];
-                curChildTaskIdx = nextChildTaskIdx;
+                curChildTask.GoNextChildTask();
+                UpdateTask();
             }
             else
             {
-                curChildTask = null;
-                curChildTaskIdx = -1;
-            }
+                // Child is leaf, it means child has task
+                // Find first running node, and over it
+                curChildTask.EndTask();
+                int nextChildTaskIdx = curChildTaskIdx + 1;
+                if (nextChildTaskIdx < ChildTaskList.Count)
+                {
+                    curChildTask = ChildTaskList[nextChildTaskIdx];
+                    curChildTaskIdx = nextChildTaskIdx;
+                }
+                else
+                {
+                    // No cur child task, it means no more child task
+                    curChildTask = null;
+                    curChildTaskIdx = -1;
+                }
 
-            if (curChildTask == null)
-            {
-                EndTask();
+                // So end task
+                if (curChildTask == null)
+                {
+                    EndTask();
+                }
+                UpdateTask();
             }
-            UpdateTask();
         }
 
         public bool CheckAllLeafIsOver()
@@ -251,7 +276,7 @@ namespace LZ.WarGameMap.Runtime
 
         public bool CheckNodeValid()
         {
-            return IsNodeOver && (curChildTask != null);
+            return !IsNodeOver && (curChildTask != null);
         }
         
         public string DebugTask(int level, TaskNode curTickingTask)

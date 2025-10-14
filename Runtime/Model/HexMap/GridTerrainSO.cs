@@ -1,10 +1,9 @@
+using LZ.WarGameMap.Runtime.HexStruct;
+using Sirenix.OdinInspector;
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using UnityEditor;
+using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.WSA;
-using static UnityEditor.Experimental.GraphView.GraphView;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -21,14 +20,16 @@ namespace LZ.WarGameMap.Runtime
 
         public static GridTerrainType PlainType =       new GridTerrainType(1, "Plain",     "平原",   new Color(0.55f, 0.75f, 0.45f, 1.0f), true);
         public static GridTerrainType HillType =        new GridTerrainType(1, "Hill",      "丘陵",   new Color(0.40f, 0.60f, 0.30f, 1.0f), true);
-        public static GridTerrainType MountainType =    new GridTerrainType(1, "Mountain",  "山地",   new Color(0.50f, 0.45f, 0.40f, 1.0f), true);
+        public static GridTerrainType MountainType =    new GridTerrainType(1, "Mountain",  "山脉",   new Color(0.50f, 0.45f, 0.40f, 1.0f), true);
         public static GridTerrainType PlateauType =     new GridTerrainType(1, "Plateau",   "高原",   new Color(0.70f, 0.60f, 0.35f, 1.0f), true);
         public static GridTerrainType SnowType =        new GridTerrainType(1, "Snow",      "雪地",   new Color(1, 1, 1, 1.0f), true);
     }
 
     // Storage the setting of GridTerrain
-    // Terrain layers : 
-    // Terrain types : 
+    // Terrain layers : 地形的层级
+    // Terrain types : 地形的种类
+    // Grid Terrain : cv like map, hold all grid's terrainData in hex map
+    // Size of HexMap : 3000 * 3000, need lazy load
     public class GridTerrainSO : ScriptableObject
     {
         static GridTerrainSO instance;
@@ -50,15 +51,18 @@ namespace LZ.WarGameMap.Runtime
             return instance;
         }
 
-
+        [Header(" TerrainLayer TerrainType Data ")]
+        [LabelText("当前地形层数目")]
         public int CurLayerNum;
 
-        public List<GridTerrainLayer> GridLayerList = new List<GridTerrainLayer>();
+        [LabelText("地形层级列表")]
+        public List<GridTerrainLayer> GridTerrainLayerList = new List<GridTerrainLayer>();
 
-        public List<GridTerrainType> GridTypeList = new List<GridTerrainType>();
+        [LabelText("地形种类列表")]
+        public List<GridTerrainType> GridTerrainTypeList = new List<GridTerrainType>();
 
 
-        // For fastly get terrain info
+        // For cache terrain info
         Dictionary<int, GridTerrainLayer> GridLayerDict_LayerOrder = new Dictionary<int, GridTerrainLayer>();
 
         Dictionary<string, GridTerrainLayer> GridLayerDict_LayerName = new Dictionary<string, GridTerrainLayer>();
@@ -69,15 +73,48 @@ namespace LZ.WarGameMap.Runtime
 
         Dictionary<int, List<GridTerrainType>> GridLayer_TypeDict = new Dictionary<int, List<GridTerrainType>>();
 
-        bool isInit = false;
+        bool isTerTypeInit = false;
+
+        
+        // Mountain Data
+        [Header(" Mountain Data ")]
+        public List<MountainData> MountainDatas = new List<MountainData>();
+
+        Dictionary<int, MountainData> MountainID_DataDict = new Dictionary<int, MountainData>();
+
+        // Hex map grid offset coord -> mountain id dict
+        Dictionary<Vector2Int, int> GridOffset_MountainID_Dict = new Dictionary<Vector2Int, int>();
+
+        [LabelText("hex地图宽度"), ReadOnly]
+        public int MountainCounter = 0;
 
 
-        public void UpdateTerSO()
+        // Hex Grid Terrain Data
+        [Header(" Hex Grid Terrain Data ")]
+        [LabelText("hex地图宽度"), ReadOnly]
+        public int mapWidth;
+
+        [LabelText("hex地图高度"), ReadOnly]
+        [Tooltip("由hexsetting决定，勿要更改")]
+        public int mapHeight;
+
+        [LabelText("地形格-类型 列表")]
+        public List<GridTerrainData> HexmapGridTerDataList;   // TODO : lazy load   // TODO : UNCOMPLETE
+
+        [LabelText("地形格-类型索引 列表")]
+        public List<byte> HexmapGridTerTypeList = new List<byte>();
+
+        public int GridCount => HexmapGridTerDataList.Count;
+
+        public bool IsHexmapInit = false;        // Use to reset hex map data in inspector
+
+
+        public void UpdateTerSO(int width, int height)
         {
-            if (!isInit)
+            if (!isTerTypeInit)
             {
-                // check and add base type
-                GridLayerList = new List<GridTerrainLayer>
+                // Check and add base type
+                GridTerrainLayerList = new List<GridTerrainLayer>
                 {
                     BaseGridTerrainTypes.SeaLayer,
                     BaseGridTerrainTypes.BaseLayer,
@@ -85,7 +122,7 @@ namespace LZ.WarGameMap.Runtime
                     BaseGridTerrainTypes.DecorateLayer,
                     BaseGridTerrainTypes.DynamicLayer
                 };
-                GridTypeList = new List<GridTerrainType>
+                GridTerrainTypeList = new List<GridTerrainType>
                 {
                     BaseGridTerrainTypes.ShallowSeaType,
                     BaseGridTerrainTypes.DeepSeaType,
@@ -96,36 +133,38 @@ namespace LZ.WarGameMap.Runtime
                     BaseGridTerrainTypes.PlateauType,
                     BaseGridTerrainTypes.SnowType
                 };
-                isInit = true;
+                isTerTypeInit = true;
             }
 
             CheckGridTerInfo();
             UpdateInfoDict();
-            //Debug.Log($" layer : {instance.Base_GridTypeLayerList.Count}, types : {instance.Base_GridTypeList}");
+            UpdateHexmapGrids(width, height);
+            UpdateMountainGrids();
+            Debug.Log($" Updated grid terrain SO, layer : {GridTerrainLayerList.Count}, types : {GridTerrainTypeList.Count}");
         }
 
         // Use it to check if all terrain type info are correct
         private bool CheckGridTerInfo()
         {
-            if (!isInit)
+            if (!isTerTypeInit)
             {
                 Debug.LogError("GridTerrain not inited!");
                 return false;
             }
 
             // All terrainType's layer must be correct, auto fix if not
-            HashSet<int> validLayer = new HashSet<int>(GridLayerList.Count);
-            foreach (var layer in GridLayerList)
+            HashSet<int> validLayer = new HashSet<int>(GridTerrainLayerList.Count);
+            foreach (var layer in GridTerrainLayerList)
             {
                 validLayer.Add(layer.layerOrder);
             }
 
             // Will not check layer name... im lazy
-            HashSet<string> CurLayerNames = new HashSet<string>(GridLayerList.Count);
+            HashSet<string> CurLayerNames = new HashSet<string>(GridTerrainLayerList.Count);
 
             // Name and chinese name and terrain color can not be the same 
-            HashSet<string> CurTerTypeNames = new HashSet<string>(GridTypeList.Count);
-            HashSet<string> CurTerTypeChineseNames = new HashSet<string>(GridTypeList.Count);
+            HashSet<string> CurTerTypeNames = new HashSet<string>(GridTerrainTypeList.Count);
+            HashSet<string> CurTerTypeChineseNames = new HashSet<string>(GridTerrainTypeList.Count);
             Action<List<GridTerrainType>> checkGridTerTypeList = (terrainTypeList) =>
             {
                 foreach (var type in terrainTypeList)
@@ -144,7 +183,7 @@ namespace LZ.WarGameMap.Runtime
                     }
                 }
             };
-            checkGridTerTypeList(GridTypeList);
+            checkGridTerTypeList(GridTerrainTypeList);
             return true;
         }
 
@@ -162,7 +201,7 @@ namespace LZ.WarGameMap.Runtime
                     GridLayer_TypeDict.TryAdd(layers.layerOrder, new List<GridTerrainType>());
                 }
             };
-            buildLayerDict(GridLayerList);
+            buildLayerDict(GridTerrainLayerList);
 
             GridTypeDict_Name.Clear();
             GridTypeDict_ChineseName.Clear();
@@ -176,27 +215,169 @@ namespace LZ.WarGameMap.Runtime
                     GridLayer_TypeDict[type.terrainTypeLayer].Add(type);
                 }
             };
-            buildTypeDict(GridTypeList);
+            buildTypeDict(GridTerrainTypeList);
         }
 
-        public void SaveGridTerSO(List<GridTerrainLayer> TerrainLayersList, List<GridTerrainType> TerrainTypesList)
+        private void UpdateHexmapGrids(int width, int height)
         {
-            GridLayerList.Clear();
-            foreach (var layer in TerrainLayersList)
+            // Hex map not changed, so will not reset 
+            if (this.mapWidth == width && this.mapHeight == height && IsHexmapInit)
             {
-                GridLayerList.Add(layer);
+                return;
+            }
+            this.mapWidth = width;
+            this.mapHeight = height;
+
+            if (!IsHexmapInit)
+            {
+                IsHexmapInit = true;
             }
 
-            GridTypeList.Clear();
-            foreach (var type in TerrainTypesList)
+            HexmapGridTerDataList = new List<GridTerrainData>(width * height);
+            HexmapGridTerTypeList = new List<byte>(width * height);
+            for (int i = 0; i < width; i++)
             {
-                GridTypeList.Add(type);
+                for (int j = 0; j < height; j++)
+                {
+                    Vector2Int offsetCoord = new Vector2Int(i, j);
+                    Hexagon hexagon = HexHelper.OffsetToAxial(offsetCoord);
+                    Vector3 hexCenter = Vector3.zero;       // TODO : hexCenter is a world pos
+
+                    GridTerrainData gridTerrainData = new GridTerrainData();
+                    gridTerrainData.InitGridTerrainData(offsetCoord, hexagon, hexCenter);
+                    HexmapGridTerDataList.Add(new GridTerrainData());
+
+                    HexmapGridTerTypeList.Add(0);
+                }
+            }
+        }
+
+        // TODO : use it to build mountain data
+        private void UpdateMountainGrids()
+        {
+            Parallel.ForEach(MountainDatas, (mountain) =>
+            {
+                for (int i = mountain.MountainGridList.Count - 1; i > 0; i--)
+                {
+                    // If grid is not Mountain, remove it
+                    Vector2Int offset = mountain.MountainGridList[i];
+                    if (!GetGridIsMountain(offset))
+                    {
+                        mountain.MountainGridList.RemoveAt(i);
+                    }
+                }
+                mountain.UpdateMountainData();
+            });
+
+            MountainID_DataDict.Clear();
+            foreach (var mountain in MountainDatas)
+            {
+                MountainID_DataDict.Add(mountain.MountainID, mountain);
+                foreach (var grid in mountain.MountainGridSets)
+                {
+                    GridOffset_MountainID_Dict.Add(grid, mountain.MountainID);
+                }
+            }
+        }
+
+        public void SaveGridTerSO(List<GridTerrainLayer> terrainLayersList, List<GridTerrainType> terrainTypesList)
+        {
+            GridTerrainLayerList.Clear();
+            foreach (var layer in terrainLayersList)
+            {
+                GridTerrainLayerList.Add(layer);
+            }
+
+            GridTerrainTypeList.Clear();
+            foreach (var type in terrainTypesList)
+            {
+                GridTerrainTypeList.Add(type);
             }
             Debug.Log("GridTerrainSO instance call save!");
         }
 
 
-        #region get/set function
+        #region Mountain Data handle
+
+        public MountainData GetNewMountainData()
+        {
+            MountainCounter++;
+            MountainData mountainData = new MountainData(MountainCounter);
+            return mountainData;
+        }
+
+        public void SaveMountainData(List<MountainData> mountainDatas)
+        {
+            MountainDatas.Clear();
+            foreach (var mountain in mountainDatas)
+            {
+                MountainDatas.Add(mountain);
+            }
+        }
+
+        #endregion
+
+        #region Hexmap grid terrain
+
+        public void UpdateGridTerrainData(List<Vector2Int> offsetHex, byte terrainTypeIdx)
+        {
+            for (int i = 0; i < offsetHex.Count; i++)
+            {
+                if (!CheckPosInHexmap(offsetHex[i]))
+                {
+                    continue;
+                }
+                int idx = offsetHex[i].x * mapWidth + offsetHex[i].y;  // 会越界吗？？？
+                if (idx >= 0 && idx < HexmapGridTerTypeList.Count)
+                {
+                    HexmapGridTerTypeList[idx] = terrainTypeIdx;
+                }
+            }
+        }
+
+        private bool CheckPosInHexmap(Vector2Int offset)
+        {
+            return offset.x >= 0 && offset.x < mapHeight && offset.y >= 0 && offset.y < mapWidth;
+        }
+
+        public byte GetGridTerrainDataIdx(Vector2Int offsetHex)
+        {
+            int idx = offsetHex.x * mapWidth + offsetHex.y;
+            if (HexmapGridTerTypeList.Count > idx && idx >= 0)
+            {
+                return HexmapGridTerTypeList[idx];    // idx
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        public bool GetGridIsMountain(Vector2Int offsetHex)
+        {
+            byte idx = GetGridTerrainDataIdx(offsetHex);
+            return GridTerrainTypeList[idx].terrainTypeName == BaseGridTerrainTypes.MountainType.terrainTypeName;
+        }
+
+        public int GetGridMountainID(Vector2Int offsetHex)
+        {
+            if (!GridOffset_MountainID_Dict.ContainsKey(offsetHex))
+            {
+                //Debug.LogError($"Grid offset is not Mountain : {offsetHex}");
+                return -1;
+            }
+            int mountainID = GridOffset_MountainID_Dict[offsetHex];
+            return mountainID;
+        }
+
+        public Color GetGridTerrainTypeColorByIdx(byte i)
+        {
+            return GridTerrainTypeList[i].terrainEditColor;
+        }
+
+        #endregion
+
+        #region Get/Set function
 
         public int GetLayerOrder()
         {

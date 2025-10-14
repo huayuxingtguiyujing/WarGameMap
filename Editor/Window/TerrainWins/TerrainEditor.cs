@@ -13,20 +13,12 @@ using FileMode = System.IO.FileMode;
 
 namespace LZ.WarGameMap.MapEditor
 {
-
     public class TerrainEditor : BrushMapEditor {
 
         public override string EditorName => MapEditorEnum.TerrainEditor;
 
         TerrainConstructor TerrainCtor;
         HexmapConstructor HexCtor;
-
-        //TerrainSettingSO terSet;
-        //HexSettingSO hexSet;
-
-        //[FoldoutGroup("配置scene", -1)]
-        //[AssetSelector(Filter = "t:Prefab")]
-        //public GameObject SignPrefab;
 
         protected override void InitEditor() {
             base.InitEditor();
@@ -36,11 +28,6 @@ namespace LZ.WarGameMap.MapEditor
             // read terrain Setting from path
             InitMapSetting();
         }
-
-        //protected override void InitMapSetting() {
-        //    base.InitMapSetting();
-        //}
-
 
         #region 构建地形-高度图流程
 
@@ -81,7 +68,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, rawHexMapSO, terMaterial, mapRvData);
+            TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, terMaterial, mapRvData);
         }
 
         [FoldoutGroup("构建地形-高度图流程")]
@@ -129,7 +116,6 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-
         #region 构建地形-Hex流程
 
         // TODO : 下面一整块在后续都会被去除掉！！不再使用高度图来构建 Hex 的地图，可能仅会通过高度图确定某个地区的地形
@@ -137,7 +123,8 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("构建地形-Hex流程")]
         [LabelText("当前操作Hex地图对象")]
-        public HexMapSO rawHexMapSO;
+        //public HexMapSO rawHexMapSO;
+        public string temp = "占位符";
 
         [FoldoutGroup("构建地形-Hex流程")]
         [LabelText("当前Hex地图材质")]
@@ -159,42 +146,41 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("当前操作的cluster索引")]
         public Vector2Int curClusterIdx_Hex;
 
-
         [FoldoutGroup("构建地形-Hex流程")]
         [Button("生成RawHexMapSO", ButtonSizes.Medium)]
         private void GenerateRawHexMap() {
 
             HeightDataManager heightDataManager = new HeightDataManager();
-            heightDataManager.InitHeightDataManager(heightDataModels, terSet, hexSet, rawHexMapSO);
+            heightDataManager.InitHeightDataManager(heightDataModels, terSet, hexSet, null);
 
             // TODO : 不应该使用 高度图生成 RawHexMapSO
-            rawHexMapSO = CreateInstance<HexMapSO>();
-            rawHexMapSO.InitRawHexMap(EditorSceneManager.hexSet.mapWidth, EditorSceneManager.hexSet.mapHeight);
-            HexCtor.GenerateRawHexMap(startLongitudeLatitude, rawHexMapSO, heightDataManager);
+            //rawHexMapSO = CreateInstance<HexMapSO>();
+            //rawHexMapSO.InitRawHexMap(EditorSceneManager.hexSet.mapWidth, EditorSceneManager.hexSet.mapHeight);
+            //HexCtor.GenerateRawHexMap(startLongitudeLatitude, rawHexMapSO, heightDataManager);
 
         }
 
         [FoldoutGroup("构建地形-Hex流程")]
         [Button("生成RawHexMap纹理", ButtonSizes.Medium)]
         private void GenerateRawHexTexture() {
-            if (rawHexMapSO == null) {
-                Debug.LogError("rawHexMapSO is null!");
-                return;
-            }
+            //if (rawHexMapSO == null) {
+            //    Debug.LogError("rawHexMapSO is null!");
+            //    return;
+            //}
 
-            rawHexMapTexture = new Texture2D(rawHexMapSO.width, rawHexMapSO.height);
-            foreach (var gridTerrainData in rawHexMapSO.GridTerrainDataList) {
-                Vector2Int pos = gridTerrainData.GetHexPos();
-                Color color = gridTerrainData.GetTerrainColor();
-                // TODO : 下面的生成步骤还是有问题！没有照顾到 hex 坐标的特性
-                //Vector2Int fixed_pos = new Vector2Int(rawHexMapTexture.width - pos.x, rawHexMapTexture.height - pos.y);
-                //Vector2Int fixed_pos = new Vector2Int(pos.x, rawHexMapTexture.height - pos.y);
-                //Vector2Int fixed_pos = new Vector2Int(rawHexMapTexture.width - pos.x, pos.y);
-                //Vector2Int fixed_pos = new Vector2Int(pos.y, pos.x);
-                Vector2Int fixed_pos = new Vector2Int(pos.x, pos.y);
-                rawHexMapTexture.SetPixel(fixed_pos.x, fixed_pos.y, color);
-            }
-            Debug.Log($"generate hex texture : {rawHexMapTexture.width}x{rawHexMapTexture.height}");
+            //rawHexMapTexture = new Texture2D(rawHexMapSO.mapWidth, rawHexMapSO.mapHeight);
+            //foreach (var gridTerrainData in rawHexMapSO.GridTerrainDataList) {
+            //    Vector2Int pos = gridTerrainData.GetHexPos();
+            //    Color color = gridTerrainData.GetTerrainColor();
+            //    // TODO : 下面的生成步骤还是有问题！没有照顾到 hex 坐标的特性
+            //    //Vector2Int fixed_pos = new Vector2Int(rawHexMapTexture.width - pos.x, rawHexMapTexture.height - pos.y);
+            //    //Vector2Int fixed_pos = new Vector2Int(pos.x, rawHexMapTexture.height - pos.y);
+            //    //Vector2Int fixed_pos = new Vector2Int(rawHexMapTexture.width - pos.x, pos.y);
+            //    //Vector2Int fixed_pos = new Vector2Int(pos.y, pos.x);
+            //    Vector2Int fixed_pos = new Vector2Int(pos.x, pos.y);
+            //    rawHexMapTexture.SetPixel(fixed_pos.x, fixed_pos.y, color);
+            //}
+            //Debug.Log($"generate hex texture : {rawHexMapTexture.width}x{rawHexMapTexture.height}");
         }
 
         [FoldoutGroup("构建地形-Hex流程")]
@@ -202,10 +188,10 @@ namespace LZ.WarGameMap.MapEditor
         private void SaveRawHexMap() {
 
             CheckExportPath();
-            string soName = $"RawHexMap_{rawHexMapSO.width}x{rawHexMapSO.height}_{UnityEngine.Random.Range(0, 100)}.asset";
-            string RawHexPath = exportHexMapSOPath + $"/{soName}";
-            AssetDatabase.CreateAsset(rawHexMapSO, RawHexPath);
-            Debug.Log($"successfully create Hex Map, path : {RawHexPath}");
+            //string soName = $"RawHexMap_{rawHexMapSO.mapWidth}x{rawHexMapSO.mapHeight}_{UnityEngine.Random.Range(0, 100)}.asset";
+            //string RawHexPath = exportHexMapSOPath + $"/{soName}";
+            //AssetDatabase.CreateAsset(rawHexMapSO, RawHexPath);
+            //Debug.Log($"successfully create Hex Map, path : {RawHexPath}");
         }
 
         [FoldoutGroup("构建地形-Hex流程")]
@@ -228,7 +214,6 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-
         [FoldoutGroup("构建地形-Hex流程")]
         [Button("生成Hex版本Terrain", ButtonSizes.Medium)]
         private void GenerateTerrainByHex() {
@@ -236,10 +221,10 @@ namespace LZ.WarGameMap.MapEditor
                 Debug.LogError("hex Set is null!");
                 return;
             }
-            if (rawHexMapSO == null) {
-                Debug.LogError("rawHexMapSO is null!");
-                return;
-            }
+            //if (rawHexMapSO == null) {
+            //    Debug.LogError("rawHexMapSO is null!");
+            //    return;
+            //}
             if (TerrainCtor == null) {
                 Debug.LogError("TerrainCtor is null!");
                 return;
@@ -258,7 +243,6 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         #endregion
-
 
         // TODO : UNCOMPLETE
         #region 地形网格持久化
@@ -440,7 +424,7 @@ namespace LZ.WarGameMap.MapEditor
                 //int terrainHeight = trSet.terrainSize.z;
 
                 // TODO : terSet hexSet 最好要从 持久化文件里面读取
-                TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, rawHexMapSO, terMaterial, null);
+                TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, terMaterial, null);
 
                 int validClusterNum = reader.ReadInt32();
                 for (int i = 0; i < validClusterNum; i++) {
@@ -494,8 +478,6 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-
-        // TODO : UNCOMPLETE
         #region 地形减面
 
         [FoldoutGroup("地形减面")]
@@ -523,7 +505,6 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         #endregion
-
 
         public override void Destory() {
             if (rawHexMapTexture != null) {

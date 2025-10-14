@@ -63,6 +63,8 @@ namespace LZ.WarGameMap.Runtime.Enums {
 
         public const string GamePlayCountryCSVDataPath = "Assets/WarGameMap/GamePlay/CountryData/CSV";
 
+        public const string GamePlayCountryTexDataPath = "Assets/WarGameMap/GamePlay/CountryData/Texture";
+
         // ±à¼­Æ÷´°¿Ú SO
         public static string MapWindowPath = "Assets/WarGameMap/EditorWindow";
 

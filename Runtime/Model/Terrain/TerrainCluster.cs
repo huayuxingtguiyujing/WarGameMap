@@ -100,12 +100,12 @@ namespace LZ.WarGameMap.Runtime
         public void SetMeshData(HeightDataManager heightDataManager, bool shouldGenLODBySimplify)
         {
             int tileNumPerLine = terSet.GetTileNumClsPerLine();
-            // now we use TerrainSimplifyer; if LOD 4, vertexNumFix is 1, so there are width's num of vertexs
-            // // firstly gen max lodlevel's mesh
+            // Now we use TerrainSimplifyer; if LOD 4, vertexNumFix is 1, so there are width's num of vertexs
+            // Firstly gen max lodlevel's mesh
             int curLODLevel = terSet.LODLevel - 1;
             if (shouldGenLODBySimplify)
             {
-                // gen LOD by TerrainSimplify, we will set LOD max firstly, and then use it to simplify other LOD
+                // Gen LOD by TerrainSimplify, we will set LOD max firstly, and then use it to simplify other LOD
                 int vertexNumFix = 1;
                 for (int i = 0; i < tileNumPerLine; i++)
                 {

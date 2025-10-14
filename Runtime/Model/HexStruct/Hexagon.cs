@@ -163,11 +163,8 @@ namespace LZ.WarGameMap.Runtime.HexStruct
             corner = FixCorner(corner);
             Point center = Hex_To_Pixel(layout).ConvertToXZ();
             Point curOffset = Hex_Corner_Offset(layout, corner); // * k
-            Point curVertex = center + new Point(curOffset.x, 0, curOffset.y) * fix;   // 
-
-
+            Point curVertex = center + new Point(curOffset.x, 0, curOffset.y) * fix;
             //Point innerVertex = center + new Point(offset.x * innerRatio, 0, offset.y * innerRatio);
-
             Vector2 curPoint = new Vector2((float)curVertex.x, (float)curVertex.z);
             return curPoint;
         }
@@ -218,15 +215,16 @@ namespace LZ.WarGameMap.Runtime.HexStruct
             new Vector3(1, 0, -1),      // E
         };
 
-        public Hexagon Hex_Direction(HexDirection direction) {
+        public Hexagon Hex_Direction(HexDirection direction) 
+        {
 #if UNITY_EDITOR
             Assert.IsTrue(0 <= direction && (int)direction < 6);
 #endif
-            
             return (Hexagon)Hex_Directions[(int)direction];
         }
 
-        public Hexagon Hex_Neighbor(HexDirection direction) {
+        public Hexagon Hex_Neighbor(HexDirection direction) 
+        {
             int dir = (int)direction;
             dir = FixCorner(dir);
             direction = (HexDirection)dir;
@@ -330,5 +328,43 @@ namespace LZ.WarGameMap.Runtime.HexStruct
         None = 6,
     }
 
+    //public static class OffsetHexOddNeighbor
+    //{
+    //    public readonly static Vector2Int W = new Vector2Int(0, -1);
+    //    public readonly static Vector2Int NW = new Vector2Int(1, 0);
+    //    public readonly static Vector2Int NE = new Vector2Int(1, 1);
+    //    public readonly static Vector2Int E = new Vector2Int(0, 1);
+    //    public readonly static Vector2Int SE = new Vector2Int(-1, 1);
+    //    public readonly static Vector2Int SW = new Vector2Int(-1, 0);
+    //}
 
+    //public static class OffsetHexEvenNeighbor
+    //{
+    //    public readonly static Vector2Int W = new Vector2Int(0, -1);
+    //    public readonly static Vector2Int NW = new Vector2Int(1, -1);
+    //    public readonly static Vector2Int NE = new Vector2Int(1, 0);
+    //    public readonly static Vector2Int E = new Vector2Int(0, 1);
+    //    public readonly static Vector2Int SE = new Vector2Int(-1, 0);
+    //    public readonly static Vector2Int SW = new Vector2Int(-1, -1);
+    //}
+
+    public static class OffsetHexOddNeighbor
+    {
+        public readonly static Vector2Int W = new Vector2Int(-1, 0);
+        public readonly static Vector2Int NW = new Vector2Int(0, 1);
+        public readonly static Vector2Int NE = new Vector2Int(1, 1);
+        public readonly static Vector2Int E = new Vector2Int(1, 0);
+        public readonly static Vector2Int SE = new Vector2Int(1, -1);
+        public readonly static Vector2Int SW = new Vector2Int(0, -1);
+    }
+
+    public static class OffsetHexEvenNeighbor
+    {
+        public readonly static Vector2Int W = new Vector2Int(-1, 0);
+        public readonly static Vector2Int NW = new Vector2Int(-1, 1);
+        public readonly static Vector2Int NE = new Vector2Int(0, 1);
+        public readonly static Vector2Int E = new Vector2Int(1, 0);
+        public readonly static Vector2Int SE = new Vector2Int(0, -1);
+        public readonly static Vector2Int SW = new Vector2Int(-1, -1);
+    }
 }

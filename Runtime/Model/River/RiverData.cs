@@ -1,3 +1,4 @@
+using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -8,8 +9,10 @@ namespace LZ.WarGameMap.Runtime
     [Serializable]
     public struct RiveStartData
     {
+        [HorizontalGroup("RiveStartData"), LabelText("河流起点地块")]
         public Vector2Int rvStartClsID;
 
+        [HorizontalGroup("RiveStartData"), LabelText("河流起点位置")]
         public Vector2Int riverStart;   // pixel pos in painted rt
 
         public RiveStartData(Vector2Int rvStartClsID, Vector2Int riverStart)

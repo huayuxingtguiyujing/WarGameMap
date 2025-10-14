@@ -22,6 +22,8 @@ namespace LZ.WarGameMap.MapEditor
         public static string RiverMeshParentName = "riverMesh";
 
 
+        public static string MountainParentName = "mountains";
+
 
         public static string HexSignParentName = "hexSigns";
 

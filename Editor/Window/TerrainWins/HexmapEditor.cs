@@ -268,7 +268,7 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             private void HandleHexPointData_NoInner(int idx, ref HexAreaPointData hexData, ref Hexagon hex) {
-                // TODO : 我认为目前的混合结果是有问题的，但我不知道是哪里出了问题
+                // TODO : 我认为目前的混合结果是有问题的，但不知道是哪里出了问题
 
                 Vector2Int OffsetHex = HexHelper.AxialToOffset(hex);
                 int terType = GetTerrainType(OffsetHex);

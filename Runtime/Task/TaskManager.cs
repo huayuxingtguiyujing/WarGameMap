@@ -13,12 +13,6 @@ namespace LZ.WarGameMap.Runtime
 
         static int TaskIDCount = 0;
 
-        // wrong ! 
-        //static TaskManager()
-        //{
-        //    GetInstance().IsInit = false;
-        //}
-
         public static TaskManager GetInstance()
         {
             if (_instance == null)
@@ -73,19 +67,12 @@ namespace LZ.WarGameMap.Runtime
             return TaskIDCount;
         }
 
-        public void ProgressGoNextTask(int taskID, int level)
+        public void ProgressGoNextTask(int taskID)
         {
             BaseTask timer = GetTask(taskID);
-            timer.GoNextChildTask(level);
+            timer.GoNextChildTask();
             Debug.Log($"go next task : {taskID}, {timer.GetTaskName()}");
         }
-
-        //public void ProgressGoChildNextTask(int progressID)
-        //{
-        //    BaseTask timer = GetProgressTimer(progressID);
-        //    timer.GoChildNextChildTask();
-        //    Debug.Log($"go child next task : {progressID}, {timer.GetTimerName()}, progress : {GetProgress(progressID, out _)}");
-        //}
 
         public float GetTaskProgress(int taskID, out string curStatTxt)
         {
@@ -221,7 +208,6 @@ namespace LZ.WarGameMap.Runtime
         {
             foreach (var pair in TimerDict)
             {
-
                 pair.Value.UpdateTask();
                 bool completed = pair.Value.CheckAllLeafIsOver();;
                 // can not use TaskStat == TaskStatu.Completed to judge...

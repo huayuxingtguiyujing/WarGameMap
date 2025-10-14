@@ -233,8 +233,6 @@ namespace LZ.WarGameMap.MapEditor
 
         int terFontSize = 10;
 
-        TerMeshGenMethod meshGenMethod;
-
         [Serializable]
         struct TerClusterInfo {
             // this struct indicates the info that the cluster should show in scene
@@ -443,6 +441,8 @@ namespace LZ.WarGameMap.MapEditor
         public GameObject riverDataParentObj { get; private set; }
         public GameObject riverMeshParentObj { get; private set; }
 
+        public GameObject mountainParentObj { get; private set; }
+
         public void Dispose() {
             GameObject.DestroyImmediate(hexClusterParentObj);
             GameObject.DestroyImmediate(heightMeshParentObj);
@@ -450,14 +450,16 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         public void InitMapObj() {
-            if (mapRootObj == null) {
+            if (mapRootObj == null) 
+            {
                 mapRootObj = GameObject.Find(MapSceneEnum.MapRootName);
                 if (mapRootObj == null) {
                     mapRootObj = new GameObject(MapSceneEnum.MapRootName);
                 }
             }
 
-            if (heightMeshParentObj == null) {
+            if (heightMeshParentObj == null) 
+            {
                 heightMeshParentObj = GameObject.Find(MapSceneEnum.TerrainParentName);
                 if (heightMeshParentObj == null) {
                     heightMeshParentObj = new GameObject(MapSceneEnum.TerrainParentName);
@@ -465,29 +467,32 @@ namespace LZ.WarGameMap.MapEditor
             }
             heightMeshParentObj.transform.SetParent(mapRootObj.transform);
 
-            if (hexClusterParentObj == null) {
+            if (hexClusterParentObj == null) 
+            {
                 hexClusterParentObj = GameObject.Find(MapSceneEnum.HexClusterParentName);
                 if (hexClusterParentObj == null) {
                     hexClusterParentObj = new GameObject(MapSceneEnum.HexClusterParentName);
                 }
             }
-            hexClusterParentObj.transform.parent = mapRootObj.transform;
+            hexClusterParentObj.transform.SetParent(mapRootObj.transform);
 
-            if (hexTextureParentObj == null) {
+            if (hexTextureParentObj == null) 
+            {
                 hexTextureParentObj = GameObject.Find(MapSceneEnum.HexTextureParentName);
                 if (hexTextureParentObj == null) {
                     hexTextureParentObj = new GameObject(MapSceneEnum.HexTextureParentName);
                 }
             }
-            hexTextureParentObj.transform.parent = mapRootObj.transform;
+            hexTextureParentObj.transform.SetParent(mapRootObj.transform);
 
-            if (riverDataParentObj == null) {
+            if (riverDataParentObj == null) 
+            {
                 riverDataParentObj = GameObject.Find(MapSceneEnum.RiverDataParentName);
                 if (riverDataParentObj == null) {
                     riverDataParentObj = new GameObject(MapSceneEnum.RiverDataParentName);
                 }
             }
-            riverDataParentObj.transform.parent = mapRootObj.transform;
+            riverDataParentObj.transform.SetParent(mapRootObj.transform);
 
             // RiverMeshParentName
             if (riverMeshParentObj == null)
@@ -498,9 +503,19 @@ namespace LZ.WarGameMap.MapEditor
                     riverMeshParentObj = new GameObject(MapSceneEnum.RiverMeshParentName);
                 }
             }
-            riverMeshParentObj.transform.parent = mapRootObj.transform;
+            riverMeshParentObj.transform.SetParent(mapRootObj.transform);
 
+            
+            if (mountainParentObj == null)
+            {
+                mountainParentObj = GameObject.Find(MapSceneEnum.MountainParentName);
+                if (mountainParentObj == null)
+                {
+                    mountainParentObj = new GameObject(MapSceneEnum.MountainParentName);
+                }
+            }
+            mountainParentObj.transform.SetParent(mapRootObj.transform);
         }
-
+        
     }
 }

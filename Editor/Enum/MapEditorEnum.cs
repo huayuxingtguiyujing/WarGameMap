@@ -44,7 +44,7 @@ namespace LZ.WarGameMap.MapEditor {
 
 
         // GamePlay
-        public static string HexGridTypeEditor = "六边形格属性编辑";
+        public static string GridTerrainEditor = "格子地形编辑";
 
         public static string CountryEditor = "区域编辑";
 

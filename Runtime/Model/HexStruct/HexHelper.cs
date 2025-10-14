@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -44,7 +45,7 @@ namespace LZ.WarGameMap.Runtime
 
     public static class HexHelper 
     {
-
+        // Transfer offset and axial
         public static Vector3Int PixelToAxialHexVector(Vector2 worldPos, int HexGridSize) {
             float q = (Mathf.Sqrt(3) / 3 * worldPos.x - 1.0f / 3 * worldPos.y) / HexGridSize;
             float r = 2.0f / 3 * worldPos.y / HexGridSize;
@@ -89,18 +90,29 @@ namespace LZ.WarGameMap.Runtime
             return new Hexagon(q, r, -q - r);
         }
 
+        public static Vector3 OffsetToWorld(Layout layout, Vector2Int offset)
+        {
+            Hexagon hexagon = OffsetToAxial(offset);
+            Vector2 center = hexagon.Get_Hex_Center(layout);
+            return center.TransToXZ();
+        }
+
+        // Neighbor and Edge point
         public static Vector2Int[] GetOffsetHexNeighbour(Vector2Int offsetHex) {
             Vector2Int[] neighbour;
-            if (offsetHex.x % 2 == 1) {
-                // 奇数行的邻居 偏移，[0] 是左边的邻居，顺时针转动
+            if (offsetHex.y % 2 == 1)
+            { // offsetHex.x % 2 == 1  // ??? 哪个是对的？
+                // W  NW  NE  E  SE  SW
+                // 奇数行邻居偏移，[0] 是左边的邻居，顺时针转动
                 neighbour = new Vector2Int[6]{
-                    new Vector2Int(0, -1), new Vector2Int(1, 0), new Vector2Int(1, 1),
-                    new Vector2Int(0, 1), new Vector2Int(-1, 1), new Vector2Int(-1, 0)};
-            } else {
-                // 偶数行的邻居 偏移
+                    OffsetHexOddNeighbor.W, OffsetHexOddNeighbor.NW, OffsetHexOddNeighbor.NE,
+                    OffsetHexOddNeighbor.E, OffsetHexOddNeighbor.SE, OffsetHexOddNeighbor.SW};
+            } 
+            else
+            {
                 neighbour = new Vector2Int[6]{
-                    new Vector2Int( 0, -1), new Vector2Int(1, -1), new Vector2Int(1, 0),
-                    new Vector2Int(0, 1), new Vector2Int(-1, 0), new Vector2Int(-1, -1)};
+                    OffsetHexEvenNeighbor.W, OffsetHexEvenNeighbor.NW, OffsetHexEvenNeighbor.NE,
+                    OffsetHexEvenNeighbor.E, OffsetHexEvenNeighbor.SE, OffsetHexEvenNeighbor.SW};
             }
             return neighbour;
         }
@@ -136,10 +148,115 @@ namespace LZ.WarGameMap.Runtime
             return neighborList.ToList();
         }
 
-        // Hex grid lerp : 
+        // TODO : 现在获取不到正确的边缘点，为什么？
+        public static Vector2[] GetOffsetHexEdgePoint(Layout layout, Vector2Int offsetHex, Vector2Int neighbor)
+        {
+            // NOTE : 
+            // W  NW  NE  E  SE  SW
+            //
+            //   NW / 1 \ NE
+            //    2/     \0 (corner)
+            //    |       | 
+            //  W |       | E
+            //    3\     /5
+            //      \   / 
+            //   SW   4   SE
+            //
+            Vector2[] edgePoint = new Vector2[2];
+            Hexagon hexagon = OffsetToAxial(offsetHex);
+            HexDirection direction = GetOffsetHexDir(offsetHex, neighbor);
+            switch (direction)
+            {
+                
+                case HexDirection.W:
+                    edgePoint[0] = hexagon.Get_Hex_CornerPos(layout, 2);
+                    edgePoint[1] = hexagon.Get_Hex_CornerPos(layout, 3);
+                    break;
+                case HexDirection.NW:
+                    edgePoint[0] = hexagon.Get_Hex_CornerPos(layout, 1);
+                    edgePoint[1] = hexagon.Get_Hex_CornerPos(layout, 2);
+                    break;
+                case HexDirection.NE:
+                    edgePoint[0] = hexagon.Get_Hex_CornerPos(layout, 0);
+                    edgePoint[1] = hexagon.Get_Hex_CornerPos(layout, 1);
+                    break;
+                case HexDirection.E:
+                    edgePoint[0] = hexagon.Get_Hex_CornerPos(layout, 0);
+                    edgePoint[1] = hexagon.Get_Hex_CornerPos(layout, 5);
+                    break;
+                case HexDirection.SE:
+                    edgePoint[0] = hexagon.Get_Hex_CornerPos(layout, 4);
+                    edgePoint[1] = hexagon.Get_Hex_CornerPos(layout, 5);
+                    break;
+                case HexDirection.SW:
+                    edgePoint[0] = hexagon.Get_Hex_CornerPos(layout, 3);
+                    edgePoint[1] = hexagon.Get_Hex_CornerPos(layout, 4);
+                    break;
+            }
+            return edgePoint;
+        }
 
+        public static HexDirection GetOffsetHexDir(Vector2Int offsetHex, Vector2Int neighbor)
+        {
+            Vector2Int dir = neighbor - offsetHex;
+            if (offsetHex.y % 2 == 1)
+            {
+                if (dir == OffsetHexOddNeighbor.W)
+                {
+                    return HexDirection.W;
+                }
+                else if (dir == OffsetHexOddNeighbor.NW)
+                {
+                    return HexDirection.NW;
+                }
+                else if (dir == OffsetHexOddNeighbor.NE)
+                {
+                    return HexDirection.NE;
+                }
+                else if (dir == OffsetHexOddNeighbor.E)
+                {
+                    return HexDirection.E;
+                }
+                else if (dir == OffsetHexOddNeighbor.SE)
+                {
+                    return HexDirection.SE;
+                }
+                else if (dir == OffsetHexOddNeighbor.SW)
+                {
+                    return HexDirection.SW;
+                }
+            }
+            else
+            {
+                if (dir == OffsetHexEvenNeighbor.W)
+                {
+                    return HexDirection.W;
+                }
+                else if (dir == OffsetHexEvenNeighbor.NW)
+                {
+                    return HexDirection.NW;
+                }
+                else if (dir == OffsetHexEvenNeighbor.NE)
+                {
+                    return HexDirection.NE;
+                }
+                else if (dir == OffsetHexEvenNeighbor.E)
+                {
+                    return HexDirection.E;
+                }
+                else if (dir == OffsetHexEvenNeighbor.SE)
+                {
+                    return HexDirection.SE;
+                }
+                else if (dir == OffsetHexEvenNeighbor.SW)
+                {
+                    return HexDirection.SW;
+                }
+            }
+            return HexDirection.None;
+        }
 
-
+        // Hex grid terrain
         public static HexAreaPointData GetPointHexArea(Vector2 worldPos, Hexagon hex, Layout layout, float fix) {
             Point center = hex.Hex_To_Pixel(layout).ConvertToXZ();
             Vector2 hexCenter = new Vector2((float)center.x, (float)center.z);

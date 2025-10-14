@@ -86,7 +86,7 @@ namespace LZ.WarGameMap.MapEditor
         public Material hexmapTexMaterial;
 
         [FoldoutGroup("涂刷Hexmap纹理", -9)]
-        [LabelText("HexData纹理路径")]
+        [LabelText("HexData纹理路径"), ReadOnly]
         public string hexmapDataPath = MapStoreEnum.TerrainHexmapDataPath;
 
         HexmapDataTexManager hexmapDataTexManager = new HexmapDataTexManager();

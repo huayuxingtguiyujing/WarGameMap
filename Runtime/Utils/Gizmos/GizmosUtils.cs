@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -7,6 +8,12 @@ namespace LZ.WarGameMap.MapEditor
     {
 
         static float maxDrawTxtDistance = 5000f;
+
+        public static void DrawLine(Vector3 posA, Vector3 posB, Color32 color)
+        {
+            Gizmos.color = color;
+            Gizmos.DrawLine(posA, posB);
+        }
 
         public static void DrawCube(Vector3 position, Color32 color, float size = 0.5f) {
             Gizmos.color = color;

@@ -4,7 +4,7 @@ using Unity.Jobs;
 using LZ.WarGameCommon;
 using UnityEditor;
 using UnityEngine;
-using LZ.WarGameMap.Runtime;
+using System.Collections.Generic;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -184,7 +184,7 @@ namespace LZ.WarGameMap.Runtime
         /// <param name="texSavePath"></param>
         /// <param name="texAltasResoution">新图集的分辨率</param>
         /// <param name="texAtlasSize">新图集合并的纹理的宽/高</param>
-        private void GenerateTextureArray(string texArrayPath, string texSavePath, int texAltasResoution = 2048, int texAtlasSize = 4) {
+        private static void GenerateTextureArray(string texArrayPath, string texSavePath, int texAltasResoution = 2048, int texAtlasSize = 4) {
 
             if (!Directory.Exists(texArrayPath)) {
                 Directory.CreateDirectory(texArrayPath);
@@ -238,6 +238,22 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log("generate texture altas, then you can generate the indexTex and blenderTex");
         }
 
+        public static List<Color> GetRTColorList(RenderTexture rt)
+        {
+            RenderTexture prev = RenderTexture.active;
+            RenderTexture.active = rt;
+
+            Texture2D tex = new Texture2D(rt.width, rt.height, TextureFormat.RGBA32, false);
+            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0);
+            tex.Apply();
+            Color[] colors = tex.GetPixels();
+            List<Color> res = new List<Color>(colors);
+            RenderTexture.active = prev;
+#if UNITY_EDITOR
+            GameObject.DestroyImmediate(tex);
+#endif
+            return res;
+        }
 
     }
 }

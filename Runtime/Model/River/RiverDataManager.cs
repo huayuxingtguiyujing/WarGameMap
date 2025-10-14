@@ -211,6 +211,11 @@ namespace LZ.WarGameMap.Runtime
             foreach (var riverData in existRiverDatas)
             {
                 int riverID = riverData.riverID;
+                // If has been builded, then skip
+                if (riverMeshDict.ContainsKey(riverID))
+                {
+                    continue;
+                }
                 BuildRiverMesh(riverID, riverVertsDict[riverID]);
             }
         }

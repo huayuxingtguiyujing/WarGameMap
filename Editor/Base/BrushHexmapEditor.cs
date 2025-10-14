@@ -45,7 +45,7 @@ namespace LZ.WarGameMap.MapEditor
         protected class BrushHexmapSetting
         {
             public bool enableBrush = true;           // 允许涂刷
-            public bool enableKeyCode = false;        // 允许使用快捷键
+            public bool enableKeyCode = false;        // 允许使用快捷键    // TODO : use it
             public bool useTexCache = false;          // 开启 HexmapDataTexManager 的缓存
             public int texCacheNum = 4;               // 缓存页数
 
@@ -62,7 +62,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("涂刷Hexmap格子")]
         [LabelText("Hex涂刷范围")]
-        [Range(1, 100)]
+        [Range(0, 100)]
         public int brushScope;
 
         [FoldoutGroup("涂刷Hexmap格子")]
@@ -87,6 +87,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("涂刷Hexmap格子")]
         [Button("初始化Hex地图格", ButtonSizes.Medium)]
+        [Tooltip("点击初始化后，会在sceneview中生成供涂刷的六边形格子地图，格子地图即GamePlay的地图")]
         private void BuildHexGridMap()
         {
             if(hexmapDataTexManager == null)
@@ -101,7 +102,8 @@ namespace LZ.WarGameMap.MapEditor
             HexCtor.InitHexConsRectangle_Once(hexBrushMat);
             
             hexmapDataTexManager.InitHexmapDataTexture(hexSet.mapWidth, hexSet.mapHeight, 1, Vector3.zero, 
-                EditorSceneManager.mapScene.hexTextureParentObj, hexBrushMat, paintRTShader, true, brushSetting.useTexCache, brushSetting.texCacheNum);
+                EditorSceneManager.mapScene.hexTextureParentObj, hexBrushMat, paintRTShader, 
+                true, brushSetting.useTexCache, brushSetting.texCacheNum, FilterMode.Point);
 
             List<Color> colors = new List<Color>(hexSet.mapWidth * hexSet.mapHeight);
             for(int i = 0; i < hexSet.mapWidth; i++)
@@ -125,7 +127,10 @@ namespace LZ.WarGameMap.MapEditor
         [Button("清空Hex地图格", ButtonSizes.Medium)]
         private void ClearHexGridMap()
         {
-            HexCtor.ClearClusterObj();
+            if(HexCtor != null)
+            {
+                HexCtor.ClearClusterObj();
+            }
             if(hexmapDataTexManager != null)
             {
                 hexmapDataTexManager.Dispose();
@@ -215,6 +220,7 @@ namespace LZ.WarGameMap.MapEditor
                 {
                     offsetHexList.RemoveAt(i);
                 }
+                //DebugUtility.DebugGameObject("paintGo", offsetHexList[i].TransToXZ(), null);
             }
             Debug.Log($"now enable paint grid num : {offsetHexList.Count}");
 
@@ -222,6 +228,11 @@ namespace LZ.WarGameMap.MapEditor
             //hexmapDataTexManager.PaintHexDataTexture_RectScope(offsetHexPos.TransToXZ(), brushScope, brushColor);
             hexmapDataTexManager.PaintHexDataTexture_Scope(offsetHexList, brushColor);
             PaintHexRTEvent(offsetHexList);
+        }
+
+        protected void PaintHexRT(List<Vector2Int> worldPoss, Color color)
+        {
+            hexmapDataTexManager.PaintHexDataTexture_Scope(worldPoss, color);
         }
 
         // Call it to get enable paint pixel
@@ -247,7 +258,7 @@ namespace LZ.WarGameMap.MapEditor
         public override void Disable() 
         { 
             base.Disable();
-
+            ClearHexGridMap();
         }
 
     }

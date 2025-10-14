@@ -31,8 +31,8 @@ namespace LZ.WarGameMap.Runtime
 
         // simplier list, keep the ref
         Dictionary<Vector2Int, int> SimplifyerClsIdxList = new Dictionary<Vector2Int, int>();
-        List<TerrainSimplifier> SimplifierList;
-        int TotalSimplifyTargetCnt = 0;
+        List<TerrainSimplifier> SimplifierList = new List<TerrainSimplifier>();
+        int TotalSimplifyTargetCnt = 1;
 
         // to cancel terrain gen process
         CancellationTokenSource tokenSrc;
@@ -70,24 +70,24 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        // TODO : 有bug！
         private void InitTerGenChildTask()
         {
             float buildMeshRiverWeight = 0.2f / buildClusterNum;
-            TaskNode terGenMeshRiverNode = new TaskNode(TerGenClsTaskName, buildMeshRiverWeight, null, "");
+            TaskNode terGenMeshRiverNode = new TaskNode(TerGenClsTaskName, 0.2f, null, "");
             for (int i = 0; i < buildClusterNum; i++)
             {
-                terGenMeshRiverNode.AddChildTask($"{TerGenClsTaskName}_{i}_{TerGenClsGenMeshName}", buildMeshRiverWeight / 2, null, "生成地形Mesh中");
-                terGenMeshRiverNode.AddChildTask($"{TerGenClsTaskName}_{i}_{TerGenClsGenRiverName}", buildMeshRiverWeight / 2, null, "生成河流中");
-                
+                Vector2Int clsIdx = clusterIdxList[i];
+                terGenMeshRiverNode.AddChildTask($"{TerGenClsTaskName}_{clsIdx}_{TerGenClsGenMeshName}", buildMeshRiverWeight / 2, null, $"地块{clsIdx} 生成地形Mesh中");
+                terGenMeshRiverNode.AddChildTask($"{TerGenClsTaskName}_{clsIdx}_{TerGenClsGenRiverName}", buildMeshRiverWeight / 2, null, $"地块{clsIdx} 生成河流中");
             }
             AddChildTask(terGenMeshRiverNode);
 
             float simplifyWeight = 0.8f / buildClusterNum;
-            TaskNode simplifyNode = new TaskNode(TerSimplifyTaskName, simplifyWeight, SetSimplifyProgressCall, "");
+            TaskNode simplifyNode = new TaskNode(TerSimplifyTaskName, 0.8f, null, "");
             for (int i = 0; i < buildClusterNum; i++)
             {
-                simplifyNode.AddChildTask($"{TerGenClsTaskName}_{i}_{TerGenClsSimplifyName}", simplifyWeight, SetSimplifyProgressCall, $"LOD减面中");
+                Vector2Int clsIdx = clusterIdxList[i];
+                simplifyNode.AddChildTask($"{TerSimplifyTaskName}_{clsIdx}_{TerGenClsSimplifyName}", simplifyWeight, SetSimplifyProgressCall, $"地块{clsIdx} LOD减面中");
             }
             AddChildTask(simplifyNode);
         }
@@ -110,32 +110,37 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
             //Debug.Log($"simplier list count : {SimplifierList.Count}");
-
         }
 
         private void SetSimplifyTargetCnt()
         {
+            // Reset reduced cnt firstly
+            foreach (var simplifier in SimplifierList)
+            {
+                simplifier.ResetRecorder();
+            }
+
             int curVertNum = 0;
             int targetVertNum = 0;
             foreach (var idx in clusterIdxList)
             {
-                int i = idx.x; int j = idx.y;
+                int i = idx.x, j = idx.y;
                 curVertNum += TerrainCtor.GetClusterCurVertNum(i, j);
                 targetVertNum += TerrainCtor.GetTargetSimplifyVertNum(i, j);
             }
             TotalSimplifyTargetCnt = curVertNum - targetVertNum;
-            //Debug.Log($"target : {TotalSimplifyTargetCnt}");
         }
 
         private float SetSimplifyProgressCall()
         {
             int reducedVertNum = GetSimplifedVertNum();
             float progress = (float)reducedVertNum / (float)TotalSimplifyTargetCnt;
-            if (progress > 0.8f)
+            if (progress > 0.9f)
             {
-                // avoid dead circle
+                // Handle dead circle
                 if (IsAllSimplifedOver())
                 {
+
                     return TaskNode.TerminalProgress;
                 }
             }
@@ -184,9 +189,9 @@ namespace LZ.WarGameMap.Runtime
             {
                 int i = idx.x; int j = idx.y;
                 await TerrainCtor.BuildCluster_TerMesh(i, j, shouldGenLODBySimplify, tokenSrc.Token);
-                GoNextChildTask(2);
+                GoNextChildTask();
                 await TerrainCtor.BuildCluster_River(i, j, tokenSrc.Token);
-                GoNextChildTask(2);
+                GoNextChildTask();
             }
 
             InitSimplifyList();
@@ -196,10 +201,8 @@ namespace LZ.WarGameMap.Runtime
             {
                 int i = idx.x; int j = idx.y;
                 await TerrainCtor.ExeSimplify_MT(i, j, GetSimplifyer, tokenSrc.Token);
+                GoNextChildTask();
 
-                // TODO : 多个 cluster 的时候也许会有问题！
-
-                GoNextChildTask(2);
                 Debug.Log($"simplify cluster over : {i}, {j}");
             }
         }

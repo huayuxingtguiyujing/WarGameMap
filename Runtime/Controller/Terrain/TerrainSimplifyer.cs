@@ -30,18 +30,18 @@ namespace LZ.WarGameMap.Runtime
         Vector3 clusterStartPoint;
         int clusterSize;
 
-        // simplify metric
+        // Simplify metric
         int vertCnt;
         int curReducedCnt;
         int targetCnt;
         bool isSimplifyOver;
 
-        // mesh's data
+        // Mesh's data
         string meshName;
         Vector3[] vertexs = new Vector3[1];
         int[] triangles = new int[1];
 
-        // data to help simplify
+        // Data to help simplify
         bool[] vertex_valid;
         Dictionary<int, List<int>> vertex_link_triangle_dict;
         Dictionary<int, Matrix4x4> vertex_Q_dict;
@@ -53,14 +53,14 @@ namespace LZ.WarGameMap.Runtime
 
         QEMMinHeap qemMinHeap;
 
-        // data to help get mesh
-        HashSet<int> edgeVertMap;   // to judge whether a vert is edge vert
-        HashSet<string> hasAddThisPairMap;     // to judge whether a vert pair has been added
+        // Data to help get mesh
+        HashSet<int> edgeVertMap;   // To judge whether a vert is edge vert
+        HashSet<string> hasAddThisPairMap;     // To judge whether a vert pair has been added
         //Dictionary<int, Vector3> edgeVert_normals_dict;
 
-        public void InitRecorder()
+        public void ResetRecorder()
         {
-            curReducedCnt = 0;
+            Interlocked.Exchange(ref curReducedCnt, 0);
         }
 
         public void InitSimplifyer(MeshWrapper meshWrapper, List<int> edgeVerts, List<Vector3> edgeNormals, int targetVertCnt, Vector3 clusterStartPoint, int clusterSize) {
@@ -501,7 +501,6 @@ namespace LZ.WarGameMap.Runtime
 
         public int GetReducedCnt() {
             return Interlocked.CompareExchange(ref curReducedCnt, 0, 0);
-            //return curReducedCnt;
         }
 
         public bool GetSimplifyOver() { return isSimplifyOver; }

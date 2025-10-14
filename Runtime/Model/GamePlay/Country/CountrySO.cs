@@ -23,6 +23,7 @@ namespace LZ.WarGameMap.Runtime.Model
         public static int RootLayerIndex                = -1;
         public static string RootLayerName              = "根层级";
 
+        public static uint NotValidCountryIndex         = 9999;
         public static string NotValidCountryName        = "无";
         public static Color NotValidCountryColor        = Color.black;
 
@@ -42,10 +43,23 @@ namespace LZ.WarGameMap.Runtime.Model
         [LabelText("区域层级数据")]
         public List<CountryLayer> CountryLayerList;                         // All CountryLayer, Max layer num : 8
 
+
         [LabelText("所有区域数据")]
         public List<LayerCountryData> LayerCountryDataList = new List<LayerCountryData>();
 
         public CountryData RootCountryData;
+
+        public int TotalCountryCount { 
+            get { 
+                int count = 0;
+                foreach(var layer in LayerCountryDataList)
+                {
+                    count += layer.Count;
+                }
+                return count;
+            }
+        }
+
 
         [NonSerialized]
         public Dictionary<int, LayerCountryData> LayerCountryDataDict = new Dictionary<int, LayerCountryData>();
@@ -56,6 +70,8 @@ namespace LZ.WarGameMap.Runtime.Model
 
 
         public List<uint4> GridCountryIndiceList = new List<uint4>();       // Storage all country data in this grid, hexmap size
+
+        public int GridNum => GridCountryIndiceList.Count;
 
         [LabelText("需要初始化数据")]
         [Tooltip("如果设置为 true, 会清空 CountrySO 的数据重新初始化")]
@@ -81,10 +97,11 @@ namespace LZ.WarGameMap.Runtime.Model
 
         private void InitGridCountryIndice()
         {
+            uint initCountryIdx = BaseCountryDatas.NotValidCountryIndex;
             GridCountryIndiceList = new List<uint4>(mapWidth * mapHeight);
             for (int i = 0; i < mapWidth * mapHeight; i++)
             {
-                GridCountryIndiceList.Add(new uint4(9999, 9999, 9999, 9999));
+                GridCountryIndiceList.Add(new uint4(initCountryIdx, initCountryIdx, initCountryIdx, initCountryIdx));
             }
         }
 
@@ -305,7 +322,7 @@ namespace LZ.WarGameMap.Runtime.Model
 
         public void SetGridCountry(Vector2Int idx, CountryData countryData)
         {
-            if (!countryData.IsValid)
+            if (countryData is not null && !countryData.IsValid)
             {
                 Debug.LogError("you are setting a not valid country data");
                 return;
@@ -527,7 +544,7 @@ namespace LZ.WarGameMap.Runtime.Model
                 CSVUtil.SaveCsv(countryDatas, filePath);
             }
 
-            Debug.Log($"save csv data, region : {regionNum}, province : {provinceNum}, prefectute : {prefectureNum}, subPrefecture : {subPrefecture}");
+            Debug.Log($"save csv data, region : {firstLayerData.Count}, province : {provinceNum}, prefectute : {prefectureNum}, subPrefecture : {subPrefecture}");
         }
 
         public void LoadCSV(string loadDir, bool clearWhenLoad)

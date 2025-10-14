@@ -37,7 +37,6 @@ namespace LZ.WarGameMap.MapEditor
             task = (TerrainGenTask)args[0];
             progress = 0f;
             statuTxt = "";
-            //UnityEditorManager.RegisterUpdate(OnGUIDraw);
             base.ShowBasePop(args);
         }
 
@@ -64,11 +63,9 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            bool IsGenning = task.TaskStat == TaskStatu.Running;
-
             ShowStatAndProgress();
-            ShowTerGenTaskBtns(IsGenning);
-            UpdateProgress(IsGenning);
+            ShowTerGenTaskBtns();
+            UpdateProgress();
         }
 
         private void ShowStatAndProgress()
@@ -85,8 +82,9 @@ namespace LZ.WarGameMap.MapEditor
             EditorGUILayout.Space(20);
         }
 
-        private void ShowTerGenTaskBtns(bool IsGenning)
+        private void ShowTerGenTaskBtns()
         {
+            bool IsGenning = task.TaskStat == TaskStatu.Running;
             EditorGUILayout.BeginHorizontal();
             {
                 EditorGUI.BeginDisabledGroup(!IsGenning);
@@ -116,11 +114,11 @@ namespace LZ.WarGameMap.MapEditor
             TaskManager.GetInstance().EndTask(task.TaskID, abortFlag);
             if (abortFlag)
             {
-                statuTxt = string.Format("{0} 花费时间: {1}", cancelGenStatuTxt, task.GetCostTime());
+                statuTxt = string.Format("{0} 花费时间: {1} ms", cancelGenStatuTxt, task.GetCostTime());
             }
             else
             {
-                statuTxt = string.Format("{0} 花费时间: {1}", overGenStatuTxt, task.GetCostTime());
+                statuTxt = string.Format("{0} 花费时间: {1} ms", overGenStatuTxt, task.GetCostTime());
                 if (this)
                 {
                     this.Close();
@@ -133,8 +131,9 @@ namespace LZ.WarGameMap.MapEditor
 
         List<string> tickFrameStr = new List<string>() { ".", "..", "...", "....", "....." };
 
-        private void UpdateProgress(bool IsGenning)
+        private void UpdateProgress()
         {
+            bool IsGenning = task.TaskStat == TaskStatu.Running;
             if (IsGenning)
             {
                 tickTime++;
@@ -150,6 +149,15 @@ namespace LZ.WarGameMap.MapEditor
                     statuTxt = string.Format(statuTxt, tickFrameStr[tickTime]);
                 }
                 this.Repaint();
+            }
+            else if(task.TaskStat == TaskStatu.Aborted)
+            {
+
+            }
+            else if (task.TaskStat == TaskStatu.Completed)
+            {
+                // 正常结束
+
             }
         }
     }

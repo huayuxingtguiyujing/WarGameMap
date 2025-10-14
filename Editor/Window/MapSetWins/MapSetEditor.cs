@@ -130,8 +130,16 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
+        #region 渲染设置
+
+        [FoldoutGroup("渲染 设置")]
+        [Button("test", ButtonSizes.Medium)]
+        private void SetRenderTest()
+        {
+            // TODO : 要在这里集中地管理 Render 资产
+        }
+
+        #endregion
 
     }
-
-
 }

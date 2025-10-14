@@ -1,4 +1,3 @@
-using LZ.WarGameCommon;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -371,7 +370,6 @@ namespace LZ.WarGameMap.Runtime
             int targetVertCnt = (int)(meshWrapper.GetVertNum() * simplifyTarget);
 
             int iterCnt = 0;
-            terrainSimplifier.InitRecorder();
             while (meshWrapper.GetVertNum() > targetVertCnt && iterCnt ++ < iterLimit) {
 
                 List<int> edgeVerts = LODMeshes[lodLevel].GetEdgeVertInfo();

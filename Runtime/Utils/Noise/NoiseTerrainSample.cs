@@ -178,7 +178,6 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-
             mesh.SetVertices(vertex);
             mesh.SetTriangles(triangles, 0);
         }

@@ -30,7 +30,7 @@ namespace LZ.WarGameMap.Runtime
         [HorizontalGroup("GridTerrainLayer"), LabelText("  层级描述")]
         public string layerDiscription;
 
-        [HorizontalGroup("GridTerrainLayer"), LabelText("  内置层级")]
+        [HorizontalGroup("GridTerrainLayer"), LabelText("  内置层级"), ReadOnly]
         public bool IsBaseLayer;
 
         int layerOverlayMask;        // TODO : able to overlay with other layers
@@ -74,7 +74,7 @@ namespace LZ.WarGameMap.Runtime
         [HorizontalGroup("GridTerrainType"), LabelText("地形名称")]
         public string terrainTypeName;
 
-        [HorizontalGroup("GridTerrainType"), LabelText("地形名称")]
+        [HorizontalGroup("GridTerrainType"), LabelText("中文名称")]
         public string terrainTypeChineseName;
 
         [HorizontalGroup("GridTerrainType"), LabelText("地形层级")]
@@ -83,7 +83,7 @@ namespace LZ.WarGameMap.Runtime
         [HorizontalGroup("GridTerrainType"), LabelText("地形Edit颜色")]
         public Color terrainEditColor;
 
-        [HorizontalGroup("GridTerrainType"), LabelText("内置地形")]
+        [HorizontalGroup("GridTerrainType"), LabelText("内置地形"), ReadOnly]
         public bool IsBaseType;
 
         public GridTerrainType(int terrainTypeLayer, string terrainTypeName, string terrainTypeChineseName,Color terrainEditColor, bool IsBaseLayer)

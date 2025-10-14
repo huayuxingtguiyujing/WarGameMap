@@ -1,10 +1,8 @@
 using Sirenix.OdinInspector;
-using Sirenix.Utilities.Editor;
 using System;
 using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
-using static UnityEditor.Experimental.GraphView.GraphView;
 
 namespace LZ.WarGameMap.Runtime.Model
 {
@@ -45,11 +43,11 @@ namespace LZ.WarGameMap.Runtime.Model
     [Serializable]
     public class CountryData : CSVInterface
     {
-        [LabelText("所属行政层级")]   // ReadOnly
+        [LabelText("所属行政层级"), ReadOnly]
         public int Layer;
 
         [LabelText("名称")]
-        public string CountryName;      // CountryName is a key
+        public string CountryName;      // CountryName is a key     // NOTE : They are not allowed to be the same in the same layer
 
         [LabelText("描述")]
         public string CountryDesc;
@@ -130,6 +128,11 @@ namespace LZ.WarGameMap.Runtime.Model
             IsValid = false;
         }
 
+        public void SetCountryColor(Color color)
+        {
+            CountryColor = color;
+        }
+
         public void SetValidCountryData()
         {
             IsValid = true;
@@ -164,6 +167,7 @@ namespace LZ.WarGameMap.Runtime.Model
                 }
             }
         }
+
 
         #region Serialize
 

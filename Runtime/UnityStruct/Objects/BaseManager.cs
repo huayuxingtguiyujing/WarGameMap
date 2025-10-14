@@ -29,5 +29,7 @@ namespace LZ.WarGameMap.Runtime
 
         public virtual void InitManager() { IsInit = true; }
 
+        public void ResetManager() { IsInit = false; }
+
     }
 }

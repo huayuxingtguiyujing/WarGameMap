@@ -16,8 +16,8 @@ namespace LZ.WarGameMap.MapEditor {
         [FoldoutGroup("配置scene", -9)]
         [GUIColor(1f, 0f, 0f)]
         [ShowIf("notInitScene")]
-        [LabelText("警告: 没有初始化Scene")]
-        public string warningMessage = "请点击按钮初始化!";
+        [LabelText("警告: "), ReadOnly]
+        public string warningNotInit = "没有初始化Editor, 请点击按钮初始化!";
 
         [FoldoutGroup("配置scene", -9)]
         [LabelText("锁定SceneView")]
@@ -61,12 +61,12 @@ namespace LZ.WarGameMap.MapEditor {
             // assetName = "TerrainSetting_Default.asset"
             // assetName = "HexSetting_Default.asset"
             if (so == null) {
-                string terrainSettingPath = folderPath + "/" + assetName;
-                so = AssetDatabase.LoadAssetAtPath<T>(terrainSettingPath);
+                string soPath = folderPath + "/" + assetName;
+                so = AssetDatabase.LoadAssetAtPath<T>(soPath);
                 if (so == null) {           // create it !
                     so = CreateInstance<T>();
-                    AssetDatabase.CreateAsset(so, terrainSettingPath);
-                    Debug.Log($"successfully create map Setting SO, path : {terrainSettingPath}");
+                    AssetDatabase.CreateAsset(so, soPath);
+                    Debug.Log($"successfully create map Setting SO, path : {soPath}");
                 }
             }
         }
@@ -94,6 +94,11 @@ namespace LZ.WarGameMap.MapEditor {
         private int dragInterval = 5;
 
         protected virtual void OnSceneGUI(SceneView sceneView) {
+            if (!RootMapEditor.IsCurMapEditor(this))
+            {
+                return;
+            }
+
             HandleSceneDraw();
 
             Event e = Event.current;

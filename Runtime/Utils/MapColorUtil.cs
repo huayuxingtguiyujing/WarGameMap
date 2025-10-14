@@ -6,29 +6,81 @@ namespace LZ.WarGameMap.Runtime
 {
     public class MapColorUtil
     {
-        private static readonly Color[] validColors = new Color[]
+        public static readonly Color NotValidColor = Color.black;
+
+        public static readonly Color[] Colors = new Color[]
         {
-            Color.red,
-            Color.green,
-            Color.blue,
-            Color.cyan,
-            Color.magenta,
-            Color.yellow,
-            new Color(1f, 0.5f, 0f),   // 橙色
-            new Color(0.5f, 0f, 1f),   // 紫色
-            new Color(0f, 0.7f, 0.3f), // 青绿
+            new Color(0.91f, 0.12f, 0.39f), // 鲜艳粉红
+            new Color(0.20f, 0.60f, 1.00f), // 亮蓝
+            new Color(0.00f, 0.75f, 0.45f), // 绿色
+            new Color(1.00f, 0.65f, 0.00f), // 橙色
+            new Color(0.60f, 0.20f, 0.80f), // 紫色
+            new Color(1.00f, 0.30f, 0.30f), // 红色
+            new Color(0.10f, 0.80f, 0.80f), // 青色
+            new Color(0.90f, 0.80f, 0.10f), // 黄色
+            new Color(0.30f, 0.90f, 0.40f), // 草绿色
+            new Color(0.95f, 0.55f, 0.75f), // 粉紫
+            new Color(0.50f, 0.60f, 0.95f), // 淡蓝
+            new Color(0.85f, 0.50f, 0.20f), // 棕橙
+            new Color(0.20f, 0.85f, 0.55f), // 薄荷绿
+            new Color(0.80f, 0.25f, 0.55f), // 玫红
+            new Color(0.55f, 0.75f, 0.20f), // 橄榄绿
+            new Color(0.70f, 0.30f, 0.95f)  // 亮紫
         };
 
         private static readonly System.Random rng = new System.Random();
 
         public static Color GetValidColor_Random()
         {
-            int index = rng.Next(validColors.Length);
-            return validColors[index];
+            int index = rng.Next(Colors.Length);
+            return Colors[index];
         }
 
-        // 四色原理，区域连通图！！！
-        // TODO : 
-        // 要有个根据边界构建区域连通图的方法！
+        public static Color GetDifferentColor(HashSet<Color> disableColors)
+        {
+            int curIndex = rng.Next(Colors.Length);
+            int maxIter = Colors.Length;
+            int curIter = 0;
+            while(curIter < maxIter)
+            {
+                if (curIndex >= Colors.Length)
+                {
+                    curIndex = 0;
+                }
+                if (!disableColors.Contains(Colors[curIndex]))
+                {
+                    return Colors[curIndex];
+                }
+
+                curIndex++;
+                curIter++;
+            }
+            Debug.LogError("Can not find a valid color, you should expand more country colors");
+            return NotValidColor;
+        }
+
+        public static Color GetRandomColor(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return Colors[UnityEngine.Random.Range(0, Colors.Length)];
+
+            int hash = name.GetHashCode();
+            int index = Mathf.Abs(hash) % Colors.Length;
+            return Colors[index];
+        }
+
+        public static Color GetRandomColor(int index)
+        {
+            if(index < 0)
+            {
+                index = 0;
+            }
+            if (Colors == null || Colors.Length == 0)
+            {
+                return Color.white;
+            }
+
+            return Colors[index % Colors.Length];
+        }
     }
 }

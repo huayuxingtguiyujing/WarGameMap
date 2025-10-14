@@ -1,5 +1,6 @@
 using LZ.WarGameCommon;
 using LZ.WarGameMap.Runtime.HexStruct;
+using LZ.WarGameMap.Runtime.Model;
 using LZ.WarGameMap.Runtime.QuadTree;
 using System;
 using System.Collections;
@@ -12,8 +13,8 @@ namespace LZ.WarGameMap.Runtime {
     /// - 负责把 hexagon 数据转为 monobehaviour 的地图块（MapCluster）
     /// - 负责 地图效果的制作和调整
     /// </summary>
-    public class HexmapConstructor : MonoBehaviour {
-
+    public class HexmapConstructor : MonoBehaviour 
+    {
         [Header("hex map config")]
         [SerializeField] HexSettingSO hexSet;
         [SerializeField] public GameObject SignPrefab;
@@ -39,6 +40,9 @@ namespace LZ.WarGameMap.Runtime {
 
         QuadTree<MapGrid> mapGridQuadTree;
 
+        // GamePlay managers
+        CountryManager countryManager = new CountryManager();
+
         // runtime update
         Vector2Int lastIdx = new Vector2Int(-1, -1);
 
@@ -46,8 +50,9 @@ namespace LZ.WarGameMap.Runtime {
 
         HashSet<Vector2Int> hasInitClsSet = new HashSet<Vector2Int>();
 
-
         bool initOnce = false;
+
+        // TODO : 要参考隔壁的 TerrainConstructor，用Task机制来控制生成（就是建一个 xxxxTask，然后用Task控制Hexmap生成的全过程
 
         #region hex map init
 
@@ -114,7 +119,7 @@ namespace LZ.WarGameMap.Runtime {
             hexClusters = new TDList<HexCluster>(cls_num_width, cls_num_height);
             ClusterSize.InitClusterSizeInfo(hexSet.hexGridSize, clusterSize, hexSet.originOffset);
 
-            Debug.Log($"now we init hex cluster num : {cls_num_width * cls_num_height}");
+            //Debug.Log($"Now we init hex cluster num : {cls_num_width * cls_num_height}");
         }
 
         public void InitHexConsRectangle_Once(Material mat)
@@ -399,6 +404,24 @@ namespace LZ.WarGameMap.Runtime {
 
         #endregion
 
+        #region gameplay init
+
+        public void InitCountry(CountrySO countrySO)
+        {
+            countryManager.InitCountryManager(countrySO);
+        }
+
+        #endregion
+
+        #region country, gridtype functions
+
+        public void UpdateCountryColor()
+        {
+            countryManager.UpdateCountryColor();
+        }
+
+        #endregion
+
 
         #region generate hex message by height info
 
@@ -595,7 +618,6 @@ namespace LZ.WarGameMap.Runtime {
             }
 
         }
-
 
         public void GetMapGridTest(int mapIdxX, int mapIdxY) {
             MapGrid grid = GetMapGrid(mapIdxX, mapIdxY);
