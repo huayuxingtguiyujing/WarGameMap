@@ -146,8 +146,8 @@ namespace LZ.WarGameMap.Runtime
                 float rx1 = Mathf.Lerp(q01, q11, sx - x0);
 
                 // caculate the height by the data given
-                float h = Mathf.Lerp(rx0, rx1, sy - y0) * clusterSize;
-                float fixed_h = Mathf.Clamp(h, 0, 50);
+                float h = Mathf.Lerp(rx0, rx1, sy - y0);
+                float fixed_h = Mathf.Clamp(h, 0, 100);
                 return fixed_h;
             }
 

@@ -217,7 +217,7 @@ namespace LZ.WarGameMap.Runtime
                     overProgressList.Add(pair.Key);
                 }
                 //pair.Value.DebugTask();
-                Debug.Log($"tick task : {pair.Value.GetTaskName()}, task id : {pair.Key}");
+                //Debug.Log($"tick task : {pair.Value.GetTaskName()}, task id : {pair.Key}");
             }
         }
 

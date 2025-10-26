@@ -104,31 +104,6 @@ namespace LZ.WarGameMap.Runtime
             int tickCnt = 0;
             Vector3 offsetInMeshVert = new Vector3(gridSize, 0, gridSize);
 
-            // multithreading, but slow ?
-            /*Action<int> exeHeightSet = (idx) => {
-                int i = idx / vertexPerLineFixed;
-                int j = idx % vertexPerLineFixed;
-
-                bool isVertOutOfMesh = (i == 0) || (i == vertexPerLineFixed - 1) || (j == 0) || (j == vertexPerLineFixed - 1);
-                Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
-
-                float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
-
-                vert.y = height;
-                Vector2 uv = new Vector2(vert.x / terSet.clusterSize, vert.z / terSet.clusterSize);
-
-                if (isVertOutOfMesh) {
-                    meshData.AddVertex(vert, uv, curOutVertIdx);
-                    meshData.SetIndiceInMap(i, j, curOutVertIdx);
-                    curOutVertIdx--;
-                } else {
-                    meshData.AddVertex(vert, uv, curInVertIdx);
-                    meshData.SetIndiceInMap(i, j, curInVertIdx);
-                    curInVertIdx++;
-                }
-            };
-            Parallel.For(0, vertexPerLineFixed * vertexPerLineFixed, exeHeightSet);*/
-
             for (int i = 0; i < vertexPerLineFixed; i++) {
                 for (int j = 0; j < vertexPerLineFixed; j++) {
                     tickCnt++;

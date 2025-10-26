@@ -40,7 +40,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
 
-        #region get file infos from folder
+        #region Get file infos from folder
 
         public static List<string> GetFileNames(string folderPath, string suffix)
         {
@@ -70,7 +70,7 @@ namespace LZ.WarGameMap.Runtime
         #endregion
 
 
-        #region save load asset
+        #region Save load asset
 
         public static void SaveAssets<T>(string path, string assetName, T asset) where T : UnityEngine.Object {
             if (assetName == null) {

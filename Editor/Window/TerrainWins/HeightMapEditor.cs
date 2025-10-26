@@ -1,5 +1,7 @@
+using LZ.WarGameCommon;
 using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.Enums;
+using LZ.WarGameMap.Runtime.HexStruct;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
@@ -13,127 +15,228 @@ using Directory = System.IO.Directory;
 
 namespace LZ.WarGameMap.MapEditor
 {
-    public class HeightMapEditor : BaseMapEditor {
 
-        public override string EditorName => MapEditorEnum.HeightMapEditor;
+    public enum HeightMapWorkFlow
+    {
+        TIF,            // TIF工作流：          使用地理信息网站下载的TIF文件，生成 HeightDataModel，用于地形生成
+        GridTerrain     // GridTerrain工作流：  类似文明的六边形格子地图，编辑格子地形，格子地形导出纹理，用于生成 HeightDataModel
+    }
 
+    public struct SerializedHeightMapInfo
+    {
+        public int latitude { get; private set; }
+        public int longitude { get; private set; }
 
-        struct TIFHeightMapInfo {
-            public int latitude { get; private set; }
-            public int longitude { get; private set; }
+        public Vector2Int GetFixedLongitudeAndLatitude()
+        {
+            return new Vector2Int(longitude, latitude);
+        }
 
-            public TIFHeightMapInfo(string fixedHeightFilePath) {
-                latitude = 0; longitude = 0;
+        public SerializedHeightMapInfo(string fixedHeightFilePath, HeightMapWorkFlow WorkFlow)
+        {
+            latitude = 0; longitude = 0;
 
-                // get tif file info from the name, such as "n33_e110_1arc_v3"
-                string inputFileName = Path.GetFileName(fixedHeightFilePath);
-                string[] tifFileInfo = inputFileName.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
-                if (tifFileInfo.Length < 3) {
-                    Debug.LogError($"the tif error, name not correct : {fixedHeightFilePath}");
-                    return;
-                }
-
-                // read the tif file, get longitude and latitude, write to this output file
-                Match matchLatitude = Regex.Match(tifFileInfo[0], @"^[a-zA-Z]+(\d+)$");
-                latitude = int.Parse(matchLatitude.Groups[1].Value);
-                Match matchLongitude = Regex.Match(tifFileInfo[1], @"^[a-zA-Z]+(\d+)$");
-                longitude = int.Parse(matchLongitude.Groups[1].Value);
+            string inputFileName = Path.GetFileName(fixedHeightFilePath);
+            switch (WorkFlow)
+            {
+                case HeightMapWorkFlow.TIF:
+                    SetTIFHeightInfo(inputFileName);
+                    break;
+                case HeightMapWorkFlow.GridTerrain:
+                    SetGridTerrainHeightInfo(inputFileName);
+                    break;
             }
         }
 
+        private void SetTIFHeightInfo(string inputFileName)
+        {
+            // Get tif file info from the name, such as "n33_e110_1arc_v3"
+            string[] tifFileInfo = inputFileName.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tifFileInfo.Length < 3)
+            {
+                Debug.LogError($"the tif error, name not correct : {inputFileName}");
+                return;
+            }
 
-        #region 高度图序列化
+            // Read the tif file, get longitude and latitude, write to this output file
+            Match matchLatitude = Regex.Match(tifFileInfo[0], @"^[a-zA-Z]+(\d+)$");
+            latitude = int.Parse(matchLatitude.Groups[1].Value);
+            Match matchLongitude = Regex.Match(tifFileInfo[1], @"^[a-zA-Z]+(\d+)$");
+            longitude = int.Parse(matchLongitude.Groups[1].Value);
+        }
 
-        [FoldoutGroup("高度图序列化/导入设置")]
-        [LabelText("导入时翻转")]
-        public bool flipVertically = true;
+        private void SetGridTerrainHeightInfo(string inputFileName)
+        {
+            // Get tif file info from the name, such as "GridTerrain_x0_y0_512x512_Batch0_638965990576634345"
+            string[] gridTerrainTexFileInfo = inputFileName.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
+            if (gridTerrainTexFileInfo.Length < 3)
+            {
+                Debug.LogError($"the tif error, name not correct : {inputFileName}");
+                return;
+            }
+            longitude = int.Parse(gridTerrainTexFileInfo[1].Substring(1));
+            latitude = int.Parse(gridTerrainTexFileInfo[2].Substring(1));
+        }
+    }
 
-        [FoldoutGroup("高度图序列化")]
-        [LabelText("压缩后高度图分辨率")]
+    public class HeightMapEditor : BaseMapEditor {
+
+        // TODO : 后续要从 EditorSceneManager 中获取
+        protected HexSettingSO hexSet;
+
+        protected TerrainSettingSO terSet;
+
+        // TODO : 后续要从 EditorSceneManager 中获取
+        protected GridTerrainSO gridTerrainSO;
+
+        public override string EditorName => MapEditorEnum.HeightMapEditor;
+
+        protected override void InitEditor()
+        {
+            base.InitEditor();
+            InitMapSetting();
+
+            terSet = EditorSceneManager.TerSet;
+            //FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
+
+            hexSet = EditorSceneManager.HexSet;
+            //FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+
+            gridTerrainSO = EditorSceneManager.GridTerrainSO;
+            //FindOrCreateSO<GridTerrainSO>(ref gridTerrainSO, MapStoreEnum.GamePlayGridTerrainDataPath, "GridTerrainSO_Default.asset");
+            gridTerrainSO.UpdateTerSO(hexSet.mapWidth, hexSet.mapHeight);
+            Debug.Log("Init HeightMap Editor over!");
+        }
+
+        //
+        // ----二进制文件格式----
+        // int 文件数量 （4B）
+        // int 单个cluster的尺寸 （4B）
+        // 对于每个地块文件：
+        //      int 地块x坐标
+        //      int 地块y坐标
+        //      float[clusterSize, clusterSize] 高度图数据
+        //
+        // ----对于地块经纬度的解释----
+        // 在 scene 视图中
+        // x 为横轴，为经度 longitutde
+        // y 为纵轴，为维度 latitude
+        // 但是在计算偏移时，如果使用简单的 longitudeAndLatitude * terrainSize
+        // 却会导致错误的结果
+        // 例如 longitudeAndLatitude = (0, 1)
+        // 那么 offset 值为 (0, 512)，在坐标中的计算是错误的，正确的应该是 (512, 0)
+        // 所以每次获取经纬度计算 offset 时，都需要注意是否反转 
+        //
+
+        #region 高度图 转 二进制文件
+
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("当前工作流")]
+        public HeightMapWorkFlow WorkFlow = HeightMapWorkFlow.GridTerrain;
+
+        bool IsInTIFWorkFlow => (WorkFlow == HeightMapWorkFlow.TIF);
+        bool IsInGridTerrainWorkFlow => (WorkFlow == HeightMapWorkFlow.GridTerrain);
+
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("转化后高度图分辨率")]
         public int compressResultSize = 64;
 
-        [FoldoutGroup("高度图序列化")]
-        [LabelText("每次序列化的TIF文件数目")]
+        //[ShowIf("IsInTIFWorkFlow")]
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("导入时翻转"), ReadOnly]
+        public bool flipVertically = true;
+
+        [ShowIf("IsInTIFWorkFlow")]
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("每次序列化的TIF文件数目"), ReadOnly]
         public int batchTIFTileNum = 15;
 
-        [FoldoutGroup("高度图序列化")]
-        [LabelText("当前使用高度图集群")]
-        [AssetSelector(Filter = "t:Texture")]
-        public List<List<Texture>> heightMapLists;
+        [ShowIf("IsInTIFWorkFlow")]
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("TIF导入位置"), ReadOnly]
+        public string tifInputPath = MapStoreEnum.HeightMapInputPath;
 
-        [FoldoutGroup("高度图序列化")]
-        [LabelText("导入位置")]
-        public string heightMapInputPath = MapStoreEnum.HeightMapInputPath;
+        [ShowIf("IsInGridTerrainWorkFlow")]
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("每次序列化的GridTerrain纹理数目"), ReadOnly]
+        public int batchGridTerrainTileNum = 15;
 
-        [FoldoutGroup("高度图序列化")]
-        [LabelText("导出位置")]
+        [ShowIf("IsInGridTerrainWorkFlow")]
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("转化的GridTerrainTex"), ReadOnly]
+        public List<Texture2D> gridTerrainTexs = new List<Texture2D>();
+
+        [ShowIf("IsInGridTerrainWorkFlow")]
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("GridTerrainTex导入位置"), ReadOnly]
+        public string gridTerrainTexInputPath = MapStoreEnum.GamePlayGridTerrainTexDataPath;
+
+        // You can go to {heightMapOutputPath} to delete output files
+        [FoldoutGroup("高度图转二进制文件")]
+        [LabelText("导出位置"), ReadOnly]
         public string heightMapOutputPath = MapStoreEnum.HeightMapOutputPath;
 
-        [FoldoutGroup("高度图序列化")]
-        [Button("序列化高度图", ButtonSizes.Medium)]
-        private void SerializeHeightMaps() {
-            if (!Directory.Exists(heightMapInputPath)) {
-                Directory.CreateDirectory(heightMapInputPath);
-            }
+        [FoldoutGroup("高度图转二进制文件")]
+        [Button("生成二进制文件", ButtonSizes.Medium)]
+        private void GenSerializeFiles() {
+            
             if (!Directory.Exists(heightMapOutputPath)) {
                 Directory.CreateDirectory(heightMapOutputPath);
             }
 
-            string[] heightMapPaths = Directory.GetFiles(heightMapInputPath, "*.tif", SearchOption.AllDirectories);
-            int batches = heightMapPaths.Length / batchTIFTileNum + 1;
-            for (int i = 0; i < batches; i++) {
-                // get specify number of TIF file
-                int start = i * batchTIFTileNum;
-                int end = Mathf.Min((i + 1) * batchTIFTileNum, heightMapPaths.Length - 1);
+            gridTerrainTexs.Clear();
+            switch (WorkFlow)
+            {
+                case HeightMapWorkFlow.TIF:
+                    StartSerialize(batchTIFTileNum, "*.tif", tifInputPath);
+                    break;
+                case HeightMapWorkFlow.GridTerrain:
+                    StartSerialize(batchGridTerrainTileNum, "*.png", gridTerrainTexInputPath);
+                    break;
+            }
+        }
+        
+        private void StartSerialize(int batchTileNum, string filterFileSuffix, string fileInputPath)
+        {
+            if (!Directory.Exists(fileInputPath))
+            {
+                Directory.CreateDirectory(fileInputPath);
+            }
+
+            string[] heightMapPaths = Directory.GetFiles(fileInputPath, filterFileSuffix, SearchOption.AllDirectories);
+            int batches = heightMapPaths.Length / batchTileNum + 1;
+            for (int i = 0; i < batches; i++)
+            {
+                // Get specify number of TIF file
+                int start = i * batchTileNum;
+                int end = Mathf.Min((i + 1) * batchTileNum, heightMapPaths.Length);
                 int length = end - start;
                 string[] curHandleFilePaths = new string[length];
                 Array.Copy(heightMapPaths, start, curHandleFilePaths, 0, length);
 
-                // transfer them to a serialized file
+                // Transfer them to a serialized file
                 string outputName = GetOuputName(length, i);
                 SerializeHeightMap(heightMapOutputPath, outputName, heightMapPaths, compressResultSize);
             }
         }
-
-
-        private void SerializeHeightMap(string outputPath, string outputName, string[] inputFilePaths, int size) {
-
+        
+        private void SerializeHeightMap(string outputPath, string outputName, string[] inputFilePaths, int size) 
+        {
             string outputFile = AssetsUtility.CombinedPath(outputPath, outputName);
             using (FileStream fs = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write)) {
                 using (BinaryWriter writer = new BinaryWriter(fs)) {
-                    // file header : fileNum, single fileSize  // Int32
+                    // File header : fileNum, single fileSize  // Int32
                     writer.Write(inputFilePaths.Length);
                     writer.Write(size);
 
                     foreach (var inputFilePath in inputFilePaths) {
                         string fixedFilePath = AssetsUtility.FixFilePath(inputFilePath);
 
-                        //// get tif file info from the name, such as "n33_e110_1arc_v3"
-                        //string inputFileName = Path.GetFileName(fixedFilePath);
-                        //string[] tifFileInfo = inputFileName.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
-                        //if (tifFileInfo.Length < 3) {
-                        //    Debug.LogError($"the tif error, name not correct : {fixedFilePath}");
-                        //    break;
-                        //}
+                        SerializedHeightMapInfo heightMapInfo = new SerializedHeightMapInfo(fixedFilePath, WorkFlow);
+                        writer.Write(heightMapInfo.latitude + terSet.startLL.y);
+                        writer.Write(heightMapInfo.longitude + terSet.startLL.x);
 
-                        //// read the tif file, get longitude and latitude, write to this output file
-                        //Match matchLatitude = Regex.Match(tifFileInfo[0], @"^[a-zA-Z]+(\d+)$");
-                        //int latitude = int.Parse(matchLatitude.Groups[1].Value);
-                        //Match matchLongitude = Regex.Match(tifFileInfo[1], @"^[a-zA-Z]+(\d+)$");
-                        //int longitude = int.Parse(matchLongitude.Groups[1].Value);
-
-                        TIFHeightMapInfo heightMapInfo = new TIFHeightMapInfo(fixedFilePath);
-
-                        writer.Write(heightMapInfo.latitude);
-                        writer.Write(heightMapInfo.longitude);
-
-                        // get height data and write to file
-                        CompressAndWirteHeight(fixedFilePath, writer);
-                        //for (int i = 0; i < size; i++) {
-                        //    for (int j = 0; j < size; j++) {
-                        //        writer.Write(heightMap[i, j]);
-                        //    }
-                        //}
+                        CompressAndWirteHeight(fixedFilePath, writer, heightMapInfo);
                     }
                 }
             }
@@ -147,10 +250,20 @@ namespace LZ.WarGameMap.MapEditor
             return string.Format("heightData_{0}files_{1}batch_{2}", fileNum, batch, dateTime.Ticks);
         }
 
-        private void CompressAndWirteHeight(string heightMapPath, BinaryWriter writer) {
-
-            float[,] heights = ReadTifData(heightMapPath);
-            Debug.Log(string.Format("read height data over, length: {0}, path: {1}", heights.Length, heightMapPath));
+        private void CompressAndWirteHeight(string heightMapPath, BinaryWriter writer, SerializedHeightMapInfo heightMapInfo) 
+        {
+            //float[,] heights = new float[1,1];\
+            TDList<float> heights = new TDList<float>();
+            switch (WorkFlow)
+            {
+                case HeightMapWorkFlow.TIF:
+                    heights = ReadTifData(heightMapPath);
+                    break;
+                case HeightMapWorkFlow.GridTerrain:
+                    heights = ReadGridTerrainTex(heightMapPath, heightMapInfo);
+                    break;
+            }
+            Debug.Log(string.Format("read height data over, length: {0}, path: {1}", heights.Count, heightMapPath));
 
             //float[,] compressedHeights = new float[compressResultSize, compressResultSize];   // float[,]
             if (heights == null) {
@@ -158,18 +271,18 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            int srcWsidth = heights.GetLength(0);
-            int dstHeight = heights.GetLength(1);
+            int srcWidth = heights.GetLength(1);
+            int dstHeight = heights.GetLength(0);
 
-            // resample the size of height map
+            // Resample the size of height map
             for (int i = 0; i < compressResultSize; i++) {
                 for (int j = 0; j < compressResultSize; j++) {
 
-                    float sx = i * (float)(srcWsidth - 1) / compressResultSize;
+                    float sx = i * (float)(srcWidth - 1) / compressResultSize;
                     float sy = j * (float)(dstHeight - 1) / compressResultSize;
 
                     int x0 = Mathf.FloorToInt(sx);
-                    int x1 = Mathf.Min(x0 + 1, srcWsidth - 1);
+                    int x1 = Mathf.Min(x0 + 1, srcWidth - 1);
                     int y0 = Mathf.FloorToInt(sy);
                     int y1 = Mathf.Min(y0 + 1, dstHeight - 1);
 
@@ -183,43 +296,155 @@ namespace LZ.WarGameMap.MapEditor
 
                     // caculate the height by the data given
                     float h = Mathf.Lerp(rx0, rx1, sy - y0);
-                    float fixed_h = Mathf.Clamp(h, 0, 50);
+                    float fixed_h = Mathf.Clamp(h, 0, 50);        // 不建议在这里修改原数据
                     //compressedHeights[i, j] = fixed_h;
 
                     writer.Write(fixed_h);
                 }
             }
 
-            //return compressedHeights;
+            //Return compressedHeights;
         }
 
-        private float[,] ReadTifData(string path) {
+        private TDList<float> ReadTifData(string path) {
             System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(path);
             int width = bitmap.Width;
             int height = bitmap.Height;
 
-            float[,] heights = new float[width, height];
+            TDList<float> heights = new TDList<float>(width, height);
+
+            //float[,] heights = new float[width, height];
             for (int x = 0; x < height; x++) {
                 for (int y = 0; y < width; y++) {
                     int destY = flipVertically ? width - 1 - y : y;
                     int destX = flipVertically ? height - 1 - x : x;
                     System.Drawing.Color pixelColor = bitmap.GetPixel(y, destX);
 
-                    // grapScale = 0.299 * R + 0.587 * G + 0.114 * B
+                    // GrapScale = 0.299 * R + 0.587 * G + 0.114 * B
                     float grayscale = 0.299f * pixelColor.R + 0.587f * pixelColor.G + 0.114f * pixelColor.B;
                     heights[x, y] = grayscale / 255.0f;
                 }
             }
 
-            Debug.Log(string.Format("read tif file over! length:{0}, width:{1}, height:{2}", heights.Length, width, height));
+            Debug.Log(string.Format("read tif file over! length:{0}, width:{1}, height:{2}", heights.Count, width, height));
             bitmap.Dispose();
             return heights;
         }
 
-        [FoldoutGroup("高度图序列化")]
-        [Button("清空输出数据文件", ButtonSizes.Medium)]
-        private void ClearSerializedData() {
-            Debug.Log($"please go to {heightMapOutputPath} to delete output files, delete by code is dangerous");
+        // Cache of gridTerrain gen
+        MountainNoiseData CurMountainNoise;
+
+        FastNoiseLite CurMountainNoiseLite;
+
+        FastNoiseLite CurInteruptNoiseLite;
+
+        // TODO : 后续要对山脉外的地形也加入 height （例如丘陵、平原甚至也可以）
+        private TDList<float> ReadGridTerrainTex(string path, SerializedHeightMapInfo heightMapInfo)
+        {
+            Texture2D gridTerrainTex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            int terrainSize = terSet.clusterSize;
+            int fixedTerSize = terSet.fixedClusterSize;
+            gridTerrainTexs.Add(gridTerrainTex);
+            List<Color> gridTerrainTexColors = gridTerrainTex.GetPixels().ToList();
+            int height111 = gridTerrainTex.height;
+            TDList<float> heights = new TDList<float>(terrainSize, terrainSize);
+
+            Vector2Int longitudeAndLatitude = heightMapInfo.GetFixedLongitudeAndLatitude();
+            for (int i = 0; i < terrainSize; i++)
+            {
+                for (int j = 0; j < terrainSize; j++)
+                {
+                    // Cache mountain sample data and Get IsMountain
+                    bool IsMountain = CacheMountainSample(i, j, terrainSize, fixedTerSize, longitudeAndLatitude);
+                    float height;
+                    if (IsMountain)
+                    {
+                        height = InterpretWithMountain(i, j, terrainSize, fixedTerSize, longitudeAndLatitude, gridTerrainTexColors);
+                    }
+                    else
+                    {
+                        height = 10.0f; // Plain
+                    }
+
+                    // 需要进行中心旋转
+                    if (flipVertically)
+                    {
+                        heights[j, i] = height;
+                    }
+                    else
+                    {
+                        heights[i, j] = height;
+                    }
+                }
+            }
+            return heights;
+        }
+        
+        private bool CacheMountainSample(int i, int j, int terrainSize, int fixedTerSize, Vector2Int longitudeAndLatitude)
+        {
+            Vector2Int sampleFix = new Vector2Int((fixedTerSize - terrainSize) / 2, (fixedTerSize - terrainSize) / 2);
+            Vector2Int pos = new Vector2Int(i, j) + longitudeAndLatitude * terrainSize + sampleFix;
+
+            Hexagon hex = HexHelper.PixelToAxialHex(pos, hexSet.hexGridSize, true);
+            Vector2Int offsetHex = HexHelper.AxialToOffset(hex);
+
+            // TODO : 用下方的逻辑，为丘陵等地形也生成起伏
+            //byte idx = gridTerrainSO.GetGridTerrainDataIdx(offsetHex);
+            //Color color = gridTerrainSO.GetGridTerrainTypeColorByIdx(idx);
+
+            // Get mountainNoiseData by cur point
+            int mountainID = gridTerrainSO.GetGridMountainID(offsetHex);
+            MountainData mountainData = gridTerrainSO.GetMountainData(mountainID);
+            if (mountainData == null)
+            {
+                return false;
+            }
+            
+            // Set interuptNoiseLite and mountainNoiseLite by mountainNoiseData
+            if (mountainData.MountainNoiseData != CurMountainNoise)
+            {
+                CurMountainNoise = mountainData.MountainNoiseData;
+                CurMountainNoiseLite = CurMountainNoise.GetNoiseDataLite();
+                CurInteruptNoiseLite = CurMountainNoise.GetSampleNoiseData();
+            }
+            return true;
+        }
+
+        private float InterpretWithMountain(int i, int j, int terrainSize, int fixedTerSize, Vector2Int longitudeAndLatitude, List<Color> gridTerrainTexColors)
+        {
+            // Fix texture sample (terrain is 532, but we need 512)
+            int clusterSampleFix = (fixedTerSize - terrainSize) / 2;
+            Vector2Int sampleFix = new Vector2Int(clusterSampleFix, clusterSampleFix);
+            Vector2Int texPos = new Vector2Int(i, j) + sampleFix;
+            Color color = gridTerrainTexColors[texPos.y * fixedTerSize + texPos.x];    // TODO : 会越界，想想办法... 让输出的texture额外采样周围的部分点...
+
+            // Get true position in this cluster
+            Vector2Int pos = new Vector2Int(i, j) + longitudeAndLatitude * terrainSize;
+            float sampleNoise = CurInteruptNoiseLite.GetNoise(pos.x, pos.y);
+            int clusterStartX = longitudeAndLatitude.x * terrainSize - clusterSampleFix;
+            int clusterEndX = (longitudeAndLatitude.x + 1) * terrainSize - 1 + clusterSampleFix;
+            int clusterStartY = longitudeAndLatitude.y * terrainSize - clusterSampleFix;
+            int clusterEndY = (longitudeAndLatitude.y + 1) * terrainSize - 1 + clusterSampleFix;
+            //pos.x = Mathf.Clamp(pos.x + (int)(sampleNoise * CurMountainNoise.interuptInstence), clusterStartX, clusterEndX);  // 生成 地块纹理时 要额外采样周围的点
+            //pos.y = Mathf.Clamp(pos.y + (int)(sampleNoise * CurMountainNoise.interuptInstence), clusterStartY, clusterEndY);
+
+            pos.x += (int)(sampleNoise * CurMountainNoise.interuptInstence);
+            pos.y += (int)(sampleNoise * CurMountainNoise.interuptInstence);
+
+            // Use noise to interrupt height 
+            float ratio = MathUtil.ColorInverseLerp(BaseGridTerrain.GetPlainColor(), BaseGridTerrain.GetMountainColor(), color);
+            float noise = Mathf.Abs(CurMountainNoiseLite.GetNoise(pos.x, pos.y)) * ratio * 10 + CurMountainNoise.baseHeight;
+
+            if (noise > 1)
+            {
+                noise = Mathf.Pow(noise, CurMountainNoise.elevation);
+            }
+            else
+            {
+                noise = Mathf.Pow(noise, 1 / CurMountainNoise.elevation);
+            }
+            float height = noise * CurMountainNoise.heightFix;
+            return height;
         }
 
         #endregion
@@ -227,22 +452,23 @@ namespace LZ.WarGameMap.MapEditor
 
         #region 高度图反序列化
 
-        [FoldoutGroup("高度图反序列化")]
+        [FoldoutGroup("生成HeightDataModel")]
         [LabelText("当前操作的序列化文件")]
-        [Tooltip("不要直接使用这个字段导入，点击下方的按钮进行导入")]
+        [Tooltip("不要直接使用该字段导入，点击下方的按钮进行导入")]
         public List<UnityEngine.Object> heightMapSerilzedFile;
 
-        [FoldoutGroup("高度图反序列化")]
-        [LabelText("导入位置")]
+        [FoldoutGroup("生成HeightDataModel")]
+        [LabelText("导入位置"), ReadOnly]
         public string serlDataOutputPath = MapStoreEnum.HeightMapOutputPath;
 
-        [FoldoutGroup("高度图反序列化")]
-        [LabelText("导出位置")]
+        [FoldoutGroup("生成HeightDataModel")]
+        [LabelText("导出位置"), ReadOnly]
         public string deserlDataOutputPath = MapStoreEnum.HeightMapScriptableObjPath;
 
-        [FoldoutGroup("高度图反序列化")]
-        [Button("导入序列化后文件", ButtonSizes.Medium)]
-        private void ImportSerilizedFile() {
+        [FoldoutGroup("生成HeightDataModel")]
+        [Button("导入序列化文件", ButtonSizes.Medium)]
+        private void ImportSerilizedFile() 
+        {
             //string heightMapSerlizedPath = EditorUtility.OpenFilePanel("Import Raw Heightmap", "", "");
             if (string.IsNullOrEmpty(serlDataOutputPath) || string.IsNullOrEmpty(deserlDataOutputPath)) {
                 Debug.LogError("input / output path is null!");
@@ -265,9 +491,10 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        [FoldoutGroup("高度图反序列化")]
-        [Button("反序列化高度图", ButtonSizes.Medium)]
-        private void DeserializeHeightMaps() {
+        [FoldoutGroup("生成HeightDataModel")]
+        [Button("生成HeightDataModel（用于游戏中）", ButtonSizes.Medium)]
+        private void DeserializeHeightMaps() 
+        {
             if (!Directory.Exists(heightMapOutputPath)) {
                 Directory.CreateDirectory(heightMapOutputPath);
             }
@@ -282,12 +509,14 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
-        private void DeserializeHeightMaps(int batch, string fileRelativePath, string deserlOutputFilePath) {
+        private void DeserializeHeightMaps(int batch, string fileRelativePath, string deserlOutputFilePath) 
+        {
 
             fileRelativePath = AssetsUtility.FixFilePath(fileRelativePath);
             //Debug.Log(deserlOutputFilePath);
 
-            using (FileStream fs = new FileStream(fileRelativePath, FileMode.Open, FileAccess.Read)) {
+            using (FileStream fs = new FileStream(fileRelativePath, FileMode.Open, FileAccess.Read)) 
+            {
                 using (BinaryReader reader = new BinaryReader(fs)) {
                     int fileNum = reader.ReadInt32();
                     int singleFileWidth = reader.ReadInt32();
@@ -298,7 +527,8 @@ namespace LZ.WarGameMap.MapEditor
                     string modelName = string.Format("HeightModel_{0}files_{1}batch_{2}.asset", fileNum, batch, dateTime.Ticks);
                     heightDataModel.name = modelName;
 
-                    for (int i = 0; i < fileNum; i++) {
+                    for (int i = 0; i < fileNum; i++)
+                    {
                         int latitude = reader.ReadInt32();
                         int longitude = reader.ReadInt32();
 
@@ -325,7 +555,8 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-        // TODO : UNCOMPLETE
+        // TODO : 没有完成
+        // TODO : 后续需要在生成高度图的同时，生成法线贴图，或者动态地生成法线贴图
         #region 根据高度图生成法线贴图
 
         [FoldoutGroup("根据高度图生成法线图")]
@@ -337,14 +568,14 @@ namespace LZ.WarGameMap.MapEditor
         public Texture2D originTexture;
 
         [FoldoutGroup("根据高度图生成法线图")]
-        [LabelText("导出位置")]
+        [LabelText("导出位置"), ReadOnly]
         public string normalTexOutputPath = MapStoreEnum.HeightMapNormalTexOutputPath;
 
         [FoldoutGroup("根据高度图生成法线图")]
         [Button("生成法线贴图", ButtonSizes.Medium)]
 
         private void GenerateNormalMap() {
-            if (!Directory.Exists(heightMapInputPath)) {
+            if (!Directory.Exists(tifInputPath)) {
                 Debug.LogError("do not exist input heightmap path");
                 return;
             }
@@ -357,7 +588,7 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            string[] heightMapPaths = Directory.GetFiles(heightMapInputPath, "*.tif", SearchOption.AllDirectories);
+            string[] heightMapPaths = Directory.GetFiles(tifInputPath, "*.tif", SearchOption.AllDirectories);
             GenerateNormalMap(normalTexOutputPath, heightMapPaths);
         }
 

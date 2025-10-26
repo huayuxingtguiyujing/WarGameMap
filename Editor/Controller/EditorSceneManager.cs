@@ -15,7 +15,7 @@ namespace LZ.WarGameMap.MapEditor
         static EditorSceneManager Instance;
 
         public static EditorSceneManager GetInstance() {
-            GetSetSO();
+            InitSO();
             InitScene();
             InitCtor();
             if (Instance == null) {
@@ -27,9 +27,17 @@ namespace LZ.WarGameMap.MapEditor
         }
 
 
-        public static MapRuntimeSetting mapSet { get; private set; }
-        public static TerrainSettingSO terSet { get; private set; }
-        public static HexSettingSO hexSet { get; private set; }
+        static GridTerrainSO gridTerrainSO;
+        public static GridTerrainSO GridTerrainSO { get { return gridTerrainSO; } }
+
+        static MapRuntimeSetting mapSet;
+        public static MapRuntimeSetting MapSet { get { return mapSet; } }
+
+        static TerrainSettingSO terSet;
+        public static TerrainSettingSO TerSet { get { return terSet; } }
+
+        static HexSettingSO hexSet;
+        public static HexSettingSO HexSet { get { return hexSet; } }
 
         public static TerrainConstructor TerrainCtor {  get; private set; }
         public static HexmapConstructor HexCtor { get; private set; }
@@ -41,7 +49,7 @@ namespace LZ.WarGameMap.MapEditor
 
         static EditorSceneManager() {
             if (!EditorApplication.isPlayingOrWillChangePlaymode && !Application.isPlaying) {
-                GetSetSO();
+                InitSO();
                 InitScene();
                 InitCtor();
                 EditorSceneManager.GetInstance().InitTerScene();
@@ -57,34 +65,33 @@ namespace LZ.WarGameMap.MapEditor
             InitHexScene();
         }
 
-        private static void GetSetSO() {
-            if (terSet == null) {
-                string terrainSettingPath = MapStoreEnum.WarGameMapSettingPath + "/TerrainSetting_Default.asset";
-                terSet = AssetDatabase.LoadAssetAtPath<TerrainSettingSO>(terrainSettingPath);
-                if (terSet == null) {
-                    Debug.Log($"Terrain Setting not found in path : {terrainSettingPath}");
-                }
-            }
-            if (hexSet == null) {
-                string hexSettingPath = MapStoreEnum.WarGameMapSettingPath + "/HexSetting_Default.asset";
-                hexSet = AssetDatabase.LoadAssetAtPath<HexSettingSO>(hexSettingPath);
-                if (hexSet == null) {
-                    Debug.Log($"Hex Setting not found in path : {hexSettingPath}");
-                }
-            }
-            if (mapSet == null) {
-                string mapSettingPath = MapStoreEnum.WarGameMapSettingPath + "/TerrainRuntimeSet_Default.asset";
-                mapSet = AssetDatabase.LoadAssetAtPath<MapRuntimeSetting>(mapSettingPath);
-                if (mapSet == null) {
-                    Debug.Log($"Map runtime Setting not found in path : {mapSettingPath}");
-                }
-            }
+        private static void InitSO() {
+            //if (terSet == null) {
+            //    string terrainSettingPath = MapStoreEnum.WarGameMapSettingPath + "/TerrainSetting_Default.asset";
+            //    terSet = AssetDatabase.LoadAssetAtPath<TerrainSettingSO>(terrainSettingPath);
+            //    if (terSet == null) {
+            //        Debug.Log($"Terrain Setting not found in path : {terrainSettingPath}");
+            //    }
+            //}
+            //if (hexSet == null) {
+            //    string hexSettingPath = MapStoreEnum.WarGameMapSettingPath + "/HexSetting_Default.asset";
+            //    hexSet = AssetDatabase.LoadAssetAtPath<HexSettingSO>(hexSettingPath);
+            //    if (hexSet == null) {
+            //        Debug.Log($"Hex Setting not found in path : {hexSettingPath}");
+            //    }
+            //}
+            //if (mapSet == null) {
+            //    string mapSettingPath = MapStoreEnum.WarGameMapSettingPath + "/TerrainRuntimeSet_Default.asset";
+            //    mapSet = AssetDatabase.LoadAssetAtPath<MapRuntimeSetting>(mapSettingPath);
+            //    if (mapSet == null) {
+            //        Debug.Log($"Map runtime Setting not found in path : {mapSettingPath}");
+            //    }
+            //}
 
-            //FindSO<TerrainSettingSO>(terSet, "TerrainSetting_Default.asset");
-            //FindSO<HexSettingSO>(hexSet, "HexSetting_Default.asset");
-            //FindSO<MapRuntimeSetting>(mapSet, "TerrainRuntimeSet_Default.asset");
-
-            //Debug.Log($"SO load statu : {terSet != null}, {hexSet != null}, {mapSet != null}");
+            BaseMapEditor.FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
+            BaseMapEditor.FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
+            BaseMapEditor.FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+            BaseMapEditor.FindOrCreateSO<GridTerrainSO>(ref gridTerrainSO, MapStoreEnum.GamePlayGridTerrainDataPath, "GridTerrainSO_Default.asset");
         }
 
         private static void InitScene() {

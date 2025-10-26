@@ -217,7 +217,7 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("构建地形-Hex流程")]
         [Button("生成Hex版本Terrain", ButtonSizes.Medium)]
         private void GenerateTerrainByHex() {
-            if (EditorSceneManager.hexSet == null) {
+            if (EditorSceneManager.HexSet == null) {
                 Debug.LogError("hex Set is null!");
                 return;
             }

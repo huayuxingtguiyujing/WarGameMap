@@ -10,7 +10,6 @@ using Unity.Jobs;
 using UnityEngine.Experimental.Rendering;
 using ReadOnlyAttribute = Sirenix.OdinInspector.ReadOnlyAttribute;
 using Unity.Mathematics;
-using System.ComponentModel;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -62,42 +61,82 @@ namespace LZ.WarGameMap.MapEditor
             base.InitEditor();
             InitMapSetting();
 
-            RiverDataParentTrans = EditorSceneManager.mapScene.riverDataParentObj.transform;
-
-            // create other trans
-            if(RiverDatasTrans == null) {
-                RiverDatasTrans = RiverDataParentTrans.Find(RiverEditorNames.RiverDatas);
-                if(RiverDatasTrans == null) {
-                    GameObject go = new GameObject(RiverEditorNames.RiverDatas);
-                    RiverDatasTrans = go.transform;
-                }
-            }
-            RiverDatasTrans.parent = RiverDataParentTrans;
-
-            if (RiverPaintRTsTrans == null) {
-                RiverPaintRTsTrans = RiverDataParentTrans.Find(RiverEditorNames.RiverPaintRTs);
-                if (RiverPaintRTsTrans == null) {
-                    GameObject go = new GameObject(RiverEditorNames.RiverPaintRTs);
-                    RiverPaintRTsTrans = go.transform;
-                }
-            }
-            RiverPaintRTsTrans.parent = RiverDataParentTrans;
-
-            if (RiverBezierParentTrans == null) {
-                RiverBezierParentTrans = RiverDataParentTrans.Find(RiverEditorNames.RiverBezierParent);
-                if (RiverBezierParentTrans == null) {
-                    GameObject go = new GameObject(RiverEditorNames.RiverBezierParent);
-                    RiverBezierParentTrans = go.transform;
-                }
-            }
-            RiverBezierParentTrans.parent = RiverDataParentTrans;
+            InitRvTransforms();
 
             // init mapRiverData, it will always bind with cur TerrainSettingSO and HexSettingSO
             FindOrCreateSO<MapRiverData>(ref mapRiverData, MapStoreEnum.RiverDataPath, "MapRiverData_Default.asset");
             mapRiverData.InitMapRiverData(terSet, hexSet);
 
             editRiverDatas = new List<EditingRiverData>();
+
+            LoadAllRiver();
         }
+
+        // TODO : Move to sceneManager
+        private void InitRvTransforms()
+        {
+            RiverDataParentTrans = EditorSceneManager.mapScene.riverDataParentObj.transform;
+
+            // create other trans
+            if (RiverDatasTrans == null)
+            {
+                RiverDatasTrans = RiverDataParentTrans.Find(RiverEditorNames.RiverDatas);
+                if (RiverDatasTrans == null)
+                {
+                    GameObject go = new GameObject(RiverEditorNames.RiverDatas);
+                    RiverDatasTrans = go.transform;
+                }
+            }
+            RiverDatasTrans.parent = RiverDataParentTrans;
+
+            if (RiverPaintRTsTrans == null)
+            {
+                RiverPaintRTsTrans = RiverDataParentTrans.Find(RiverEditorNames.RiverPaintRTs);
+                if (RiverPaintRTsTrans == null)
+                {
+                    GameObject go = new GameObject(RiverEditorNames.RiverPaintRTs);
+                    RiverPaintRTsTrans = go.transform;
+                }
+            }
+            RiverPaintRTsTrans.parent = RiverDataParentTrans;
+
+            if (RiverBezierParentTrans == null)
+            {
+                RiverBezierParentTrans = RiverDataParentTrans.Find(RiverEditorNames.RiverBezierParent);
+                if (RiverBezierParentTrans == null)
+                {
+                    GameObject go = new GameObject(RiverEditorNames.RiverBezierParent);
+                    RiverBezierParentTrans = go.transform;
+                }
+            }
+            RiverBezierParentTrans.parent = RiverDataParentTrans;
+        }
+
+        //[FoldoutGroup("河流数据")]
+        //[Button("加载河流数据", ButtonSizes.Medium)]
+        private void LoadAllRiver()
+        {
+            Debug.Log("load river will override all editing data!");
+
+            for (int i = 0; i < editRiverDatas.Count; i++)
+            {
+                editRiverDatas[i].Dispose();
+            }
+            editRiverDatas.Clear();
+
+            foreach (var riverData in mapRiverData.RiverDatas)
+            {
+                GameObject riverObj = CreateRiverObj(riverData.riverID);
+                EditingRiverData editingRiverData = new EditingRiverData(riverData, riverObj, riverData.riverStart);
+                editingRiverData.InitEditingRiverData(ChooseRiverEvent, EditStartEvent, GenCurveEvent, SaveCurveEvent, DeleteRiverEvent);
+                editRiverDatas.Add(editingRiverData);
+            }
+
+            UpdateEditingRvDataDict();
+
+            Debug.Log($"now you load all rivers, cur river cnt : {editRiverDatas.Count}");
+        }
+
 
         static RenderTexturePool RTPool;
 
@@ -703,42 +742,15 @@ namespace LZ.WarGameMap.MapEditor
             ResetEditingRiverData();
         }
 
-
-        [FoldoutGroup("河流数据")]
-        [Button("加载河流数据", ButtonSizes.Medium)]
-        private void LoadAllRiver() {
-            Debug.Log("load river will override all editing data!");
-
-            for(int i = 0; i < editRiverDatas.Count; i++)
-            {
-                editRiverDatas[i].Dispose();
-            }
-            editRiverDatas.Clear();
-
-            foreach (var riverData in mapRiverData.RiverDatas)
-            {
-                GameObject riverObj = CreateRiverObj(riverData.riverID);
-                EditingRiverData editingRiverData = new EditingRiverData(riverData, riverObj, riverData.riverStart);
-                editingRiverData.InitEditingRiverData(ChooseRiverEvent, EditStartEvent, GenCurveEvent, SaveCurveEvent, DeleteRiverEvent);
-                editRiverDatas.Add(editingRiverData);
-            }
-
-            UpdateEditingRvDataDict();
-
-            Debug.Log($"now you load all rivers, cur river cnt : {editRiverDatas.Count}");
-        }
-
         [FoldoutGroup("河流数据")]
         [Button("保存河流数据（暂时没用）", ButtonSizes.Medium)]
         private void SaveAllRiver() {
             // TODO : save all to mapRiverData
-
             // TODO : 要在这个方法里面去生成贝塞尔曲线吗？
             foreach (var riverData in editRiverDatas)
             {
                 //SaveRiverEvent(riverData.)
             }
-
         }
 
         #endregion

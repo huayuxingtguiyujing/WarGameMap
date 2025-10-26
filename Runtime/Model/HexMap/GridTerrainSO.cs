@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
-    public class BaseGridTerrainTypes
+    public class BaseGridTerrain
     {
         public static GridTerrainLayer SeaLayer =       new GridTerrainLayer(0, "海洋层", "", true);
         public static GridTerrainLayer BaseLayer =      new GridTerrainLayer(1, "基本地貌层", "", true);
@@ -23,6 +23,31 @@ namespace LZ.WarGameMap.Runtime
         public static GridTerrainType MountainType =    new GridTerrainType(1, "Mountain",  "山脉",   new Color(0.50f, 0.45f, 0.40f, 1.0f), true);
         public static GridTerrainType PlateauType =     new GridTerrainType(1, "Plateau",   "高原",   new Color(0.70f, 0.60f, 0.35f, 1.0f), true);
         public static GridTerrainType SnowType =        new GridTerrainType(1, "Snow",      "雪地",   new Color(1, 1, 1, 1.0f), true);
+    
+        public static bool IsMountain(GridTerrainType type1)
+        {
+            return type1.terrainTypeName == MountainType.terrainTypeName;
+        }
+
+        public static bool IsMountain(string typeName)
+        {
+            return typeName == MountainType.terrainTypeName;
+        }
+
+        public static string GetMountainName()
+        {
+            return MountainType.terrainTypeName;
+        }
+
+        public static Color GetPlainColor()
+        {
+            return PlainType.terrainEditColor;
+        }
+
+        public static Color GetMountainColor()
+        {
+            return MountainType.terrainEditColor;
+        }
     }
 
     // Storage the setting of GridTerrain
@@ -109,6 +134,8 @@ namespace LZ.WarGameMap.Runtime
         public bool IsHexmapInit = false;        // Use to reset hex map data in inspector
 
 
+        #region Init Update
+
         public void UpdateTerSO(int width, int height)
         {
             if (!isTerTypeInit)
@@ -116,22 +143,22 @@ namespace LZ.WarGameMap.Runtime
                 // Check and add base type
                 GridTerrainLayerList = new List<GridTerrainLayer>
                 {
-                    BaseGridTerrainTypes.SeaLayer,
-                    BaseGridTerrainTypes.BaseLayer,
-                    BaseGridTerrainTypes.LandformLayer,
-                    BaseGridTerrainTypes.DecorateLayer,
-                    BaseGridTerrainTypes.DynamicLayer
+                    BaseGridTerrain.SeaLayer,
+                    BaseGridTerrain.BaseLayer,
+                    BaseGridTerrain.LandformLayer,
+                    BaseGridTerrain.DecorateLayer,
+                    BaseGridTerrain.DynamicLayer
                 };
                 GridTerrainTypeList = new List<GridTerrainType>
                 {
-                    BaseGridTerrainTypes.ShallowSeaType,
-                    BaseGridTerrainTypes.DeepSeaType,
-                    
-                    BaseGridTerrainTypes.PlainType,
-                    BaseGridTerrainTypes.HillType,
-                    BaseGridTerrainTypes.MountainType,
-                    BaseGridTerrainTypes.PlateauType,
-                    BaseGridTerrainTypes.SnowType
+                    BaseGridTerrain.ShallowSeaType,
+                    BaseGridTerrain.DeepSeaType,
+
+                    BaseGridTerrain.PlainType,
+                    BaseGridTerrain.HillType,
+                    BaseGridTerrain.MountainType,
+                    BaseGridTerrain.PlateauType,
+                    BaseGridTerrain.SnowType
                 };
                 isTerTypeInit = true;
             }
@@ -270,6 +297,7 @@ namespace LZ.WarGameMap.Runtime
             });
 
             MountainID_DataDict.Clear();
+            GridOffset_MountainID_Dict.Clear();
             foreach (var mountain in MountainDatas)
             {
                 MountainID_DataDict.Add(mountain.MountainID, mountain);
@@ -279,6 +307,8 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
         }
+
+        #endregion
 
         public void SaveGridTerSO(List<GridTerrainLayer> terrainLayersList, List<GridTerrainType> terrainTypesList)
         {
@@ -312,7 +342,18 @@ namespace LZ.WarGameMap.Runtime
             foreach (var mountain in mountainDatas)
             {
                 MountainDatas.Add(mountain);
+                mountain.SaveMountainGrid();
             }
+        }
+        // TODO : 现在的山脉编辑无法编辑到 每个格子的 mountainID ！！！到gridTerrainEditor中改
+        public MountainData GetMountainData(int mountainID)
+        {
+            if (!MountainID_DataDict.ContainsKey(mountainID))
+            {
+                //Debug.LogError($"Do not contain mountain ID : {mountainID}");
+                return null;
+            }
+            return MountainID_DataDict[mountainID];
         }
 
         #endregion
@@ -356,7 +397,7 @@ namespace LZ.WarGameMap.Runtime
         public bool GetGridIsMountain(Vector2Int offsetHex)
         {
             byte idx = GetGridTerrainDataIdx(offsetHex);
-            return GridTerrainTypeList[idx].terrainTypeName == BaseGridTerrainTypes.MountainType.terrainTypeName;
+            return GridTerrainTypeList[idx].terrainTypeName == BaseGridTerrain.MountainType.terrainTypeName;
         }
 
         public int GetGridMountainID(Vector2Int offsetHex)

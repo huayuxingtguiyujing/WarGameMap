@@ -20,14 +20,14 @@ namespace LZ.WarGameMap.MapEditor
 
         protected override void InitMapSetting() {
             base.InitMapSetting();
-            mapSet = EditorSceneManager.mapSet;
-            FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
+            mapSet = EditorSceneManager.MapSet;
+            //FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
 
-            terSet = EditorSceneManager.terSet;
-            FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
+            terSet = EditorSceneManager.TerSet;
+            //FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
 
-            hexSet = EditorSceneManager.hexSet;
-            FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+            hexSet = EditorSceneManager.HexSet;
+            //FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
         }
 
         #region 地图信息配置
@@ -105,8 +105,8 @@ namespace LZ.WarGameMap.MapEditor
         [Button("初始化Hex数据纹理", ButtonSizes.Medium)]
         private void InitHexmapDataTexture() {
             // TODO : generate a texture to storage the data of hex map;
-            hexSet = EditorSceneManager.hexSet;
-            terSet = EditorSceneManager.terSet;
+            hexSet = EditorSceneManager.HexSet;
+            terSet = EditorSceneManager.TerSet;
             hexmapDataTexManager.InitHexmapDataTexture(hexSet.mapWidth, hexSet.mapHeight, hexTexScale, hexTextureOffset, 
                 EditorSceneManager.mapScene.hexTextureParentObj, hexmapTexMaterial, null);
         }

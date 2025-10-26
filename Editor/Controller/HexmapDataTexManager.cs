@@ -82,16 +82,24 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
 
-            public void PaintTexCache(List<Vector2Int> poss, Color color)
+            public void PaintTexCache(List<Vector2Int> poss, List<Color> cachePageColors)
             {
                 int length = mapHeight * mapWidth;
-                int offset = curPageIndex * length;
-                foreach (var pos in poss)
+                for(int i = 0; i < texDataCacheNum; i++)
                 {
-                    if(CheckIndexValid(pos))
+                    // No more color
+                    if (cachePageColors.Count - 1 < i)
                     {
-                        int index = offset + pos.y * mapWidth + pos.x;
-                        texDataCache[index] = color;
+                        return;
+                    }
+                    int offset = i * length;     // curPageIndex
+                    foreach (var pos in poss)
+                    {
+                        if (CheckIndexValid(pos))
+                        {
+                            int index = offset + pos.y * mapWidth + pos.x;
+                            texDataCache[index] = cachePageColors[i];
+                        }
                     }
                 }
             }
@@ -355,7 +363,7 @@ namespace LZ.WarGameMap.MapEditor
         {
             if (!IsInit)
             {
-                Debug.LogError("hexmapDataTexture not init!");
+                Debug.LogError("hexmapDataTexture not init! so cant show or hide");
                 return;
             }
             if (meshRenderer == null)
@@ -425,7 +433,7 @@ namespace LZ.WarGameMap.MapEditor
         // For hexmap paint
         RenderTexturePainter renderTexturePainter;
 
-        public void PaintHexDataTexture_Scope(List<Vector2Int> poss, Color color)
+        public void PaintHexDataTexture_Scope(List<Vector2Int> poss, Color color, List<Color> cachePageColors)
         {
             if(renderTexturePainter == null)
             {
@@ -436,7 +444,7 @@ namespace LZ.WarGameMap.MapEditor
             // 为什么山脉editor当中，这里不会被触发?
             if (useTexDataCache)
             {
-                rtDataCache.PaintTexCache(poss, color);
+                rtDataCache.PaintTexCache(poss, cachePageColors);
             }
         }
 

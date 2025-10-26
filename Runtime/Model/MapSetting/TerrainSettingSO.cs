@@ -66,6 +66,10 @@ namespace LZ.WarGameMap.Runtime {
         [Tooltip("cluster规模，y轴代表对高度数据的放大操作")]
         public int clusterSize = MapTerrainEnum.ClusterSize;
 
+        [LabelText("cluster-修正后大小")]
+        [Tooltip("cluster修正后规模，用于生成纹理时进行宽度扩展")]
+        public int fixedClusterSize = MapTerrainEnum.ClusterSize + 20;
+
         [LabelText("地块大小")]
         public int tileSize = MapTerrainEnum.TileSize;
 

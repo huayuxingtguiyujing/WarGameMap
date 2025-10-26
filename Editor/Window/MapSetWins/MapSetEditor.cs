@@ -4,6 +4,7 @@ using Sirenix.OdinInspector;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using UnityEditor.VersionControl;
 using UnityEngine;
 
 namespace LZ.WarGameMap.MapEditor
@@ -25,6 +26,10 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("地图Hex配置")]
         public HexSettingSO hexSet;
 
+        [FoldoutGroup("配置scene")]
+        [LabelText("格子地形数据SO")]
+        public GridTerrainSO gridTerrainSO;
+
         protected override void InitEditor() {
             //if (terSet == null) {
             //    string terrainSettingPath = MapStoreEnum.WarGameMapSettingPath + ;
@@ -45,9 +50,13 @@ namespace LZ.WarGameMap.MapEditor
             //    }
             //}
 
-            FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
-            FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
-            FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+            //FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
+            //FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
+            //FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+            mapSet = EditorSceneManager.MapSet;
+            terSet = EditorSceneManager.TerSet;
+            hexSet = EditorSceneManager.HexSet;
+            gridTerrainSO = EditorSceneManager.GridTerrainSO;
 
             base.InitEditor();
         }

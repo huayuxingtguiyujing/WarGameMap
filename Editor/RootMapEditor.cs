@@ -68,9 +68,7 @@ namespace LZ.WarGameMap.MapEditor
             if (!terrainFileNames.Contains(MapEditorEnum.RiverEditor)) {
                 CreateWindowObj<RiverEditor>(MapEditorClass.TerrainClass);
             }
-            if (!terrainFileNames.Contains(MapEditorEnum.MountainEditor)) {
-                CreateWindowObj<MountainEditor>(MapEditorClass.TerrainClass);
-            }
+
 
             // װ�α༭
             if (!decorateFileNames.Contains(MapEditorEnum.PlantEditor)) 
@@ -185,7 +183,6 @@ namespace LZ.WarGameMap.MapEditor
             AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.LandformEditor);
             AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.HeightMapEditor);
             AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.RiverEditor);
-            AddWinEditorAsMenuItem(tree, terrainWinGroup, MapEditorClass.TerrainClass, MapEditorEnum.MountainEditor);
 
             tree.AddAllAssetsAtPath(MapEditorClass.DecorateClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.DecorateClass, typeof(BaseMapEditor), true);
             

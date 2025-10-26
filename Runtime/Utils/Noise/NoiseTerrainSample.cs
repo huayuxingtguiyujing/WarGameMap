@@ -4,7 +4,6 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Sirenix.OdinInspector;
 using System;
-using LZ.WarGameMap.Runtime;
 using static LZ.WarGameMap.Runtime.FastNoiseLite;
 
 namespace LZ.WarGameMap.Runtime
@@ -136,7 +135,8 @@ namespace LZ.WarGameMap.Runtime
                 {
                     Vector2 curUv = new Vector2(i / terrainSize, j / terrainSize);
 
-                    Vector2Int interuptedIdx = InterpretWithNoise(i, j);
+                    //Vector2Int interuptedIdx = InterpretWithNoise(i, j);
+                    Vector2Int interuptedIdx = new Vector2Int(i, j);
                     Color color = moutainTexture.GetPixel(interuptedIdx.x, interuptedIdx.y);
                     float ratio = MathUtil.ColorInverseLerp(PlainColor, MoutainColor, color);
 

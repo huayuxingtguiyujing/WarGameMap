@@ -1,8 +1,6 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
@@ -28,13 +26,13 @@ namespace LZ.WarGameMap.Runtime
         List<Vector2Int> clusterIdxList; 
         bool shouldGenRiver;
         bool shouldGenLODBySimplify;
-
-        // simplier list, keep the ref
+        
+        // Simplier list, keep the ref
         Dictionary<Vector2Int, int> SimplifyerClsIdxList = new Dictionary<Vector2Int, int>();
         List<TerrainSimplifier> SimplifierList = new List<TerrainSimplifier>();
         int TotalSimplifyTargetCnt = 1;
 
-        // to cancel terrain gen process
+        // To cancel terrain gen process
         CancellationTokenSource tokenSrc;
 
         public TerrainGenTask(List<HeightDataModel> heightDataModels, TerrainSettingSO terSet, TerrainConstructor TerrainCtor, List<Vector2Int> clusterIdxList, bool shouldGenRiver, bool shouldGenLODBySimplify) : base(null, -1, true)
@@ -54,7 +52,7 @@ namespace LZ.WarGameMap.Runtime
             ProgressOverCall = BuildOverCallBack;
         }
 
-        private void CheckBuildValid()
+        private void CheckBuildValid() 
         {
             foreach (var clusterIdx in clusterIdxList)
             {
@@ -91,7 +89,7 @@ namespace LZ.WarGameMap.Runtime
             }
             AddChildTask(simplifyNode);
         }
-
+        
         private void InitSimplifyList()
         {
             int tileNum = terSet.GetTileNumClsPerLine();

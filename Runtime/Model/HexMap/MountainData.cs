@@ -16,11 +16,9 @@ namespace LZ.WarGameMap.Runtime
         [HorizontalGroup("MountainData"), LabelText("名称")]
         public string MountainName;
 
-        List<Vector2Int> mountainGridList = new List<Vector2Int>();
-        public List<Vector2Int> MountainGridList => mountainGridList;
+        public List<Vector2Int> MountainGridList = new List<Vector2Int>();
 
-        MountainNoiseData mountainNoiseData = new MountainNoiseData();
-        public MountainNoiseData MountainNoiseData => mountainNoiseData;
+        public MountainNoiseData MountainNoiseData = new MountainNoiseData();
 
         // Only for editing statu
         public HashSet<Vector2Int> MountainGridSets = new HashSet<Vector2Int>();
@@ -44,7 +42,7 @@ namespace LZ.WarGameMap.Runtime
                 MountainGridSets = new HashSet<Vector2Int>();
             }
             MountainGridSets.Clear();
-            foreach (var grid in mountainGridList)
+            foreach (var grid in MountainGridList)
             {
                 MountainGridSets.Add(grid);
             }
@@ -73,12 +71,12 @@ namespace LZ.WarGameMap.Runtime
         }
 
         // Only call save, grid edit res will be saved in data
-        public void SaveMountainGrid(string MountainName)
+        public void SaveMountainGrid()
         {
-            mountainGridList.Clear();
+            MountainGridList.Clear();
             foreach (var grid in MountainGridSets)
             {
-                mountainGridList.Add(grid);
+                MountainGridList.Add(grid);
             }
         }
         
@@ -88,15 +86,17 @@ namespace LZ.WarGameMap.Runtime
     // 请参考 : NoiseTerrainSample
     public class MountainNoiseData
     {
-        [Header("Mountain Setting")]
+        [Header("山脉 设置")]
+        public float baseHeight = 1.0f;
         public float heightFix = 10;
-        public int interuptRandomSeed = 196;
+
+        [Header("山脉 采样 设置")]
         public float elevation = 1.0f;
         public int interuptInstence = 2;
 
         [Header("Noise General Setting")]
-        public NoiseType noiseType = NoiseType.Perlin;
         public int randomSeed = 1227;
+        public NoiseType noiseType = NoiseType.Perlin;
         public float frequency = 0.010f;
 
         [Header("Noise Fractal Setting")]
@@ -107,6 +107,33 @@ namespace LZ.WarGameMap.Runtime
         public float weightedStrength = 0;
         public float pingpongStrength = 0;
 
+        [Header("Sample Noise General Setting")]
+        public int interuptRandomSeed = 196;
+        public NoiseType interuptNoiseType = NoiseType.Perlin;
+        public float interuptFrequency = 0.030f;
+
+        public FastNoiseLite GetNoiseDataLite()
+        {
+            FastNoiseLite fastNoiseLite = new FastNoiseLite(randomSeed);
+            fastNoiseLite.SetNoiseType(noiseType);
+            fastNoiseLite.SetFrequency(frequency);
+
+            fastNoiseLite.SetFractalType(fractalType);
+            fastNoiseLite.SetFractalOctaves(octaves);
+            fastNoiseLite.SetFractalLacunarity(lacunarity);
+            fastNoiseLite.SetFractalGain(gain);
+            fastNoiseLite.SetFractalWeightedStrength(weightedStrength);
+            fastNoiseLite.SetFractalPingPongStrength(pingpongStrength);
+            return fastNoiseLite;
+        }
+
+        public FastNoiseLite GetSampleNoiseData()
+        {
+            FastNoiseLite interuptNoiseLite = new FastNoiseLite(interuptRandomSeed);
+            interuptNoiseLite.SetNoiseType(interuptNoiseType);
+            interuptNoiseLite.SetFrequency(interuptFrequency);
+            return interuptNoiseLite;
+        }
     }
 
 }

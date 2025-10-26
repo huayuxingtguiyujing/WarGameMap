@@ -8,6 +8,7 @@ using static Unity.Mathematics.math;
 namespace LZ.WarGameMap.Runtime
 {
     // Unity 自带的 PerlinNoise 不是无缝的，请使用  PerlinNoise
+    [Obsolete]
     struct InitNoiseJob : IJobParallelFor {
         [ReadOnly] public int width;
         [ReadOnly] public int height;
@@ -25,7 +26,8 @@ namespace LZ.WarGameMap.Runtime
             //noiseArray[index] = Mathf.PerlinNoise(x, y);
         }
     }
-
+    
+    [Obsolete]
     struct FillPerlinTexJob : IJobParallelFor {
         [ReadOnly] public int width;
         [ReadOnly] public int height;
@@ -191,6 +193,7 @@ namespace LZ.WarGameMap.Runtime
     }
 
     // 建议使用 FastNoiseLite
+    [Obsolete]
     public struct PerlinNoise {
 
         struct Pixel {

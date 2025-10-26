@@ -57,7 +57,8 @@ namespace LZ.WarGameMap.MapEditor {
             }
         }
 
-        protected void FindOrCreateSO<T>(ref T so, string folderPath, string assetName) where T : ScriptableObject {
+        // TODO : move to Runtime/Util/AssetsUtility.cs
+        public static void FindOrCreateSO<T>(ref T so, string folderPath, string assetName) where T : ScriptableObject {
             // assetName = "TerrainSetting_Default.asset"
             // assetName = "HexSetting_Default.asset"
             if (so == null) {
@@ -66,7 +67,7 @@ namespace LZ.WarGameMap.MapEditor {
                 if (so == null) {           // create it !
                     so = CreateInstance<T>();
                     AssetDatabase.CreateAsset(so, soPath);
-                    Debug.Log($"successfully create map Setting SO, path : {soPath}");
+                    Debug.Log($"Successfully create map Setting SO, path : {soPath}");
                 }
             }
         }

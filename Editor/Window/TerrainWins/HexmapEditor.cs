@@ -411,7 +411,7 @@ namespace LZ.WarGameMap.MapEditor
             curHexLandformResult = new Texture2D(OuputTexResolution, OuputTexResolution, TextureFormat.RGBA32, false);
 
             // 暂时使用 这个hashmap 记录所有 hex 省份的地形类型
-            Layout layout = EditorSceneManager.hexSet.GetScreenLayout();
+            Layout layout = EditorSceneManager.HexSet.GetScreenLayout();
 
             Color[] colors = curHexLandformResult.GetPixels();
             //Color[] idxColor = curHexLandformIdxTex.GetPixels();
@@ -442,7 +442,7 @@ namespace LZ.WarGameMap.MapEditor
             ExportHexLandFormJob exportJob = new ExportHexLandFormJob {
                 innerHexRatio = innerHexRatio,
                 OuputTextureResolution = OuputTexResolution,
-                hexGridSize = EditorSceneManager.hexSet.hexGridSize,
+                hexGridSize = EditorSceneManager.HexSet.hexGridSize,
                 blendMethod = blendMethod,
                 layout = layout, 
                 

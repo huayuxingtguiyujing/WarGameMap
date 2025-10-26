@@ -59,6 +59,8 @@ namespace LZ.WarGameMap.Runtime.Enums {
         // GamePlayœ‡πÿ
         public const string GamePlayGridTerrainDataPath = "Assets/WarGameMap/GamePlay/GridTerData";
 
+        public const string GamePlayGridTerrainTexDataPath = "Assets/WarGameMap/GamePlay/GridTerData/Texture";
+
         public const string GamePlayCountryDataPath = "Assets/WarGameMap/GamePlay/CountryData";
 
         public const string GamePlayCountryCSVDataPath = "Assets/WarGameMap/GamePlay/CountryData/CSV";

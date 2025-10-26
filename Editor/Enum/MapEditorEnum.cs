@@ -33,7 +33,6 @@ namespace LZ.WarGameMap.MapEditor {
 
         public static string RiverEditor = "河流编辑";
 
-        public static string MountainEditor = "山脉编辑";
 
 
         // 装饰物

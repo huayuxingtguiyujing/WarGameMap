@@ -158,7 +158,7 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log("now start generate landform texture");
 
             HeightDataManager heightDataManager = new HeightDataManager();
-            heightDataManager.InitHeightDataManager(heightDataModels, EditorSceneManager.terSet, null, null);
+            heightDataManager.InitHeightDataManager(heightDataModels, EditorSceneManager.TerSet, null, null);
 
             // use perlin noise
             PerlinNoise perlinNoise = new PerlinNoise(ExpTexResolution, 16, true, 4, new Vector2(1, 1), 8);
@@ -299,7 +299,7 @@ namespace LZ.WarGameMap.MapEditor
         private void ExportNormalTexture() {
 
             HeightDataManager heightDataManager = new HeightDataManager();
-            heightDataManager.InitHeightDataManager(heightDataModels, EditorSceneManager.terSet, null, null);
+            heightDataManager.InitHeightDataManager(heightDataModels, EditorSceneManager.TerSet, null, null);
 
             curHandleNormalTex = new Texture2D(ExpTexResolution, ExpTexResolution, TextureFormat.RGB24, false);
             Color[] colors = curHandleNormalTex.GetPixels();

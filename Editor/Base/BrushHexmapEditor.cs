@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -19,6 +20,8 @@ namespace LZ.WarGameMap.MapEditor
 
         protected MapRuntimeSetting mapSet;
 
+        //protected GridTerrainSO gridTerrainSO;
+
         protected HexmapConstructor HexCtor;
 
         protected HexmapDataTexManager hexmapDataTexManager;
@@ -29,27 +32,43 @@ namespace LZ.WarGameMap.MapEditor
             hexmapDataTexManager = new HexmapDataTexManager();
 
             base.InitMapSetting();
-            mapSet = EditorSceneManager.mapSet;
-            FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
+            mapSet = EditorSceneManager.MapSet;
+            //FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
 
-            terSet = EditorSceneManager.terSet;
-            FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
+            terSet = EditorSceneManager.TerSet;
+            //FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
 
-            hexSet = EditorSceneManager.hexSet;
-            FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+            hexSet = EditorSceneManager.HexSet;
+            //FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+
+            //FindOrCreateSO<GridTerrainSO>(ref gridTerrainSO, MapStoreEnum.GamePlayGridTerrainDataPath, "GridTerrainSO_Default.asset");
+            //gridTerrainSO.UpdateTerSO(hexSet.mapWidth, hexSet.mapHeight);
         }
 
 
         #region 涂刷Hexmap格子
 
-        protected class BrushHexmapSetting
+        protected struct BrushHexmapSetting
         {
-            public bool enableBrush = true;           // 允许涂刷
-            public bool enableKeyCode = false;        // 允许使用快捷键    // TODO : use it
-            public bool useTexCache = false;          // 开启 HexmapDataTexManager 的缓存
-            public int texCacheNum = 4;               // 缓存页数
+            public bool enableBrush;           // 允许涂刷
+            public bool enableKeyCode;        // 允许使用快捷键    // TODO : use it
+            public bool useTexCache;          // 开启 HexmapDataTexManager 的缓存
+            public int texCacheNum;               // 缓存页数
 
-            public static BrushHexmapSetting Default = new BrushHexmapSetting();
+            public BrushHexmapSetting(bool enableBrush, bool enableKeyCode, bool useTexCache, int texCacheNum)
+            {
+                this.enableBrush = enableBrush;
+                this.enableKeyCode = enableKeyCode;
+                this.useTexCache = useTexCache;
+                this.texCacheNum = texCacheNum;
+            }
+
+            public static BrushHexmapSetting Default = new BrushHexmapSetting() { 
+                enableBrush = true,
+                enableKeyCode = false,
+                useTexCache = false,
+                texCacheNum = 1
+            };
         }
 
         protected abstract BrushHexmapSetting GetBrushSetting();
@@ -76,6 +95,8 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("涂刷Hexmap格子")]
         [LabelText("Hex涂刷颜色")]
         public Color brushColor;
+
+        protected List<Color> brushCachePageColorList = new List<Color>();
 
         private void EnableBrushValueChanged()
         {
@@ -141,6 +162,28 @@ namespace LZ.WarGameMap.MapEditor
         protected void SetBrushColor(Color brushColor)
         {
             this.brushColor = brushColor;
+        }
+
+        protected void SetBrushCacheColor(Color[] brushCacheColor)
+        {
+            BrushHexmapSetting brushHexmapSetting = GetBrushSetting();
+            Assert.AreEqual(brushHexmapSetting.texCacheNum, brushCacheColor.Length); 
+
+            if (brushCachePageColorList == null || brushCachePageColorList.Count == 0)
+            {
+                brushCachePageColorList = new List<Color>(brushHexmapSetting.texCacheNum);
+                for (int i = 0; i < brushCacheColor.Length; i++)
+                {
+                    brushCachePageColorList.Add(brushCacheColor[i]);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < brushCacheColor.Length; i++)
+                {
+                    brushCachePageColorList[i] = brushCacheColor[i];
+                }
+            }
         }
 
         // Call it when you need handle when BuildHexGridMap over
@@ -222,17 +265,24 @@ namespace LZ.WarGameMap.MapEditor
                 }
                 //DebugUtility.DebugGameObject("paintGo", offsetHexList[i].TransToXZ(), null);
             }
-            Debug.Log($"now enable paint grid num : {offsetHexList.Count}");
+            //Debug.Log($"now enable paint grid num : {offsetHexList.Count}");
 
             // TODO : 提高性能，适配不同的涂刷范围
             //hexmapDataTexManager.PaintHexDataTexture_RectScope(offsetHexPos.TransToXZ(), brushScope, brushColor);
-            hexmapDataTexManager.PaintHexDataTexture_Scope(offsetHexList, brushColor);
+            hexmapDataTexManager.PaintHexDataTexture_Scope(offsetHexList, brushColor, brushCachePageColorList);
             PaintHexRTEvent(offsetHexList);
         }
 
         protected void PaintHexRT(List<Vector2Int> worldPoss, Color color)
         {
-            hexmapDataTexManager.PaintHexDataTexture_Scope(worldPoss, color);
+            for (int i = worldPoss.Count - 1; i >= 0; i--)
+            {
+                if (!EnablePaintHex(worldPoss[i]))
+                {
+                    worldPoss.RemoveAt(i);
+                }
+            }
+            hexmapDataTexManager.PaintHexDataTexture_Scope(worldPoss, color, brushCachePageColorList);
         }
 
         // Call it to get enable paint pixel
@@ -260,6 +310,6 @@ namespace LZ.WarGameMap.MapEditor
             base.Disable();
             ClearHexGridMap();
         }
-
+        
     }
 }
