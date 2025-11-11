@@ -248,7 +248,7 @@ namespace LZ.WarGameMap.MapEditor
         private void SaveLandFormTex() {
             DateTime dateTime = DateTime.Now;
             string texName = string.Format("landform_{0}x{0}_{1}", ExpTexResolution, dateTime.Ticks);
-            TextureUtility.GetInstance().SaveTextureAsAsset(landformTexImportPath, texName, curHandleLandformTex);
+            TextureUtility.SaveTextureAsAsset(landformTexImportPath, texName, curHandleLandformTex);
         }
 
         #endregion
@@ -354,7 +354,7 @@ namespace LZ.WarGameMap.MapEditor
         private void SaveNormalTexture() {
             DateTime dateTime = DateTime.Now;
             string texName = string.Format("normal_{0}x{0}_{1}", ExpTexResolution, dateTime.Ticks);
-            TextureUtility.GetInstance().SaveTextureAsAsset(normalTexImportPath, texName, curHandleNormalTex);
+            TextureUtility.SaveTextureAsAsset(normalTexImportPath, texName, curHandleNormalTex);
         }
 
         #endregion

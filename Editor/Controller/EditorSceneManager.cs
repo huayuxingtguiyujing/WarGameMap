@@ -66,28 +66,6 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         private static void InitSO() {
-            //if (terSet == null) {
-            //    string terrainSettingPath = MapStoreEnum.WarGameMapSettingPath + "/TerrainSetting_Default.asset";
-            //    terSet = AssetDatabase.LoadAssetAtPath<TerrainSettingSO>(terrainSettingPath);
-            //    if (terSet == null) {
-            //        Debug.Log($"Terrain Setting not found in path : {terrainSettingPath}");
-            //    }
-            //}
-            //if (hexSet == null) {
-            //    string hexSettingPath = MapStoreEnum.WarGameMapSettingPath + "/HexSetting_Default.asset";
-            //    hexSet = AssetDatabase.LoadAssetAtPath<HexSettingSO>(hexSettingPath);
-            //    if (hexSet == null) {
-            //        Debug.Log($"Hex Setting not found in path : {hexSettingPath}");
-            //    }
-            //}
-            //if (mapSet == null) {
-            //    string mapSettingPath = MapStoreEnum.WarGameMapSettingPath + "/TerrainRuntimeSet_Default.asset";
-            //    mapSet = AssetDatabase.LoadAssetAtPath<MapRuntimeSetting>(mapSettingPath);
-            //    if (mapSet == null) {
-            //        Debug.Log($"Map runtime Setting not found in path : {mapSettingPath}");
-            //    }
-            //}
-
             BaseMapEditor.FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
             BaseMapEditor.FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
             BaseMapEditor.FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
@@ -120,7 +98,6 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
             HexCtor.SetHexSetting(hexSet, mapScene.hexClusterParentObj.transform, null);
-
         }
 
         // Call it when destory the editor window

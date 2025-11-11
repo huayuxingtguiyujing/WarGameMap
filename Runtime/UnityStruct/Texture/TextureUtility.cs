@@ -52,7 +52,7 @@ namespace LZ.WarGameMap.Runtime
             GameObject.DestroyImmediate(texture);
         }
 
-        public void SaveTextureAsAsset(string outputPath, string fileName, Texture2D texture) {
+        public static void SaveTextureAsAsset(string outputPath, string fileName, Texture2D texture) {
             if (texture == null) {
                 Debug.LogError($"the texture is null : {fileName}");
                 return;

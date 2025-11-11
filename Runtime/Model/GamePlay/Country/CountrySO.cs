@@ -1,14 +1,11 @@
-using NUnit.Framework;
 using Sirenix.OdinInspector;
 using Sirenix.Utilities;
-using Sirenix.Utilities.Editor;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Unity.Mathematics;
 using UnityEngine;
-using static PlasticGui.LaunchDiffParameters;
 
 namespace LZ.WarGameMap.Runtime.Model
 {
@@ -24,8 +21,11 @@ namespace LZ.WarGameMap.Runtime.Model
         public static string RootLayerName              = "根层级";
 
         public static uint NotValidCountryIndex         = 9999;
+        public static uint4 NotValidCountryDataIndex    = new uint4(9999, 9999, 9999, 9999);
+
         public static string NotValidCountryName        = "无";
-        public static Color NotValidCountryColor        = Color.black;
+        public static Color NotValidCountryColor        = new Color(0.25f, 0.25f, 0.25f, 1);
+        public static Color CanNotBeCountryColor        = Color.black;          // 表示不可以被划入 Country 的颜色 （海洋、山地）
 
         public static CountryLayer RegionLayer          = new CountryLayer(0, "Region", "大区", "");
         public static CountryLayer ProvinceLayer        = new CountryLayer(1, "Province", "省份", "大明王朝共分两京一十三省");
@@ -69,13 +69,16 @@ namespace LZ.WarGameMap.Runtime.Model
         public bool isUpdated => LayerCountryDataDict.Count > 0;            // It mean you have call UpdateCountrySO
 
 
-        public List<uint4> GridCountryIndiceList = new List<uint4>();       // Storage all country data in this grid, hexmap size
+        public List<uint4> GridCountryIndiceList = new List<uint4>();       // Storage grid's country data in this grid, hexmap size
 
         public int GridNum => GridCountryIndiceList.Count;
 
         [LabelText("需要初始化数据")]
         [Tooltip("如果设置为 true, 会清空 CountrySO 的数据重新初始化")]
         public bool needInit = true;
+
+
+        #region Init Update
 
         public void InitCountrySO(int mapWidth, int mapHeight)
         {
@@ -101,7 +104,7 @@ namespace LZ.WarGameMap.Runtime.Model
             GridCountryIndiceList = new List<uint4>(mapWidth * mapHeight);
             for (int i = 0; i < mapWidth * mapHeight; i++)
             {
-                GridCountryIndiceList.Add(new uint4(initCountryIdx, initCountryIdx, initCountryIdx, initCountryIdx));
+                GridCountryIndiceList.Add(BaseCountryDatas.NotValidCountryDataIndex);
             }
         }
 
@@ -122,7 +125,7 @@ namespace LZ.WarGameMap.Runtime.Model
                 {
                     LayerCountryDataList.Add(new LayerCountryData(i));
                 }
-
+                InitGridCountryIndice();
                 InitRootCountry();
                 needInit = false;
             }
@@ -160,10 +163,16 @@ namespace LZ.WarGameMap.Runtime.Model
                 for (int j = 0; j < validCountryData.Count; j++)
                 {
                     CountryData countryData = validCountryData[j];
-                    countryNameToData.Add(countryData.CountryName, countryData);
+                    string countryNameComplete = GetCountryNameComplete(countryData);
+                    countryNameToData.Add(countryNameComplete, countryData);
                 }
             }
         }
+
+        #endregion
+
+
+        #region Add Remove Country
 
         private bool AddLayerCountryDict(int layerNum, CountryData countryData)
         {
@@ -172,14 +181,15 @@ namespace LZ.WarGameMap.Runtime.Model
                 return false;
             }
             var countryNameToData = LayerCountryNameToDataDict[layerNum];
-            if (countryNameToData.ContainsKey(countryData.CountryName))
+            string countryNameComplete = GetCountryNameComplete(countryData);
+            if (countryNameToData.ContainsKey(countryNameComplete))
             {
-                countryNameToData[countryData.CountryName] = countryData;
+                countryNameToData[countryNameComplete] = countryData;
                 //Debug.LogError($"warning : {countryData.CountryName} already exist in cur layer country data");
             }
             else
             {
-                countryNameToData.Add(countryData.CountryName, countryData);
+                countryNameToData.Add(countryNameComplete, countryData);
             }
             return true;
         }
@@ -191,14 +201,15 @@ namespace LZ.WarGameMap.Runtime.Model
                 return;
             }
 
+            string countryNameComplete = GetCountryNameComplete(countryData);
             var countryNameToData = LayerCountryNameToDataDict[countryData.Layer];
-            if (countryNameToData.ContainsKey(countryData.CountryName))
+            if (countryNameToData.ContainsKey(countryNameComplete))
             {
-                countryNameToData.Remove(countryData.CountryName);
+                countryNameToData.Remove(countryNameComplete);
             }
         }
 
-        public void AddCountryData(int parentLayerLevel, string parentCountryName, CountryData countryData)
+        public CountryData AddCountryData(int parentLayerLevel, string parentNameComplete, CountryData countryData)
         {
             if (parentLayerLevel < 0)
             {
@@ -212,24 +223,24 @@ namespace LZ.WarGameMap.Runtime.Model
 
             if (!countryData.IsValid)
             {
-                Debug.LogError($"not a valid countryData : {countryData.CountryName}");
-                return;
+                Debug.LogError($"Not a valid countryData : {countryData.CountryName}");
+                return null;
             }
 
             bool canAddToCache = AddLayerCountryDict(parentLayerLevel + 1, countryData);
             if (!canAddToCache)
             {
-                Debug.LogError($"can not add to layerCountryDict : {countryData.CountryName}");
-                return;
+                Debug.LogError($"Can not add to layerCountryDict : {countryData.CountryName}");
+                return null;
             }
-
-            Debug.Log($"saving : parent layer level is : {parentLayerLevel}, parent country name : {parentCountryName}, country data name : {countryData.CountryName}");
+            // TODO : !!!!!
+            Debug.Log($"Saving : parent layer level is : {parentLayerLevel}, parent country name : {parentNameComplete}, country data name : {countryData.CountryName}");
             LayerCountryData layerCountryData = LayerCountryDataDict[parentLayerLevel + 1];
-            CountryData parentCountry = GetCountryDataByName(parentCountryName);
+            CountryData parentCountry = GetCountryDataByName(parentLayerLevel, parentNameComplete);
             CountryData newChildCountry = layerCountryData.AddCountryData(countryData);
             parentCountry.AddAsChild(newChildCountry);
 
-            Debug.Log($"save successfully!");
+            return newChildCountry;
         }
 
         public void MoveChildCountryData(CountryData newParent, CountryData oldParent)
@@ -277,7 +288,7 @@ namespace LZ.WarGameMap.Runtime.Model
                     RemoveChildCountryData(countryData);
                 }
             }
-            
+
             // Remove countryData self
             LayerCountryData layerCountryData = LayerCountryDataDict[countryData.Layer];
             layerCountryData.RemoveCountryData(countryData);
@@ -292,9 +303,17 @@ namespace LZ.WarGameMap.Runtime.Model
             }
         }
 
+        #endregion
+
+
         // NEED MORE TEST : get and set, paint more!
         public List<CountryData> GetGridCountry(Vector2Int idx)
         {
+            if (!IsValidIndice(idx))
+            {
+                return new List<CountryData>() { null, null, null, null};
+            }
+
             // Deserialize hex country index struct
             int index = idx.y * mapWidth + idx.x;
             uint4 countryDataIndex = GridCountryIndiceList[index];  // uint4 * 500 * 500 = 4mb, 不算很大
@@ -304,6 +323,7 @@ namespace LZ.WarGameMap.Runtime.Model
             uint prefectureIdx = countryDataIndex.z;
             uint subPrefectureIdx = countryDataIndex.w;
 
+            // If countryData is null, the grid dont belong to any Country
             List<CountryData> countryDatas = new List<CountryData>(CountryLayerList.Count)
             {
                 GetCountryDataByIndex(0, (int)regionIdx),
@@ -314,10 +334,53 @@ namespace LZ.WarGameMap.Runtime.Model
             return countryDatas;
         }
 
+        public byte[] GetGridCountryNeighbor(Vector2Int idx)
+        {
+            // 返回结构 : countryRelation[0] : region level 的邻居关系; 以此类推
+            // 111 111 表示该格子的所有方向都是不同的区域
+            byte[] countryRelation = new byte[4]
+            {
+                0, 0, 0, 0
+            };
+
+            int offset = 0;
+            List<CountryData> countryDatas = GetGridCountry(idx);
+            Vector2Int[] neighbour = HexHelper.GetOffsetHexNeighbour(idx);
+            foreach (var neighbor in neighbour)
+            {
+                Vector2Int cur = idx + neighbor;
+                List<CountryData> neighborCountry = GetGridCountry(cur);
+
+                // 直接比较四层，似乎比开 for 循环快
+                for(int i = 0; i < countryDatas.Count; i++)
+                {
+                    if (countryDatas[i] == null)
+                    {
+                        continue;
+                    }
+                    if (countryDatas[i] != neighborCountry[i])
+                    {
+                        countryRelation[i] |= (byte)(1 << offset);
+                    }
+                }
+                offset++;
+            }
+
+            return countryRelation;
+        }
+
         public bool IsValidIndice(Vector2Int idx)
         {
             int index = idx.y * mapWidth + idx.x;
             return index >= 0 && index < GridCountryIndiceList.Count;
+        }
+
+        public void SetGridCountry(List<Vector2Int> offsetHexList, CountryData countryData)
+        {
+            foreach (var offsetHex in offsetHexList)
+            {
+                SetGridCountry(offsetHex, countryData);
+            }
         }
 
         public void SetGridCountry(Vector2Int idx, CountryData countryData)
@@ -343,9 +406,23 @@ namespace LZ.WarGameMap.Runtime.Model
 
             GridCountryIndiceList[index] = new uint4(res[0], res[1], res[2], res[3]);
         }
+        
+        public void SetGridCountryNotValid(List<Vector2Int> offsetHexList)
+        {
+            foreach (var offsetHex in offsetHexList)
+            {
+                SetGridCountryNotValid(offsetHex);
+            }
+        }
+
+        public void SetGridCountryNotValid(Vector2Int idx)
+        {
+            int index = idx.y * mapWidth + idx.x;
+            GridCountryIndiceList[index] = BaseCountryDatas.NotValidCountryDataIndex;
+        }
 
 
-        #region get / set
+        #region Get / Set countryLayer and countryData
 
         public bool CheckCountryLayerIndex(int layerLevel)
         {
@@ -384,28 +461,38 @@ namespace LZ.WarGameMap.Runtime.Model
             return LayerCountryDataDict[LayerLevel].GetValidCountryData();
         }
 
-        int CachedLayer = 0;
 
-        public CountryData GetCountryDataByName(string countryName)
+        // Rule : Country 可以同名，但不能在 同 parentCountry下 同名
+        //        因此，必须指定 layer 和 parentName 来唯一确定一个 CountryData
+        // NOTE : CountryNameComplete : RegionName + ProvinceName + ... + CurCountryName
+        //        It is used as key to find CountryData
+        public string GetCountryNameComplete(CountryData countryData)
         {
-            CountryData countryData = GetCountryDataByName(CachedLayer, countryName);
-            if(countryData == null)
+            // Get all parents
+            int curLayer = countryData.Layer;
+            CountryData parentCountry = countryData;
+            List<CountryData> parents = new List<CountryData>(3);
+            while (curLayer > 0)
             {
-                foreach (var layerCountryPair in LayerCountryNameToDataDict)
-                {
-                    int curLayer = layerCountryPair.Key;
-                    countryData = GetCountryDataByName(curLayer, countryName);
-                    if(countryData != null)
-                    {
-                        CachedLayer = curLayer;
-                        break;
-                    }
-                }
+                parentCountry = GetParentCountryData(parentCountry);
+                parents.Add(parentCountry);
+                curLayer--;
             }
-            return countryData;
+            parents.Reverse();
+
+            // Get parent name suffix, link them as "name complete"
+            StringBuilder nameCompleteBuilder = new StringBuilder(parents.Count * 3);
+            for(int i = 0; i < parents.Count; i++)
+            {
+                nameCompleteBuilder.Append(parents[i].CountryName);
+            }
+            nameCompleteBuilder.Append(countryData.CountryName);
+
+            return nameCompleteBuilder.ToString();
         }
 
-        public CountryData GetCountryDataByName(int layer, string countryName)
+        // This function is slow, Call GetCountryDataByIndex if possible
+        public CountryData GetCountryDataByName(int layer, string countryNameComplete)
         {
             // If edited name in CountryEditor, can not get CountryData in this way
             if (LayerCountryNameToDataDict == null)
@@ -417,12 +504,17 @@ namespace LZ.WarGameMap.Runtime.Model
                 return null;
             }
             var countryNameToData = LayerCountryNameToDataDict[layer];
-            countryNameToData.TryGetValue(countryName, out var countryData);
+            countryNameToData.TryGetValue(countryNameComplete, out var countryData);
             return countryData;
         }
 
         public CountryData GetCountryDataByIndex(int LayerLevel, int IndexInLayer)
         {
+            if (LayerLevel == BaseCountryDatas.RootLayerIndex)
+            {
+                return RootCountryData;
+            }
+
             LayerCountryData layerCountryData = LayerCountryDataDict[LayerLevel];
             if(layerCountryData == null || !layerCountryData.CheckIsValidIndex(IndexInLayer))
             {
@@ -471,7 +563,30 @@ namespace LZ.WarGameMap.Runtime.Model
 
         public bool IsValidLayer(int layer)
         {
+            // Root layer is not a valid layer!
             return layer >= 0 && layer <= BaseCountryDatas.MaxLayerNum;
+        }
+        
+        public List<Color> GetCountryDataColors(CountryData countryData)
+        {
+            int curLayer = countryData.Layer;
+            List<Color> countryColors = new List<Color>(BaseCountryDatas.MaxLayerNum + 1);
+            while (IsValidLayer(curLayer))
+            {
+                countryColors.Add(countryData.CountryColor);
+                countryData = GetParentCountryData(countryData);
+                curLayer = countryData.Layer;
+            }
+            countryColors.Reverse();
+
+            // Fill colors with NotValidColor
+            Color eraseColor = BaseCountryDatas.NotValidCountryColor;
+            while (countryColors.Count < BaseCountryDatas.MaxLayerNum + 1)
+            {
+                countryColors.Add(eraseColor);
+            }
+
+            return countryColors;
         }
 
         #endregion
@@ -486,7 +601,7 @@ namespace LZ.WarGameMap.Runtime.Model
             }
         }
 
-        #region import and export CSV 
+        #region import and export CSV / Texture
 
         public void SaveCSV(string saveDir)
         {
@@ -610,6 +725,7 @@ namespace LZ.WarGameMap.Runtime.Model
             Debug.Log($"load csv data, region : {layerCountryDatas[0].Count}, province : {layerCountryDatas[1].Count}, prefectute : {layerCountryDatas[2].Count}, subPrefecture : {layerCountryDatas[3].Count}");
         }
 
+
         #endregion
 
     }
@@ -676,6 +792,13 @@ namespace LZ.WarGameMap.Runtime.Model
                 {
                     break;
                 }
+            }
+
+            // Reset indexInLayer by their order in list
+            for(int i = 0; i < CountryDataList.Count; i++)
+            {
+                var country = CountryDataList[i];
+                country.IndexInLayer = (ushort)i;
             }
 
             // Sorted country data by indexInLayer

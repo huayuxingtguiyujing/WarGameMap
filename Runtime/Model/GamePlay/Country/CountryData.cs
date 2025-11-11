@@ -43,7 +43,7 @@ namespace LZ.WarGameMap.Runtime.Model
     [Serializable]
     public class CountryData : CSVInterface
     {
-        [LabelText("所属行政层级"), ReadOnly]
+        [LabelText("所属行政层级")]
         public int Layer;
 
         [LabelText("名称")]
@@ -64,13 +64,13 @@ namespace LZ.WarGameMap.Runtime.Model
         // Storage index, and find parent in CountrySO
         // Only 1~4 bit is used, do not mod it by hand
         [Tooltip("不要在编辑器中修改，以下字段会自动设置")]
-        [LabelText("父区域序号"), ReadOnly]
+        [LabelText("父区域序号")]
         public ushort ParentCountry;
 
         [LabelText("本区域序号"), ReadOnly]
         public ushort IndexInLayer;            // Indice in LayerCountryData, do not mod it when empting data
 
-        [LabelText("子区域序号"), ReadOnly]
+        [LabelText("子区域序号")]
         public List<ushort> ChildCountry = new List<ushort>();
 
         public CountryData()

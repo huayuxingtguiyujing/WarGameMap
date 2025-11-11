@@ -9,6 +9,7 @@ using UnityEngine;
 namespace LZ.WarGameMap.Runtime
 {
     using StrToBoundDict = Dictionary<string, CountryBoundData>;
+    using IdxToBoundDict = Dictionary<int, CountryBoundData>;
     public class CountryManager : IDisposable
     {
         CountrySO countrySO;
@@ -19,7 +20,10 @@ namespace LZ.WarGameMap.Runtime
         // Each country's boundary data
         List<CountryBoundData> CountryBoundDatas = new List<CountryBoundData>();
 
-        Dictionary<int, StrToBoundDict> LayerCountryBdDicts = new Dictionary<int, StrToBoundDict>();
+        // TODO : 使用 LayerCountryBdDicts 必须保证同一层级的 CountryName 是不一样的，需要考虑这种设计带来的限制与风险
+        // TODO : 现在不要删掉 LayerCountryBdDicts，可能实际使用起来它会不可或缺
+        //Dictionary<int, StrToBoundDict> LayerCountryBdDicts = new Dictionary<int, StrToBoundDict>();
+        Dictionary<int, IdxToBoundDict> LayerCountryBdDicts = new Dictionary<int, IdxToBoundDict>();
 
 
         bool isInit = false;
@@ -50,6 +54,9 @@ namespace LZ.WarGameMap.Runtime
                 GridLayerIdxs[2].Add(gridIndice.z);
                 GridLayerIdxs[3].Add(gridIndice.w);
             }
+
+            CountryBoundDatas.Clear();
+            LayerCountryBdDicts.Clear();
 
             // Init country bitmap
             int totalBoundGridNum = 0;
@@ -88,8 +95,9 @@ namespace LZ.WarGameMap.Runtime
 
                 // TODO : 在这里 构建 CountryBoundData （这玩意最好要动态生成
                 // Construct country boundary data
-                StrToBoundDict nameBoundDict = new StrToBoundDict();
-                LayerCountryBdDicts.Add(curLayer, nameBoundDict);
+                //StrToBoundDict nameBoundDict = new StrToBoundDict();
+                IdxToBoundDict indexBoundDict = new IdxToBoundDict();
+                LayerCountryBdDicts.Add(curLayer, indexBoundDict);
 
                 CountryData cacheData = null;
                 CountryBoundData cacheBoundData = null;
@@ -105,15 +113,15 @@ namespace LZ.WarGameMap.Runtime
                     if(cacheData == null || cacheData.IndexInLayer != countryIdx)
                     {
                         cacheData = countrySO.GetCountryDataByIndex(curLayer, (int)countryIdx);
-                        if (!nameBoundDict.ContainsKey(cacheData.CountryName))
+                        if (!indexBoundDict.ContainsKey(cacheData.IndexInLayer))
                         {
                             cacheBoundData = new CountryBoundData(curLayer, cacheData.CountryName);
-                            nameBoundDict.Add(cacheData.CountryName, cacheBoundData);
+                            indexBoundDict.Add(cacheData.IndexInLayer, cacheBoundData);
                             CountryBoundDatas.Add(cacheBoundData);
                         }
                         else
                         {
-                            cacheBoundData = nameBoundDict[cacheData.CountryName];
+                            cacheBoundData = indexBoundDict[cacheData.IndexInLayer];
                         }
                     }
                     
@@ -153,7 +161,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
 
-        #region set country color bound
+        #region Set country color bound
 
         public void UpdateCountryColor()
         {
@@ -248,7 +256,32 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-        #region
+        #region Get bound data
+
+        public CountryBoundData GetBoundDataByIndex(int layer, int indexInLayer)
+        {
+            LayerCountryBdDicts.TryGetValue(layer, out IdxToBoundDict dict);
+            if(dict == null)
+            {
+                return null;
+            }
+            dict.TryGetValue(indexInLayer, out var boundData);
+            return boundData;
+        }
+
+        public Vector2Int GetBoundCenterByIndex(int layer, int indexInLayer)
+        {
+            CountryBoundData boundData = GetBoundDataByIndex(layer, indexInLayer);
+            if (boundData == null)
+            {
+                Debug.Log($"Wrong, bound data is null, it is new or no grid data, or call InitCountryManager firstly, index in layer {indexInLayer} ");
+                return new Vector2Int(-1, -1);
+            }
+            else
+            {
+                return boundData.boundCenter.TransInt();
+            }
+        }
 
         #endregion
 

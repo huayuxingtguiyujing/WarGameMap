@@ -21,13 +21,13 @@ namespace LZ.WarGameMap.Runtime
     [Serializable]
     public class GridTerrainLayer : ICopyable<GridTerrainLayer>
     {
-        [HorizontalGroup("GridTerrainLayer"), LabelText("")]
+        [HorizontalGroup("GridTerrainLayer"), LabelText(""), ReadOnly]
         public int layerOrder;              // layer order, auto gen
 
-        [HorizontalGroup("GridTerrainLayer"), LabelText("  层级名称")]
+        [HorizontalGroup("GridTerrainLayer"), LabelText("  层级名称"), ReadOnly]
         public string layerName;
 
-        [HorizontalGroup("GridTerrainLayer"), LabelText("  层级描述")]
+        [HorizontalGroup("GridTerrainLayer"), LabelText("  层级描述"), ReadOnly]
         public string layerDiscription;
 
         [HorizontalGroup("GridTerrainLayer"), LabelText("  内置层级"), ReadOnly]

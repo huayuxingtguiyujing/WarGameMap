@@ -5,6 +5,8 @@
 // with cs.SetTexture
 RWTexture2D<float4> Result;
 
+// TODO : 完成它！！！
+
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {

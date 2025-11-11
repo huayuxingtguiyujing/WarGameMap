@@ -363,7 +363,7 @@ namespace LZ.WarGameMap.MapEditor
                     }
                     else
                     {
-                        height = 10.0f; // Plain
+                        height = 0; // Plain
                     }
 
                     // 需要进行中心旋转
@@ -418,7 +418,7 @@ namespace LZ.WarGameMap.MapEditor
             Vector2Int texPos = new Vector2Int(i, j) + sampleFix;
             Color color = gridTerrainTexColors[texPos.y * fixedTerSize + texPos.x];    // TODO : 会越界，想想办法... 让输出的texture额外采样周围的部分点...
 
-            // Get true position in this cluster
+            // Get true position in this cluster （DONT DEL）
             Vector2Int pos = new Vector2Int(i, j) + longitudeAndLatitude * terrainSize;
             float sampleNoise = CurInteruptNoiseLite.GetNoise(pos.x, pos.y);
             int clusterStartX = longitudeAndLatitude.x * terrainSize - clusterSampleFix;
@@ -682,7 +682,7 @@ namespace LZ.WarGameMap.MapEditor
 
                 // save normalTex as unity asset
                 string normalName = GetNormalOutputName(200, 200, normalMapSize, -1);
-                TextureUtility.GetInstance().SaveTextureAsAsset(normalTexOutputPath, normalName, normalTex);
+                TextureUtility.SaveTextureAsAsset(normalTexOutputPath, normalName, normalTex);
             GameObject.DestroyImmediate(normalTex);
             //}
 

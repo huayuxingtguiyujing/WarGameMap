@@ -116,26 +116,6 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log("成功初始化 MapEditor, 现在可以打开编辑器!");
         }
 
-        static string GetWinAssetPath(string winClass, string winAssetName, bool addAsset = true) {
-            if (addAsset) {
-                return MapStoreEnum.MapWindowPath + "/" + winClass + "/" + winAssetName + ".asset";
-            } else {
-                return MapStoreEnum.MapWindowPath + "/" + winClass + "/" + winAssetName;
-            }
-        }
-
-        static HashSet<string> GetFileNames(string folderPath) {
-            string[] guids = AssetDatabase.FindAssets("", new[] { folderPath });
-
-            HashSet<string> terrainFileNames = new HashSet<string>();
-            foreach (var guid in guids) {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
-                string fileName = System.IO.Path.GetFileNameWithoutExtension(path);
-                terrainFileNames.Add(fileName);
-            }
-            return terrainFileNames;
-        }
-
         static void CreateWindowObj<MapEditor>(string windowClass) where MapEditor : BaseMapEditor {
             string rootWindowPath = MapStoreEnum.MapWindowPath + "/" + windowClass + "/";
             MapEditor asset = ScriptableObject.CreateInstance<MapEditor>();
@@ -143,10 +123,6 @@ namespace LZ.WarGameMap.MapEditor
             string path = rootWindowPath + asset.name;
             Debug.Log("create path: " + path);
             AssetDatabase.CreateAsset(asset, path);
-        }
-
-        static void GetWindowObj<MapEditor>(string windowClass) where MapEditor : BaseMapEditor {
-
         }
 
 

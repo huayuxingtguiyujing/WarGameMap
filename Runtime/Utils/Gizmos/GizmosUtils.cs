@@ -7,8 +7,6 @@ namespace LZ.WarGameMap.MapEditor
     public static class GizmosUtils
     {
 
-        static float maxDrawTxtDistance = 5000f;
-
         public static void DrawLine(Vector3 posA, Vector3 posB, Color32 color)
         {
             Gizmos.color = color;
@@ -40,10 +38,10 @@ namespace LZ.WarGameMap.MapEditor
             //Gizmos.Dr
         }
 
-        public static void DrawText(Vector3 worldPos, string text, int fontSize, Color color, bool fade = true, int width = 20, int height = 20) {
+        public static void DrawText(Vector3 worldPos, string text, int fontSize, Color color, float maxFontSize = 2f, float maxDrawTxtDistance = 5000, bool fade = true, int width = 20, int height = 20) {
             Camera cam = SceneView.lastActiveSceneView.camera;
             float dist = Vector3.Distance(cam.transform.position, worldPos);
-            float sizeFactor = Mathf.Clamp(2f / dist, 1f, 2f); // 根据距离调节字体大小
+            float sizeFactor = Mathf.Clamp(maxFontSize / dist, 1f, maxFontSize); // 根据距离调节字体大小
             if (dist > maxDrawTxtDistance && fade) {
                 return;
             }

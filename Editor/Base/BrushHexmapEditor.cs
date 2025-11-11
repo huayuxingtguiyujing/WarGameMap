@@ -156,7 +156,8 @@ namespace LZ.WarGameMap.MapEditor
             {
                 hexmapDataTexManager.Dispose();
             }
-            Debug.Log("clear the hex grid map");
+            PostClearHexGridMap();
+            Debug.Log("Clear the hex grid map");
         }
 
         protected void SetBrushColor(Color brushColor)
@@ -164,6 +165,7 @@ namespace LZ.WarGameMap.MapEditor
             this.brushColor = brushColor;
         }
 
+        // 如果开启了 HexmapDataTexManager 的 UseCache，需要调用本函数以设置不同 CachePage 的 Color
         protected void SetBrushCacheColor(Color[] brushCacheColor)
         {
             BrushHexmapSetting brushHexmapSetting = GetBrushSetting();
@@ -188,6 +190,8 @@ namespace LZ.WarGameMap.MapEditor
 
         // Call it when you need handle when BuildHexGridMap over
         protected virtual void PostBuildHexGridMap() { }
+
+        protected virtual void PostClearHexGridMap() { }
 
         #endregion
 

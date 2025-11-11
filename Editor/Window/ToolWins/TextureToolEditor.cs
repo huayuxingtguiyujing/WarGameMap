@@ -123,7 +123,7 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             byte[] bytes = terrainTexSplat.EncodeToPNG();
-            TextureUtility.GetInstance().SaveTextureAsAsset(exportPath, "TerrainSplat_AAA.png", terrainTexSplat);
+            TextureUtility.SaveTextureAsAsset(exportPath, "TerrainSplat_AAA.png", terrainTexSplat);
 
         }
 
@@ -199,7 +199,7 @@ namespace LZ.WarGameMap.MapEditor
 
             tex.SetPixels(colors);
             tex.Apply();
-            TextureUtility.GetInstance().SaveTextureAsAsset(exportPath, "Temp_test_01.png", tex);
+            TextureUtility.SaveTextureAsAsset(exportPath, "Temp_test_01.png", tex);
         }
 
 

@@ -134,9 +134,7 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("涂刷Hexmap纹理")]
         [Button("存储Hex数据纹理", ButtonSizes.Medium)]
         private void SaveHexmapDataTexture() {
-
             // TODO : 这里是不是有问题？真的存到了吗？
-
             RenderTexture rt = hexmapDataTexManager.GetHexDataTexture();
             TextureFormat fmt = rt.format == RenderTextureFormat.ARGBHalf ? TextureFormat.RGBAHalf :
                                 rt.format == RenderTextureFormat.ARGBFloat ? TextureFormat.RGBAFloat :
@@ -147,7 +145,7 @@ namespace LZ.WarGameMap.MapEditor
 
             DateTime dateTime = DateTime.Now;
             string texName = string.Format("hexmapDataTexture_{0}x{1}_{2}", rt.width, rt.height, dateTime.Ticks);
-            TextureUtility.GetInstance().SaveTextureAsAsset(hexmapDataPath, texName, tex);
+            TextureUtility.SaveTextureAsAsset(hexmapDataPath, texName, tex);
 
             GameObject.DestroyImmediate(tex);
         }

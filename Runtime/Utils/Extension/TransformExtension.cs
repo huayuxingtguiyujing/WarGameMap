@@ -113,6 +113,11 @@ namespace LZ.WarGameMap.Runtime {
             return new Vector2(v3.x, v3.z);
         }
 
+        public static Vector2Int TransInt(this Vector2 v2)
+        {
+            return new Vector2Int((int)v2.x, (int)v2.y);
+        }
+
         public static Vector2Int TransIntFromXZ(this Vector3 v3)
         {
             return new Vector2Int((int)v3.x, (int)v3.z);

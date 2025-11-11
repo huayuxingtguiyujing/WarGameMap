@@ -92,7 +92,7 @@ namespace LZ.WarGameMap.Runtime
 
         [Header("山脉 采样 设置")]
         public float elevation = 1.0f;
-        public int interuptInstence = 2;
+        public int interuptInstence = 20;
 
         [Header("Noise General Setting")]
         public int randomSeed = 1227;

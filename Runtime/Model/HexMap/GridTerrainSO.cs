@@ -34,6 +34,11 @@ namespace LZ.WarGameMap.Runtime
             return typeName == MountainType.terrainTypeName;
         }
 
+        public static bool IsSeaLevel(string layerName)
+        {
+            return layerName == SeaLayer.layerName;
+        }
+
         public static string GetMountainName()
         {
             return MountainType.terrainTypeName;
@@ -358,6 +363,7 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
+
         #region Hexmap grid terrain
 
         public void UpdateGridTerrainData(List<Vector2Int> offsetHex, byte terrainTypeIdx)
@@ -416,7 +422,19 @@ namespace LZ.WarGameMap.Runtime
             return GridTerrainTypeList[i].terrainEditColor;
         }
 
+        public bool GetGridCanCountry(Vector2Int offsetHex)
+        {
+            byte idx = GetGridTerrainDataIdx(offsetHex);
+            GridTerrainType gridTerrainType = GridTerrainTypeList[idx];
+            GridTerrainLayer gridTerrainLayer = GetTerrainLayerByType(gridTerrainType);
+            // Sea and mountain can not be Country
+            bool IsMountain = BaseGridTerrain.IsMountain(gridTerrainType.terrainTypeName);
+            bool IsSea = BaseGridTerrain.IsSeaLevel(gridTerrainLayer.layerName);
+            return !IsMountain && !IsSea;
+        }
+
         #endregion
+
 
         #region Get/Set function
 
@@ -433,6 +451,12 @@ namespace LZ.WarGameMap.Runtime
         public GridTerrainLayer GetTerrainLayer(string layerName)
         {
             return GridLayerDict_LayerName[layerName];
+        }
+
+        public GridTerrainLayer GetTerrainLayerByType(GridTerrainType terrainType)
+        {
+            int layerOrder = terrainType.terrainTypeLayer;
+            return GetTerrainLayer(layerOrder);
         }
 
         public List<GridTerrainType> GetTerrainTypesByLayer(string layerName)

@@ -204,7 +204,7 @@ namespace LZ.WarGameMap.MapEditor
 
             CheckExportPath();
             string textureName = $"hexTexture_{rawHexMapTexture.width}x{rawHexMapTexture.height}_{UnityEngine.Random.Range(0, 100)}";
-            TextureUtility.GetInstance().SaveTextureAsAsset(exportHexMapSOPath, textureName, rawHexMapTexture);
+            TextureUtility.SaveTextureAsAsset(exportHexMapSOPath, textureName, rawHexMapTexture);
         }
 
         private void CheckExportPath() {
@@ -243,6 +243,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         #endregion
+
 
         // TODO : UNCOMPLETE
         #region 地形网格持久化
@@ -477,6 +478,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         #endregion
+
 
         #region 地形减面
 

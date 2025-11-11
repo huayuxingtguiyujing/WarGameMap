@@ -774,7 +774,7 @@ namespace LZ.WarGameMap.MapEditor
             Texture2D riverTex = mapRiverData.GenRiverTexture(CurRiverDataFlow, terSet);
 
             string texName = GetRiverTexName();
-            TextureUtility.GetInstance().SaveTextureAsAsset(riverTexturePath, texName, riverTex);
+            TextureUtility.SaveTextureAsAsset(riverTexturePath, texName, riverTex);
             GameObject.DestroyImmediate(riverTex);
         }
 

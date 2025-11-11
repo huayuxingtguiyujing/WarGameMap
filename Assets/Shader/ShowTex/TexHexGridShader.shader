@@ -61,7 +61,7 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
             half4 frag(v2f i) : SV_Target
             {
                 fixed4 c = _BackgroundColor;
-                float3 hex = PixelToHexCubeCoord(i.worldPos, _HexGridSize);
+                float3 hex = WorldToCube(i.worldPos, _HexGridSize);
                 hex = CubeCoordToOffset(hex);
 
                 int x_idx = hex.x;

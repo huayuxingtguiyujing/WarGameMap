@@ -128,7 +128,7 @@ namespace LZ.WarGameMap.MapEditor
                 Debug.LogError("noiseTex is null!");
                 return;
             }
-            TextureUtility.GetInstance().SaveTextureAsAsset(noiseExportPath, $"noiseTex_{noiseTexResolution}_{frequency}_{UnityEngine.Random.Range(0, 1000)}.png", noiseTex);
+            TextureUtility.SaveTextureAsAsset(noiseExportPath, $"noiseTex_{noiseTexResolution}_{frequency}_{UnityEngine.Random.Range(0, 1000)}.png", noiseTex);
         }
 
         #endregion

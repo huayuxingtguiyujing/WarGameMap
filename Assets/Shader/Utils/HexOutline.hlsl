@@ -15,7 +15,7 @@ float4 _HexGridTypeTexture_TexelSize;
 
 float3 GetHexOutlineColor(float3 worldPos, float3 _BackgroundColor) : SV_Target{
     
-    float3 hex = PixelToHexCubeCoord(worldPos, _HexGridSize);
+    float3 hex = WorldToCube(worldPos, _HexGridSize);
     hex = CubeCoordToOffset(hex);
 
     int x_idx = hex.x;
@@ -38,7 +38,6 @@ float3 GetHexOutlineColor(float3 worldPos, float3 _BackgroundColor) : SV_Target{
     float mask = smoothstep(_HexGridEdgeStartLerp, 1.0, t);   // 0.7 start lerp
     return lerp(_BackgroundColor, gridColor, mask);
 }
-
 
         
 #endif

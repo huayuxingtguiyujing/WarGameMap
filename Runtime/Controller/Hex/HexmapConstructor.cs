@@ -404,8 +404,10 @@ namespace LZ.WarGameMap.Runtime {
 
         #endregion
 
+
         #region gameplay init
 
+        // If Country info changes, call it
         public void InitCountry(CountrySO countrySO)
         {
             countryManager.InitCountryManager(countrySO);
@@ -418,6 +420,16 @@ namespace LZ.WarGameMap.Runtime {
         public void UpdateCountryColor()
         {
             countryManager.UpdateCountryColor();
+        }
+
+        public CountryBoundData GetBoundDataByIndex(int layer, int indexInLayer)
+        {
+            return countryManager.GetBoundDataByIndex(layer, indexInLayer);
+        }
+
+        public Vector2Int GetBoundCenterByIndex(int layer, int indexInLayer)
+        {
+            return countryManager.GetBoundCenterByIndex(layer, indexInLayer);
         }
 
         #endregion

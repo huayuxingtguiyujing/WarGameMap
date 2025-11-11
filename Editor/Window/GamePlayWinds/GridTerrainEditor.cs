@@ -456,7 +456,7 @@ namespace LZ.WarGameMap.MapEditor
                 Texture2D texture = gridTerrainTexList[i];
                 DateTime dateTime = DateTime.Now;
                 string texName = string.Format("GridTerrain_x{0}_y{1}_{2}x{2}_Batch{3}_{4}", longitudeAndLatitude.x, longitudeAndLatitude.y, terSet.clusterSize, i, dateTime.Ticks);
-                TextureUtility.GetInstance().SaveTextureAsAsset(exportHexMapDataPath, texName, texture);
+                TextureUtility.SaveTextureAsAsset(exportHexMapDataPath, texName, texture);
             }
             
             AssetDatabase.Refresh();

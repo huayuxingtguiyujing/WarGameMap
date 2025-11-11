@@ -498,9 +498,9 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             string texName1 = string.Format("idx_landform_{0}x{0}_{1}", OuputTexResolution, DateTime.Now.Ticks);
-            TextureUtility.GetInstance().SaveTextureAsAsset(hexLandformTexImportPath, texName1, curHexLandformIdxTex);
+            TextureUtility.SaveTextureAsAsset(hexLandformTexImportPath, texName1, curHexLandformIdxTex);
             string texName2 = string.Format("blendweight_landform_{0}x{0}_{1}", OuputTexResolution, DateTime.Now.Ticks);
-            TextureUtility.GetInstance().SaveTextureAsAsset(hexLandformTexImportPath, texName2, curHexLandformBlendTex);
+            TextureUtility.SaveTextureAsAsset(hexLandformTexImportPath, texName2, curHexLandformBlendTex);
 
         }
 
@@ -508,7 +508,7 @@ namespace LZ.WarGameMap.MapEditor
         [Button("保存六边形地貌纹理图", ButtonSizes.Medium)]
         private void SaveHexLandFormTex() {
             string texName = string.Format("landform_{0}x{0}_{1}", OuputTexResolution, DateTime.Now.Ticks);
-            TextureUtility.GetInstance().SaveTextureAsAsset(hexLandformTexImportPath, texName, curHexLandformResult);
+            TextureUtility.SaveTextureAsAsset(hexLandformTexImportPath, texName, curHexLandformResult);
         }
 
         public List<Vector2Int> GetLinePoints(Vector2Int A, Vector2Int B) {
