@@ -25,7 +25,14 @@ namespace LZ.WarGameMap.Runtime
 
 
         public TerrainMeshData[] GetLODMeshes() { return LODMeshes; }
-        public int GetLODMeshVertNum(int lodLevel) { return LODMeshes[lodLevel].GetVertNum(); }
+        public int GetLODMeshVertNum(int lodLevel) 
+        {
+            if (LODMeshes[lodLevel] == null)
+            {
+                throw new Exception($"LODMeshes - {lodLevel} is null, check if you only gen max LOD mesh");
+            }
+            return LODMeshes[lodLevel].GetVertNum();
+        }
 
 
         HeightDataManager heightDataManager;
@@ -283,7 +290,10 @@ namespace LZ.WarGameMap.Runtime
         {
             //for (int i = 0; i < LODMeshes.Length; i ++)
             //{
+            //  if (LODMeshes[i] == null)
+            //  {
                 LODMeshes[LODMeshes.Length - 1].ApplyRiverEffect(heightDataManager, riverDataManager);
+            //  }
             //}
         }
 
@@ -291,7 +301,10 @@ namespace LZ.WarGameMap.Runtime
         {
             for (int i = 0; i < LODMeshes.Length; i++)
             {
-                LODMeshes[i].BuildOriginMeshWrapper();
+                if (LODMeshes[i] != null)
+                {
+                    LODMeshes[i].BuildOriginMeshWrapper();
+                }
             }
         }
 
@@ -299,7 +312,10 @@ namespace LZ.WarGameMap.Runtime
         {
             for (int i = 0; i < LODMeshes.Length; i++)
             {
-                LODMeshes[i].BuildOriginMesh();
+                if(LODMeshes[i] != null)
+                {
+                    LODMeshes[i].BuildOriginMesh();
+                }
             }
         }
 
@@ -308,7 +324,10 @@ namespace LZ.WarGameMap.Runtime
             // NOTE : 建议地块使用 normal 贴图，自动生成的normal 边界老是有问题...很不适用于减面后的地表 
             for (int i = 0; i < LODMeshes.Length; i++)
             {
-                LODMeshes[i].RecaculateNormal_Mesh();
+                if (LODMeshes[i] != null)
+                {
+                    LODMeshes[i].RecaculateNormal_Mesh();
+                }
             }
         }
 
@@ -388,7 +407,12 @@ namespace LZ.WarGameMap.Runtime
         public Mesh GetMesh(int curLODLevel, int fixDirection, LODSwitchMethod switchMethod) {
             this.curLODLevel = curLODLevel;
             if (curLODLevel < 0 || curLODLevel >= LODMeshes.Length) {
-                DebugUtility.LogError("wrong LOD level, can not get mesh", DebugPriority.Medium);
+                DebugUtility.LogError("Wrong LOD level, can not get mesh", DebugPriority.Medium);
+                return null;
+            }
+
+            if(LODMeshes[curLODLevel] == null)
+            {
                 return null;
             }
 

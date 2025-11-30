@@ -1,5 +1,6 @@
 using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.Enums;
+using LZ.WarGameMap.Runtime.Model;
 using Sirenix.OdinInspector;
 using System.Collections.Generic;
 using System.IO;
@@ -27,8 +28,12 @@ namespace LZ.WarGameMap.MapEditor
         public HexSettingSO hexSet;
 
         [FoldoutGroup("配置scene")]
-        [LabelText("格子地形数据SO")]
+        [LabelText("格子地形数据")]
         public GridTerrainSO gridTerrainSO;
+
+        [FoldoutGroup("配置scene")]
+        [LabelText("区域数据")]
+        public CountrySO countrySO;
 
         protected override void InitEditor() {
             //if (terSet == null) {
@@ -57,6 +62,7 @@ namespace LZ.WarGameMap.MapEditor
             terSet = EditorSceneManager.TerSet;
             hexSet = EditorSceneManager.HexSet;
             gridTerrainSO = EditorSceneManager.GridTerrainSO;
+            countrySO = EditorSceneManager.CountrySO;
 
             base.InitEditor();
         }
@@ -73,11 +79,19 @@ namespace LZ.WarGameMap.MapEditor
         public List<HeightDataModel> heightDataModels;
 
         [FoldoutGroup("Editor 场景配置")]
-        [LabelText("ter材质")]
+        [LabelText("地图主材质")]
+        public Material mainMaterial;
+
+        [FoldoutGroup("Editor 场景配置")]
+        [LabelText("河流材质")]
+        public Material riverMaterial;
+
+        [FoldoutGroup("Editor 场景配置")]
+        [LabelText("ter材质-用于编辑")]
         public Material terMaterial;
 
         [FoldoutGroup("Editor 场景配置")]
-        [LabelText("hex材质")]
+        [LabelText("hex材质-用于编辑")]
         public Material hexMaterial;
 
         [FoldoutGroup("Editor 场景配置")]
@@ -120,6 +134,8 @@ namespace LZ.WarGameMap.MapEditor
 
             EditorSceneManager.GetInstance().LoadHexScene(hexMaterial);
 
+            EditorSceneManager.GetInstance().LoadMapRenderer(mainMaterial, riverMaterial);
+
             stopwatch.Stop();
             Debug.Log($"init scene manager ter scene successfully! cost {stopwatch.ElapsedMilliseconds} ms");
         }
@@ -139,6 +155,7 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
+        
         #region 渲染设置
 
         [FoldoutGroup("渲染 设置")]

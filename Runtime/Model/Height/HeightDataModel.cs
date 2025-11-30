@@ -7,15 +7,17 @@ using UnityEngine;
 namespace LZ.WarGameMap.Runtime
 {
     // NOTE : heightEditor 中使用反序列化之后得到的这个 HeightDataModel 占空间非常大，几乎扩大了有5倍存储
-    public class HeightDataModel : ScriptableObject {
+    public class HeightDataModel : ScriptableObject 
+    {
 
         public int heightFileNums;
 
         public int singleHeightFileSize;
 
-        [SerializeField] List<HeightData> heightDataList;
+        [HideInInspector] [SerializeField] List<HeightData> heightDataList;
         [SerializeField] Dictionary<string, HeightData> heightDataDict;
 
+        [HideInInspector]
         public List<HeightData> HeightDataList {  get { return heightDataList; } }
 
         [Tooltip("该 model 下属的所有地理数据对应的经纬度，对此的修改没有任何作用，仅供展示")]

@@ -32,6 +32,10 @@ namespace LZ.WarGameMap.MapEditor
         #region 构建地形-高度图流程
 
         [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("生成Runtime的地块资产")]
+        public bool genRuntimeClusterMesh = false;
+
+        [FoldoutGroup("构建地形-高度图流程")]
         [LabelText("自动减面生成LOD")]        // 自动LOD为多线程过程，编写代码时需要谨慎，禁止job、协程等 与 多线程混用
         public bool shouldGenLODBySimplify = false;
 
@@ -52,8 +56,12 @@ namespace LZ.WarGameMap.MapEditor
         public List<HeightDataModel> heightDataModels;
 
         [FoldoutGroup("构建地形-高度图流程")]
-        [LabelText("当前需要构建的地块索引")]    // cluster
-        public List<Vector2Int> clusterIdxList;
+        [LabelText("构建起点-左下角地块索引")]    // cluster index start
+        public Vector2Int leftDownClsIdx;
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("构建终点-右上角地块索引")]    // cluster index end
+        public Vector2Int rightUpClsIdx;
 
         [FoldoutGroup("构建地形-高度图流程", 0)]
         [Button("初始化地形", ButtonSizes.Medium)]
@@ -73,7 +81,8 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("构建地形-高度图流程")]
         [Button("构建地块Mesh", ButtonSizes.Medium)]
-        private void BuildCluster() {
+        private void BuildCluster_ForEdit() 
+        {
             if (heightDataModels == null) {
                 Debug.LogError("you do not set the heightDataModel");
                 return;
@@ -82,18 +91,34 @@ namespace LZ.WarGameMap.MapEditor
                 Debug.LogError("terrian ctor is null!");
                 return;
             }
+            List<Vector2Int> clusterIdxList = GetBuildClusterTargets();
 
-            // TODO : 有两个 cluster的时候会崩溃
             TerrainGenTask terrainGenTask = new TerrainGenTask(heightDataModels, terSet, TerrainCtor, 
-                clusterIdxList, shouldGenRiver, shouldGenLODBySimplify);
+                clusterIdxList, shouldGenRiver, shouldGenLODBySimplify, genRuntimeClusterMesh);
             int taskID = TaskManager.GetInstance().StartProgress(TaskTickLevel.Medium, terrainGenTask);
             TerGenTaskPop.GetPopInstance().ShowBasePop(terrainGenTask);
             terrainGenTask.StartTask(taskID);
         }
 
+        private List<Vector2Int> GetBuildClusterTargets()
+        {
+            int clusterNum = (rightUpClsIdx.y - leftDownClsIdx.y + 1) * (rightUpClsIdx.x - leftDownClsIdx.x + 1);
+            List<Vector2Int> clusterIdxList = new List<Vector2Int>(clusterNum);
+            for (int i = leftDownClsIdx.x; i <= rightUpClsIdx.x; i++)
+            {
+                for (int j = leftDownClsIdx.y; j <= rightUpClsIdx.y; j++)
+                {
+                    Vector2Int clusterIdx = new Vector2Int(i, j);
+                    clusterIdxList.Add(clusterIdx);
+                }
+            }
+            return clusterIdxList;
+        }
+
         [FoldoutGroup("构建地形-高度图流程", 0)]
         [Button("刷新地形", ButtonSizes.Medium)]
-        private void ShowTerrain() {
+        private void ShowTerrain() 
+        {
             if (TerrainCtor == null) {
                 Debug.LogError("terrian ctor is null!");
                 return;
@@ -104,7 +129,8 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("构建地形-高度图流程", 0)]
         [Button("清空地形", ButtonSizes.Medium)]
-        private void ClearHeightMesh() {
+        private void ClearHeightMesh() 
+        {
             if (TerrainCtor == null) {
                 Debug.LogError("do not init height ctor!");
                 return;
@@ -281,7 +307,7 @@ namespace LZ.WarGameMap.MapEditor
             for (int i = 0; i < terrainWidth; i++) {
                 for (int j = 0; j < terrainHeight; j++) {
                     TerrainCluster cluster = clusters[i, j];
-                    if (!cluster.IsLoaded) {
+                    if (!cluster.IsInited) {
                         continue;
                     }
 
@@ -320,7 +346,7 @@ namespace LZ.WarGameMap.MapEditor
 
                 for (int i = 0; i < terrainWidth; i++) {
                     for (int j = 0; j < terrainHeight; j++) {
-                        if (!clusters[i, j].IsLoaded) {
+                        if (!clusters[i, j].IsInited) {
                             continue;
                         }
 

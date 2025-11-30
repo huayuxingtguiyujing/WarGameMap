@@ -1,5 +1,6 @@
 using LZ.WarGameCommon;
 using System;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime {

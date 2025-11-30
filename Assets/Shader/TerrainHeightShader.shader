@@ -19,22 +19,27 @@ Shader "WarGameMap/Terrain/TerrainHeightSmooth"
         _Color4 ("Mid High Color", Color) = (0.6, 0.4, 0.2, 1)  // 山地
         _Color5 ("High Color", Color) = (1.0, 1.0, 1.0, 1)      // 雪山
 
-        // light
+        // light TODO: 之后会修改光照相关
         _LightDir ("Light Dir", Vector) = (0, -0.5, -0.5, 1)
 
         _LightIntensity ("Main Light Intensity", Float) = 1.0
         _AmbientIntensity ("Ambient Intensity", Float) = 0.3
 
         // Hex setting
-        _HexGridScale("Hex Grid Scale", Float) = 2
+        _HexmapWidth("Hexmap Width", Int) = 256
+        _HexmapHeight("Hexmap Height", Int) = 256
         _HexGridSize("Hex Grid Size", Range(1, 300)) = 20
-        _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0.001, 1)) = 0.1
-        _HexGridTypeTexture("Hex Grid Texture", 2D) = "white" {}
-    
         // 描边-边界相关
-        _CountryGridRelationTexture("Country Grid Relation Texture", 2D) = "white" {}
+        _EdgeRatio("Edge Ratio", Float) = 0.8
+        
+        // 省份边界相关
+        _CountryGridRelationTexture("Country Grid Relation Texture", 2D) = "white" {}   // TODO : 过期了这个
+
         _RegionTexture("Region Texture", 2D) = "white" {}
-        _EdgeRatio("Edge Ratio", Float) = 0.2
+        _ProvinceTexture("Province Texture", 2D) = "white" {}
+        _PrefectureTexture("Prefecture Texture", 2D) = "white" {}
+        _SubPrefectureTexture("SubPrefecture Texture", 2D) = "white" {}
+
         _BorderLerpColor1("Border Lerp1 Color", Color) = (0.05, 0.05, 0.05, 1)
         _BorderLerpColor2("Border Lerp2 Color", Color) = (0.72, 0.65, 0.25, 1)
     }
@@ -67,6 +72,7 @@ Shader "WarGameMap/Terrain/TerrainHeightSmooth"
 
             // HLSLINCLUDE
             #include "Hexmap/CountryLibrary.hlsl"
+            #include "Hexmap/TerrainLibrary.hlsl"
             #include "Utils/HexLibrary.hlsl"
             #include "Utils/HexOutline.hlsl"
             #include "Utils/MathLibrary.hlsl"
@@ -117,8 +123,7 @@ Shader "WarGameMap/Terrain/TerrainHeightSmooth"
             float _AmbientIntensity;
 
 
-
-            // 为什么 没有用？
+            // 用于处理河滩
             float3 ApplyRiverEffect(float2 uv, float3 worldPos)
             {
                 // NOTE : when setting terrain's uv, will consider it's pos in whole terrain not single cluster
@@ -174,14 +179,13 @@ Shader "WarGameMap/Terrain/TerrainHeightSmooth"
                       w3 * _Color3 + w4 * _Color4 + w5 * _Color5;
                 float3 litColor = ApplySimpleLight(baseColor.rgb, i.normalWS);
 
-
-                // // 边缘描边效果 // _BorderLerpColor1 _BorderLerpColor2
-                float edgeMask = smoothstep(0.9, 0.95, i.edgeFactor);
-                float edgeLerp = saturate(edgeMask - _EdgeRatio);
+                // HexOutline.hlsl // 边缘描边效果 // _BorderLerpColor1 _BorderLerpColor2
+                // float edgeMask = smoothstep(0.9, 0.95, i.edgeFactor);
+                // float edgeLerp = saturate(edgeMask - _EdgeRatio);
                 // float3 borderLerpColor = lerp(_BorderLerpColor1.rgb, _BorderLerpColor2.rgb, edgeMask);
                 
                 // flag : 0 ， 代表仅显示 region 层的
-                float3 blendColor = GetHexEdgeBorderColor(i.worldPos, litColor, 0,  _HexGridSize).rgb;
+                // float3 blendColor = GetHexEdgeBorderColor(i.worldPos, litColor, 0,  _HexGridSize).rgb;
 
                 // // 使用 URP SurfaceData，支持 Emission 发光 ========
                 // SurfaceData surfaceData;
@@ -193,7 +197,9 @@ Shader "WarGameMap/Terrain/TerrainHeightSmooth"
                 // // 此方法会自动套用光照、阴影、发光等效果
                 // float4 output = UniversalFragmentPBR(input, surfaceData);
 
-                float4 finalColor = float4(blendColor, 1.0);
+                float4 countryColor = GetCountryColor(i.worldPos, litColor, 0, _HexGridSize);
+
+                float4 finalColor = float4(countryColor.xyz, 1.0);    //   blendColor countryColor.xyz litColor borderLerpColor
                 return finalColor;
 
                 // build hex outline!

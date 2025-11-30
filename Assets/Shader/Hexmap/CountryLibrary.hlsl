@@ -4,6 +4,8 @@
 #include "../Utils/HexLibrary.hlsl"
 
 // 用于生成区域划分效果
+int _HexmapWidth;
+int _HexmapHeight;
 
 sampler2D _CountryGridRelationTexture;
 // Texture2D<uint4> _CountryGridRelationTexture;
@@ -161,6 +163,41 @@ float4 GetHexEdgeBorderColor(float3 worldPos, float3 terrainColor, int flag, flo
                 return float4(terrainColor, 1.0);
             }
             break;
+    }
+    return float4(0,0,0,1);
+}
+
+// TODO : 上面的是旧的，是个失败的描边效果，下面目前没有描边效果
+// TODO : 需要实现
+float4 LerpCountryAndTerrainColor(float3 terrainColor, float4 gridColor)
+{
+    float3 blendColor = lerp(terrainColor, gridColor, _EdgeRatio);
+    return float4(blendColor, 1.0);
+}
+
+float4 GetCountryColor(float3 worldPos, float3 terrainColor, int flag, float _HexGridSize)
+{
+    // Get uv by world pos
+    float3 offsetHex = WorldToOffset(worldPos, _HexGridSize);
+    int offset_x = round(offsetHex.x);
+    int offset_y = round(offsetHex.y);
+    float2 hex_uv = (offsetHex + 0.5) * _RegionTexture_TexelSize.xy;     // float2(offset_x, offset_y)
+    // hex_uv = float2(hex_uv.x / _HexmapWidth, hex_uv.y / _HexmapHeight);
+
+    switch(flag){
+        case 0:
+            float4 gridRegionColor = tex2D(_RegionTexture, hex_uv);
+        // return gridRegionColor;
+            return LerpCountryAndTerrainColor(terrainColor, gridRegionColor);
+        case 1:
+            float4 gridProvinceColor = tex2D(_ProvinceTexture, hex_uv);
+            return LerpCountryAndTerrainColor(terrainColor, gridProvinceColor);
+        case 2:
+            float4 gridPrefectureColor = tex2D(_PrefectureTexture, hex_uv);
+            return LerpCountryAndTerrainColor(terrainColor, gridPrefectureColor);
+        case 3:
+            float4 gridSubPrefectureColor = tex2D(_SubPrefectureTexture, hex_uv);
+            return LerpCountryAndTerrainColor(terrainColor, gridSubPrefectureColor);
     }
     return float4(0,0,0,1);
 }

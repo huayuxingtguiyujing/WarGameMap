@@ -4,9 +4,11 @@ using LZ.WarGameMap.Runtime.HexStruct;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -29,7 +31,7 @@ namespace LZ.WarGameMap.MapEditor
             BrushHexmapSetting setting = new BrushHexmapSetting();
             setting.enableKeyCode = true;
             setting.useTexCache = true;
-            setting.texCacheNum = 2;    // Grid Terrain + Mountain Grid
+            setting.texCacheNum = TerrainLayerIdxs.GridTerCacheNum;    // Grid Terrain (4 layer) + Mountain Grid
             return setting;
         }
 
@@ -41,6 +43,7 @@ namespace LZ.WarGameMap.MapEditor
 
             TerrainLayersList.Clear();
             TerrainTypesList.Clear();
+            CurShowingTerrainTypesList.Clear();
 
             // Load layer and all terrainType
             foreach (var layer in gridTerrainSO.GridTerrainLayerList)
@@ -51,7 +54,9 @@ namespace LZ.WarGameMap.MapEditor
             foreach (var type in gridTerrainSO.GridTerrainTypeList)
             {
                 TerrainTypesList.Add(type.CopyObject());
+                CurShowingTerrainTypesList.Add(type.CopyObject());
             }
+            CurFilterLayerName = AllLayerFilter;
             //Debug.Log($"load terrain types over, TerrainLayersList : {TerrainLayersList.Count}, TerrainTypesList : {TerrainTypesList.Count}");
         }
 
@@ -89,15 +94,21 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
+        // TODO : 现在不止要展示 BaseLayer，还要展示其他 Layer，另外 不要用序号，用 GridTerrainLayerIdxs
         protected override void PostBuildHexGridMap()
         {
             // Use Grid Terrain Set first layer
-            List<Color> gridTerrainColors = hexmapDataTexManager.GetHexDataTexColors();
-            hexmapDataTexManager.InitTexCache(0, gridTerrainColors);
+            List<Color> baseLayerColors = hexmapDataTexManager.GetHexDataTexColors();
+            hexmapDataTexManager.InitTexCache(TerrainLayerIdxs.BaseLayer, baseLayerColors);
 
             int mapWidth = hexSet.mapWidth;
             int mapHeight = hexSet.mapHeight;
             List<Color> mountainColors = new List<Color>(mapHeight * mapWidth);
+
+            List<Color> landformColors = new List<Color>(mapHeight * mapWidth);
+            List<Color> decorateColors = new List<Color>(mapHeight * mapWidth);
+            List<Color> dynamicColors = new List<Color>(mapHeight * mapWidth);
+
             for (int j = 0; j < mapHeight; j++)
             {
                 for (int i = 0; i < mapWidth; i++)
@@ -113,11 +124,27 @@ namespace LZ.WarGameMap.MapEditor
                     {
                         mountainColors.Add(MapColorUtil.NotValidColor);
                     }
+
+                    // Get other layer colors
+                    byte landformType = gridTerrainSO.GetGridTerLandformDataIdx(idx);
+                    Color landformColor = gridTerrainSO.GetGridTerrainTypeColorByIdx(landformType);
+                    landformColors.Add(landformColor);
+
+                    byte decorateType = gridTerrainSO.GetGridTerDecorateDataIdx(idx);
+                    Color decorateColor = gridTerrainSO.GetGridTerrainTypeColorByIdx(decorateType);
+                    decorateColors.Add(decorateColor);
+
+                    byte dynamicType = gridTerrainSO.GetGridTerDynamicDataIdx(idx);
+                    Color dynamicColor = gridTerrainSO.GetGridTerrainTypeColorByIdx(dynamicType);
+                    dynamicColors.Add(dynamicColor);
                 }
             }
-            hexmapDataTexManager.InitTexCache(1, mountainColors);
+            hexmapDataTexManager.InitTexCache(TerrainLayerIdxs.LandformLayer, landformColors);
+            hexmapDataTexManager.InitTexCache(TerrainLayerIdxs.DecorateLayer, decorateColors);
+            hexmapDataTexManager.InitTexCache(TerrainLayerIdxs.DynamicLayer, dynamicColors);
+            hexmapDataTexManager.InitTexCache(TerrainLayerIdxs.MountainLayer, mountainColors);
 
-            hexmapDataTexManager.SwitchToTexCache(0);
+            hexmapDataTexManager.SwitchToTexCache(TerrainLayerIdxs.BaseLayer);
         }
 
         public override void Destory()
@@ -141,7 +168,7 @@ namespace LZ.WarGameMap.MapEditor
         private IEnumerable<ValueDropdownItem<string>> GetTerrainTypesList()
         {
             List<ValueDropdownItem<string>> dropDownItemList = new List<ValueDropdownItem<string>>();
-            foreach (var terrainType in TerrainTypesList)
+            foreach (var terrainType in CurShowingTerrainTypesList)
             {
                 dropDownItemList.Add(new ValueDropdownItem<string>(terrainType.terrainTypeChineseName, terrainType.terrainTypeName));
             }
@@ -163,7 +190,7 @@ namespace LZ.WarGameMap.MapEditor
         {
             CurGridTerrainTypeIndex--;
             FixCurTerrainTypeIdx();
-            CurCurGridTerrainTypeName = TerrainTypesList[CurGridTerrainTypeIndex].terrainTypeName;
+            CurCurGridTerrainTypeName = CurShowingTerrainTypesList[CurGridTerrainTypeIndex].terrainTypeName;
             SetTerrainTypeByCurIdx();
             UpdateBrushColor();
         }
@@ -172,29 +199,29 @@ namespace LZ.WarGameMap.MapEditor
         {
             CurGridTerrainTypeIndex++;
             FixCurTerrainTypeIdx();
-            CurCurGridTerrainTypeName = TerrainTypesList[CurGridTerrainTypeIndex].terrainTypeName;
+            CurCurGridTerrainTypeName = CurShowingTerrainTypesList[CurGridTerrainTypeIndex].terrainTypeName;
             SetTerrainTypeByCurIdx();
             UpdateBrushColor();
         }
 
         private void FixCurTerrainTypeIdx()
         {
-            if (CurGridTerrainTypeIndex > TerrainTypesList.Count - 1)
+            if (CurGridTerrainTypeIndex > CurShowingTerrainTypesList.Count - 1)
             {
                 CurGridTerrainTypeIndex = 0;
             }
             else if (CurGridTerrainTypeIndex < 0)
             {
-                CurGridTerrainTypeIndex = TerrainTypesList.Count - 1;
+                CurGridTerrainTypeIndex = CurShowingTerrainTypesList.Count - 1;
             }
         }
 
         private void SetTerrainTypeByCurIdx()
         {
             // Find cur terrain type index
-            for(int i = 0;  i < TerrainTypesList.Count; i++)
+            for(int i = 0;  i < CurShowingTerrainTypesList.Count; i++)
             {
-                if(CurCurGridTerrainTypeName == TerrainTypesList[i].terrainTypeName)
+                if(CurCurGridTerrainTypeName == CurShowingTerrainTypesList[i].terrainTypeName)
                 {
                     CurGridTerrainTypeIndex = i;
                     break;
@@ -207,24 +234,45 @@ namespace LZ.WarGameMap.MapEditor
 
         private void UpdateBrushColor()
         {
+            const int cacheLength = TerrainLayerIdxs.GridTerCacheNum;
+            Color[] cacheColors = new Color[cacheLength] {
+                MapColorUtil.NotValidColor, MapColorUtil.NotValidColor, MapColorUtil.NotValidColor,
+                MapColorUtil.NotValidColor, MapColorUtil.NotValidColor
+            };
+            bool[] lockIdxs = new bool[cacheLength]
+            {
+                true, true, true, true, true
+            };
+
             if (IsEditingMountain)
             {
                 Color moutainColor = MapColorUtil.NotValidColor;
                 if (BaseGridTerrain.IsMountain(CurGridTerrain))
                 {
-                    moutainColor = MountainID_Wrapper_Dict[CurEditingMountain.MountainID].MountainEdtingColor;
+                    int mountainID = CurEditingMountain.MountainID;
+                    if (MountainID_Wrapper_Dict.ContainsKey(mountainID))
+                    {
+                        moutainColor = MountainID_Wrapper_Dict[mountainID].MountainEdtingColor;
+                    }
                 }
 
                 SetBrushColor(moutainColor);
-                // Length : BrushHexmapSetting.texDataPageNum
-                Color[] cacheColors = new Color[2] { CurGridTerrain.terrainEditColor, moutainColor };
+                cacheColors[TerrainLayerIdxs.BaseLayer] = CurGridTerrain.terrainEditColor;
+                cacheColors[TerrainLayerIdxs.MountainLayer] = moutainColor;
                 SetBrushCacheColor(cacheColors);
+
+                lockIdxs[TerrainLayerIdxs.BaseLayer] = false;
+                lockIdxs[TerrainLayerIdxs.MountainLayer] = false;
+                LockBrushCacheIdx(lockIdxs);
             }
             else
             {
                 SetBrushColor(CurGridTerrain.terrainEditColor);
-                Color[] cacheColors = new Color[2] { CurGridTerrain.terrainEditColor, MapColorUtil.NotValidColor };
+                cacheColors[CurChooseTerrainLayer] = CurGridTerrain.terrainEditColor;
                 SetBrushCacheColor(cacheColors);
+
+                lockIdxs[CurChooseTerrainLayer] = false;
+                LockBrushCacheIdx(lockIdxs);
             }
         }
 
@@ -240,6 +288,8 @@ namespace LZ.WarGameMap.MapEditor
         public string CurFilterLayerName;
 
         string AllLayerFilter = "所有层级";
+
+        int CurChooseTerrainLayer = 0;
 
         private IEnumerable<ValueDropdownItem<string>> GetTerrainLayersList()
         {
@@ -259,22 +309,49 @@ namespace LZ.WarGameMap.MapEditor
             {
                 return;
             }
-            
-            TerrainTypesList.Clear();
+
+            CurShowingTerrainTypesList.Clear();
             if (CurFilterLayerName == AllLayerFilter)
             {
                 foreach (var type in gridTerrainSO.GridTerrainTypeList)
                 {
-                    TerrainTypesList.Add(type.CopyObject());
+                    CurShowingTerrainTypesList.Add(type.CopyObject());
                 }
+                CurChooseTerrainLayer = TerrainLayerIdxs.BaseLayer;
+                hexmapDataTexManager.SwitchToTexCache(CurChooseTerrainLayer);
             }
             else
             {
+                // Load terrain type in the same layer
                 List<GridTerrainType> layerTypes = gridTerrainSO.GetTerrainTypesByLayer(CurFilterLayerName);
                 foreach (var type in layerTypes)
                 {
-                    TerrainTypesList.Add(type.CopyObject());
+                    CurShowingTerrainTypesList.Add(type.CopyObject());
                 }
+
+                // Change cur texture to some layer 
+                if (CurFilterLayerName == BaseGridTerrain.BaseLayer.layerName)
+                {
+                    CurChooseTerrainLayer = TerrainLayerIdxs.BaseLayer;
+                }
+                else if (CurFilterLayerName == BaseGridTerrain.LandformLayer.layerName)
+                {
+                    CurChooseTerrainLayer = TerrainLayerIdxs.LandformLayer;
+                }
+                else if (CurFilterLayerName == BaseGridTerrain.DecorateLayer.layerName)
+                {
+                    CurChooseTerrainLayer = TerrainLayerIdxs.DecorateLayer;
+                }
+                else if (CurFilterLayerName == BaseGridTerrain.DynamicLayer.layerName)
+                {
+                    CurChooseTerrainLayer = TerrainLayerIdxs.DynamicLayer;
+                }
+                else
+                {
+                    Debug.LogError($"Not valid layer index : {CurChooseTerrainLayer}");
+                    return;
+                }
+                hexmapDataTexManager.SwitchToTexCache(CurChooseTerrainLayer);
             }
         }
 
@@ -283,9 +360,14 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("地形层级")] 
         public List<GridTerrainLayer> TerrainLayersList = new List<GridTerrainLayer>();
 
+        // TODO : 测试下面的逻辑是否有问题！
+        [FoldoutGroup("格子地形数据编辑")]
+        [LabelText("所有地形列表")]
+        public List<GridTerrainType> TerrainTypesList = new List<GridTerrainType>();
+
         [FoldoutGroup("格子地形数据编辑")]
         [LabelText("地形列表")]
-        public List<GridTerrainType> TerrainTypesList = new List<GridTerrainType>();
+        public List<GridTerrainType> CurShowingTerrainTypesList = new List<GridTerrainType>();
 
         [FoldoutGroup("格子地形数据编辑")]
         [Button("保存地形数据", ButtonSizes.Medium)]
@@ -303,6 +385,12 @@ namespace LZ.WarGameMap.MapEditor
 
 
         #region 格子地形纹理导出
+
+        public enum GridTerExportHandleMethod
+        {
+            Cluster,
+            Scope
+        }
 
         class GridTerrainTexHelper
         {
@@ -344,11 +432,12 @@ namespace LZ.WarGameMap.MapEditor
                 //DebugUtility.DebugGameObject("", hexData.worldPos.TransToXZ(), EditorSceneManager.mapScene.hexClusterParentObj.transform);
             }
 
+            // TODO : gridTerrainSO.GetGridTerrainDataIdx 有问题，只能拿到基础层次的
             private void HandleHexPointData(int idx, ref HexAreaPointData hexData, ref Hexagon hex)
             {
                 // Get this hexGrid's type type
                 Vector2Int OffsetHex = HexHelper.AxialToOffset(hex);
-                byte terrainType = gridTerrainSO.GetGridTerrainDataIdx(OffsetHex);
+                byte terrainType = gridTerrainSO.GetGridTerBaseDataIdx(OffsetHex);
 
                 if (hexData.insideInnerHex)
                 {
@@ -368,7 +457,7 @@ namespace LZ.WarGameMap.MapEditor
                 {
                     case OutHexAreaEnum.Edge:
                         Vector2Int neighbor_offsetHex = HexHelper.AxialToOffset(neighborHex);
-                        byte neighborType = gridTerrainSO.GetGridTerrainDataIdx(neighbor_offsetHex);
+                        byte neighborType = gridTerrainSO.GetGridTerBaseDataIdx(neighbor_offsetHex);
                         Color neighbor_Color = gridTerrainSO.GetGridTerrainTypeColorByIdx(neighborType);
                         Color hex_Color = gridTerrainSO.GetGridTerrainTypeColorByIdx(terrainType);
                         hexGridMapColors[idx] = MathUtil.ColorLinearLerp(hex_Color, neighbor_Color, hexData.ratioBetweenInnerAndOutter);
@@ -379,9 +468,9 @@ namespace LZ.WarGameMap.MapEditor
                         Vector2 l_A = hex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir + 1, innerHexRatio);
                         Vector2 l_B = neighborHex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir + 3, innerHexRatio);
                         Vector2 l_C = nextHex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir + 5, innerHexRatio);
-                        Color l_a = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerrainDataIdx(HexHelper.AxialToOffset(hex)));
-                        Color l_b = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerrainDataIdx(HexHelper.AxialToOffset(neighborHex)));
-                        Color l_c = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerrainDataIdx(HexHelper.AxialToOffset(nextHex)));
+                        Color l_a = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerBaseDataIdx(HexHelper.AxialToOffset(hex)));
+                        Color l_b = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerBaseDataIdx(HexHelper.AxialToOffset(neighborHex)));
+                        Color l_c = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerBaseDataIdx(HexHelper.AxialToOffset(nextHex)));
                         hexGridMapColors[idx] = MathUtil.TriangleLerp(l_a, l_b, l_c, l_A, l_B, l_C, hexData.worldPos);
                         break;
                     case OutHexAreaEnum.RightCorner:
@@ -390,9 +479,9 @@ namespace LZ.WarGameMap.MapEditor
                         Vector2 r_A = hex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir, innerHexRatio);
                         Vector2 r_B = neighborHex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir - 2, innerHexRatio);
                         Vector2 r_C = preHex.Get_Hex_CornerPos(layout, (int)hexData.hexAreaDir - 4, innerHexRatio);
-                        Color r_a = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerrainDataIdx(HexHelper.AxialToOffset(hex)));
-                        Color r_b = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerrainDataIdx(HexHelper.AxialToOffset(neighborHex)));
-                        Color r_c = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerrainDataIdx(HexHelper.AxialToOffset(preHex)));
+                        Color r_a = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerBaseDataIdx(HexHelper.AxialToOffset(hex)));
+                        Color r_b = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerBaseDataIdx(HexHelper.AxialToOffset(neighborHex)));
+                        Color r_c = gridTerrainSO.GetGridTerrainTypeColorByIdx(gridTerrainSO.GetGridTerBaseDataIdx(HexHelper.AxialToOffset(preHex)));
                         hexGridMapColors[idx] = MathUtil.TriangleLerp(r_a, r_b, r_c, r_A, r_B, r_C, hexData.worldPos);
                         break;
                 }
@@ -402,43 +491,96 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("格子地形纹理导出")]
         [LabelText("cluster序号")]
+        public GridTerExportHandleMethod HandleMethod = GridTerExportHandleMethod.Cluster;
+
+        bool IsInClusterWorkFlow => (HandleMethod == GridTerExportHandleMethod.Cluster);
+        bool IsInScopeWorkFlow => (HandleMethod == GridTerExportHandleMethod.Scope);
+
+
+        [ShowIf("IsInScopeWorkFlow")]
+        [FoldoutGroup("格子地形纹理导出")]
+        [LabelText("左下角-起点地块序号")]
+        public Vector2Int leftDownClusterIdx;
+
+        [ShowIf("IsInScopeWorkFlow")]
+        [FoldoutGroup("格子地形纹理导出")]
+        [LabelText("右上角-终点地块序号")]
+        public Vector2Int rightUpClusterIdx;
+
+        [ShowIf("IsInClusterWorkFlow")]
+        [FoldoutGroup("格子地形纹理导出")]
+        [LabelText("cluster序号")]
         public List<Vector2Int> longitudeAndLatitudes;     // TODO : 要用上这个东西...
 
         [FoldoutGroup("格子地形纹理导出"), ReadOnly]
         [LabelText("导出位置")]
         public string exportHexMapDataPath = MapStoreEnum.GamePlayGridTerrainTexDataPath;
 
+        // NOTE : 生成之后，手动将所有纹理调成:
+        // Non-Power of 2 : None
+        // Read/Write : true
         [FoldoutGroup("格子地形纹理导出")]
         [Button("生成并保存 格子地形纹理图", ButtonSizes.Medium)]
         private void GenGridEdit()
         {
-            // Remove repeated long-la val
             int genTexNum = longitudeAndLatitudes.Count;
-            HashSet<Vector2Int> LALSets = new HashSet<Vector2Int>(genTexNum);
-            for (int i = genTexNum - 1; i >= 0; i--)
+            List<Vector2Int> clusterIdxs = new List<Vector2Int>();
+            if (IsInClusterWorkFlow)
             {
-                Vector2Int longitudeAndLatitude = longitudeAndLatitudes[i];
-                if (LALSets.Contains(longitudeAndLatitude))
+                // Remove repeated long-la val
+                HashSet<Vector2Int> LALSets = new HashSet<Vector2Int>(genTexNum);
+                for (int i = genTexNum - 1; i >= 0; i--)
                 {
-                    longitudeAndLatitudes.RemoveAt(i);
+                    Vector2Int longitudeAndLatitude = longitudeAndLatitudes[i];
+                    if (LALSets.Contains(longitudeAndLatitude))
+                    {
+                        longitudeAndLatitudes.RemoveAt(i);
+                    }
+                    LALSets.Add(longitudeAndLatitude);
                 }
-                LALSets.Add(longitudeAndLatitude);
+
+                foreach (var LAL in longitudeAndLatitudes)
+                {
+                    clusterIdxs.Add(LAL);
+                }
+            }
+            else if (IsInScopeWorkFlow)
+            {
+                if (leftDownClusterIdx.x > rightUpClusterIdx.x || leftDownClusterIdx.y > rightUpClusterIdx.y) 
+                {
+                    Debug.LogError($"Wrong idx, start : {leftDownClusterIdx}, end : {rightUpClusterIdx}");
+                    return;
+                }
+
+                // Generate all cluster idxs in scope
+                for (int i = leftDownClusterIdx.x; i <= rightUpClusterIdx.x; i ++)
+                {
+                    for (int j = leftDownClusterIdx.y; j <= rightUpClusterIdx.y; j++)
+                    {
+                        Vector2Int clusterIdx = new Vector2Int(i, j);
+                        clusterIdxs.Add(clusterIdx);
+                    }
+                }
             }
 
-            genTexNum = longitudeAndLatitudes.Count;
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            genTexNum = clusterIdxs.Count;
             int clusterSize = terSet.clusterSize;
             // NOTE : fixedClsSize 的存在是为了扩展采样，以便地块接缝的处理
             int fixedClsSize = terSet.fixedClusterSize; 
             List<Texture2D> gridTerrainTexList = new List<Texture2D>(genTexNum);
             for(int i = 0; i < genTexNum; i++)
             {
-                Vector2Int longitudeAndLatitude = longitudeAndLatitudes[i];
+                Vector2Int longitudeAndLatitude = clusterIdxs[i];
                 Texture2D gridTerrainTex = new Texture2D(fixedClsSize, fixedClsSize);
                 List<Color> colors = new List<Color>(gridTerrainTex.GetPixels());
 
                 // Init helper to help build GridTerrainTexture
                 GridTerrainTexHelper gridMapTexHelper = new GridTerrainTexHelper(longitudeAndLatitude, fixedClsSize, terSet, hexSet, gridTerrainSO, colors);
                 
+                // Only use BaseLayer's Color to generate
                 Parallel.ForEach(colors, (color, state, index) =>
                 {
                     gridMapTexHelper.PaintHexGridMapTex((int)index);
@@ -452,13 +594,15 @@ namespace LZ.WarGameMap.MapEditor
             // Save all gened grid terrain texture
             for(int i = 0; i < gridTerrainTexList.Count; i++)
             {
-                Vector2Int longitudeAndLatitude = longitudeAndLatitudes[i];
+                Vector2Int longitudeAndLatitude = clusterIdxs[i];
                 Texture2D texture = gridTerrainTexList[i];
                 DateTime dateTime = DateTime.Now;
                 string texName = string.Format("GridTerrain_x{0}_y{1}_{2}x{2}_Batch{3}_{4}", longitudeAndLatitude.x, longitudeAndLatitude.y, terSet.clusterSize, i, dateTime.Ticks);
                 TextureUtility.SaveTextureAsAsset(exportHexMapDataPath, texName, texture);
             }
-            
+            stopwatch.Stop();
+            Debug.Log($"Gen grid terrain texture num : {genTexNum}, cost : {stopwatch.ElapsedMilliseconds}");
+
             AssetDatabase.Refresh();
         }
 
@@ -575,7 +719,7 @@ namespace LZ.WarGameMap.MapEditor
                     Debug.LogError($"Wrong statu, cur editing mountain is null or cur terrain name is not mountain!");
                     IsEditingMountain = false;
                     // Switch to gridTerrain scene
-                    hexmapDataTexManager.SwitchToTexCache(0);
+                    hexmapDataTexManager.SwitchToTexCache(TerrainLayerIdxs.BaseLayer);
                 }
                 return;
             }
@@ -598,11 +742,11 @@ namespace LZ.WarGameMap.MapEditor
             // Refresh scene hexmap, load gridTerrain (0) or mountain (1)
             if (IsEditingMountain)
             {
-                hexmapDataTexManager.SwitchToTexCache(1);
+                hexmapDataTexManager.SwitchToTexCache(TerrainLayerIdxs.MountainLayer);
             }
             else
             {
-                hexmapDataTexManager.SwitchToTexCache(0);
+                hexmapDataTexManager.SwitchToTexCache(TerrainLayerIdxs.BaseLayer);
             }
         }
 
@@ -750,8 +894,9 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
+            // TODO : 根据当前选中的层次，更新对应层次（TerrainLayer）的数据
             byte idx = (byte)GetIdxByCurGridTerrain();
-            gridTerrainSO.UpdateGridTerrainData(offsetHexList, idx);
+            gridTerrainSO.UpdateGridTerrainData(offsetHexList, idx, CurChooseTerrainLayer);
 
             // TODO : 颜色 要同步地 刷到 hexdatamanager 当中，要完成两个层次的同步
 
@@ -761,7 +906,8 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        protected override Color PaintHexGridWhenLoad(int index)
+        // TOOD : 
+        protected override Color PaintHexGridWhenBuild(int index)
         {
             if (gridTerrainSO == null)
             {
@@ -771,7 +917,7 @@ namespace LZ.WarGameMap.MapEditor
             int i = index / hexSet.mapWidth;
             int j = index % hexSet.mapHeight;
             Vector2Int offsetHex = new Vector2Int(j, i);
-            byte terrainTypeIdx = gridTerrainSO.GetGridTerrainDataIdx(offsetHex);
+            byte terrainTypeIdx = gridTerrainSO.GetGridTerBaseDataIdx(offsetHex);
             return gridTerrainSO.GetGridTerrainTypeColorByIdx(terrainTypeIdx);
         }
 

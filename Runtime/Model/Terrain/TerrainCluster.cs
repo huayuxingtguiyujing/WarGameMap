@@ -19,6 +19,7 @@ namespace LZ.WarGameMap.Runtime
         public int longitude { get; private set; }
         public int latitude { get; private set; }
 
+        public bool IsInited { get; private set; }
         public bool IsLoaded { get; private set; }
         public bool IsShowing { get; private set; }     // TODO : 有bug！
 
@@ -34,7 +35,7 @@ namespace LZ.WarGameMap.Runtime
 
         public GameObject clusterGo { get; private set; }
 
-        public TerrainCluster() { IsLoaded = false; IsShowing = false; }
+        public TerrainCluster() { IsInited = false; IsLoaded = false; IsShowing = false; }
 
 
         #region init cluster
@@ -54,7 +55,7 @@ namespace LZ.WarGameMap.Runtime
             clusterStartPoint = new Vector3(terSet.clusterSize * idxX, 0, terSet.clusterSize * idxY);
             _InitTerrainCluster_Static(mat);
 
-            IsLoaded = true;
+            IsInited = true;
         }
 
         private void _InitTerrainCluster_Static(Material mat)
@@ -97,66 +98,89 @@ namespace LZ.WarGameMap.Runtime
         }
 
 
-        public void SetMeshData(HeightDataManager heightDataManager, bool shouldGenLODBySimplify)
+        public void SetMeshData(HeightDataManager heightDataManager)
         {
             int tileNumPerLine = terSet.GetTileNumClsPerLine();
             // Now we use TerrainSimplifyer; if LOD 4, vertexNumFix is 1, so there are width's num of vertexs
             // Firstly gen max lodlevel's mesh
             int curLODLevel = terSet.LODLevel - 1;
-            if (shouldGenLODBySimplify)
+
+            // Gen LOD by TerrainSimplify, we will set LOD max firstly, and then use it to simplify other LOD
+            int vertexNumFix = 1;
+            for (int i = 0; i < tileNumPerLine; i++)
             {
-                // Gen LOD by TerrainSimplify, we will set LOD max firstly, and then use it to simplify other LOD
-                int vertexNumFix = 1;
+                for (int j = 0; j < tileNumPerLine; j++)
+                {
+                    tileList[i, j].SetMeshData_Origin(curLODLevel, terSet, vertexNumFix, heightDataManager);
+                }
+            }
+            curLODLevel--;
+            TerrainSimplifier terrainSimplifier = new TerrainSimplifier();
+            while (curLODLevel >= 0)
+            {
                 for (int i = 0; i < tileNumPerLine; i++)
                 {
                     for (int j = 0; j < tileNumPerLine; j++)
                     {
-                        tileList[i, j].SetMeshData_Origin(curLODLevel, terSet, vertexNumFix, heightDataManager);
+                        tileList[i, j].SetMeshData_Copy(curLODLevel, terrainSimplifier, terSet.GetSimplifyTarget(curLODLevel));
                     }
                 }
                 curLODLevel--;
-                TerrainSimplifier terrainSimplifier = new TerrainSimplifier();
-                while (curLODLevel >= 0)
-                {
-                    for (int i = 0; i < tileNumPerLine; i++)
-                    {
-                        for (int j = 0; j < tileNumPerLine; j++)
-                        {
-                            tileList[i, j].SetMeshData_Copy(curLODLevel, terrainSimplifier, terSet.GetSimplifyTarget(curLODLevel));
-                        }
-                    }
-                    curLODLevel--;
-                }
             }
-            else
-            {
-                // generate mesh data for every LOD level
-                while (curLODLevel >= 0)
-                {
-                    // vertexNumFix == 1, 生成的 tile 每行顶点数等于 tileSize
-                    // vertextNumFix == 2, 即当前生成的这个 tile 有 terSet.tileSize / 2 个顶点
-                    // 按目前计算 : LOD = maxLODLevel 时 顶点数等于 tileSize
-                    //int vertexNumFix = (int)Mathf.Pow(2, (terSet.LODLevel - curLODLevel - 1));
-                    int vertexNumFix = 1;
-                    if (vertexNumFix > terSet.tileSize)
-                    {   // wrong
-                        break;
-                    }
-                    for (int i = 0; i < tileNumPerLine; i++)
-                    {
-                        for (int j = 0; j < tileNumPerLine; j++)
-                        {
-                            //tileList[i, j].SetMeshData_Origin(curLODLevel, terSet, vertexNumFix, heightDataManager);
-                            //tileList[i, j].SetMeshData_NoCoroutine(curLODLevel, terSet, vertexNumFix, heightDataManager);
-                            tileList[i, j].SetMeshData_Coroutine(curLODLevel, terSet, vertexNumFix, heightDataManager);
-                        }
-                    }
-                    curLODLevel--;
-                }
-            }
+            IsLoaded = true;
             //Debug.Log(string.Format($"successfully generate terrain cluster {longitude}_{latitude} and tiles! "));
         }
 
+        // Recommand use SetMeshData
+        // _CutHalf : Generate diff LOD mesh by cut them to half 
+        public void SetMeshData_CutHalf(HeightDataManager heightDataManager)
+        {
+            int tileNumPerLine = terSet.GetTileNumClsPerLine();
+            // Now we use TerrainSimplifyer; if LOD 4, vertexNumFix is 1, so there are width's num of vertexs
+            // Firstly gen max lodlevel's mesh
+            int curLODLevel = terSet.LODLevel - 1;
+            // generate mesh data for every LOD level
+            int vertexNumFix = 1;
+            while (curLODLevel >= 0)
+            {
+                // vertexNumFix == 1, 生成的 tile 每行顶点数等于 tileSize
+                // vertextNumFix == 2, 即当前生成的这个 tile 有 terSet.tileSize / 2 个顶点
+                // 按目前计算 : LOD = maxLODLevel 时 顶点数等于 tileSize
+                //int vertexNumFix = (int)Mathf.Pow(2, (terSet.LODLevel - curLODLevel - 1));
+                if (vertexNumFix >= terSet.tileSize)
+                {   // wrong
+                    break;
+                }
+                for (int i = 0; i < tileNumPerLine; i++)
+                {
+                    for (int j = 0; j < tileNumPerLine; j++)
+                    {
+                        //tileList[i, j].SetMeshData_Origin(curLODLevel, terSet, vertexNumFix, heightDataManager);
+                        //tileList[i, j].SetMeshData_NoCoroutine(curLODLevel, terSet, vertexNumFix, heightDataManager);
+                        tileList[i, j].SetMeshData_Coroutine(curLODLevel, terSet, vertexNumFix, heightDataManager);
+                    }
+                }
+                curLODLevel--;
+                vertexNumFix *= 2;
+            }
+            IsLoaded = true;
+        }
+
+        // OnlyMaxLOD : Only gen max lod layer, usually used in editor scene
+        public void SetMeshData_OnlyMaxLOD(HeightDataManager heightDataManager)
+        {
+            int tileNumPerLine = terSet.GetTileNumClsPerLine();
+            int maxLODLevel = terSet.LODLevel - 1;
+            int vertexNumFix = 1;
+            for (int i = 0; i < tileNumPerLine; i++)
+            {
+                for (int j = 0; j < tileNumPerLine; j++)
+                {
+                    tileList[i, j].SetMeshData_Coroutine(maxLODLevel, terSet, vertexNumFix, heightDataManager);
+                }
+            }
+            IsLoaded = true;
+        }
 
         public void ApplyRiverEffect(HeightDataManager heightDataManager, RiverDataManager riverDataManager)
         {
@@ -171,6 +195,18 @@ namespace LZ.WarGameMap.Runtime
                 for (int j = 0; j < tileNumPerLine; j++)
                 {
                     tileList[i, j].ApplyRiverEffect(heightDataManager, riverDataManager);
+                }
+            }
+        }
+
+        public void BuildOriginMeshWrapper()
+        {
+            int tileNumPerLine = terSet.clusterSize / terSet.tileSize;
+            for (int i = 0; i < tileNumPerLine; i++)
+            {
+                for (int j = 0; j < tileNumPerLine; j++)
+                {
+                    tileList[i, j].BuildOriginMeshWrapper();
                 }
             }
         }
@@ -372,6 +408,11 @@ namespace LZ.WarGameMap.Runtime
                 return -100;
             }
 
+            if (!IsLoaded)
+            {
+                return -100;
+            }
+
             if (tileList[0, 0].curLODLevel == curLODLevel && IsShowing == true)
             {
                 // tile's lod do not change and is showing, so return (only if its in height switch method
@@ -393,6 +434,11 @@ namespace LZ.WarGameMap.Runtime
 
         public void UpdateTerrainCluster_LODDistance(TDList<int> fullLodLevelMap)
         {
+            if (!IsLoaded)
+            {
+                return;
+            }
+
             int showTileNum = 0;
             foreach (var tile in tileList)
             {

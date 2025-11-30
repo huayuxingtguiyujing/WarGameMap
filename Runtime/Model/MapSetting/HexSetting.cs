@@ -34,6 +34,9 @@ namespace LZ.WarGameMap.Runtime
         [LabelText("Hex格大小")]
         public int hexGridSize = 20;
 
+        [LabelText("Hex边界比例")]
+        public float hexEdgeRatio = 0.8f;
+
         [LabelText("cluster所具有的Hex格数目")]
         public int clusterSize = 16;
 

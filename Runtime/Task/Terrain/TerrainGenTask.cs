@@ -26,7 +26,8 @@ namespace LZ.WarGameMap.Runtime
         List<Vector2Int> clusterIdxList; 
         bool shouldGenRiver;
         bool shouldGenLODBySimplify;
-        
+        bool useForRuntime;
+
         // Simplier list, keep the ref
         Dictionary<Vector2Int, int> SimplifyerClsIdxList = new Dictionary<Vector2Int, int>();
         List<TerrainSimplifier> SimplifierList = new List<TerrainSimplifier>();
@@ -35,15 +36,16 @@ namespace LZ.WarGameMap.Runtime
         // To cancel terrain gen process
         CancellationTokenSource tokenSrc;
 
-        public TerrainGenTask(List<HeightDataModel> heightDataModels, TerrainSettingSO terSet, TerrainConstructor TerrainCtor, List<Vector2Int> clusterIdxList, bool shouldGenRiver, bool shouldGenLODBySimplify) : base(null, -1, true)
+        public TerrainGenTask(List<HeightDataModel> heightDataModels, TerrainSettingSO terSet, TerrainConstructor TerrainCtor, List<Vector2Int> clusterIdxList, bool shouldGenRiver, bool shouldGenLODBySimplify, bool useForRuntime) : base(null, -1, true)
         {
             this.buildClusterNum = clusterIdxList.Count;
             this.heightDataModels = heightDataModels;
             this.terSet = terSet;
             this.TerrainCtor = TerrainCtor;
             this.clusterIdxList = clusterIdxList;
-            this.shouldGenRiver = shouldGenRiver;
+            this.shouldGenRiver = shouldGenRiver;                   // TODO : 未来河流的机制可能会大改
             this.shouldGenLODBySimplify = shouldGenLODBySimplify;
+            this.useForRuntime = useForRuntime;
 
             tokenSrc = new CancellationTokenSource();
 
@@ -58,12 +60,19 @@ namespace LZ.WarGameMap.Runtime
             {
                 int longitude = terSet.startLL.x + clusterIdx.x;
                 int latitude = terSet.startLL.y + clusterIdx.y;
+                bool existInHeightDataModel = false;
                 foreach (var model in heightDataModels)
                 {
-                    if (!model.ExistHeightData(longitude, latitude))
+                    if (model.ExistHeightData(longitude, latitude))
                     {
-                        throw new Exception($"unable to find heightdata, longitude : {longitude}, latitude : {latitude}, so build not valid");
+                        existInHeightDataModel = true;
+                        break;
                     }
+                }
+
+                if (!existInHeightDataModel)
+                {
+                    throw new Exception($"unable to find heightdata, longitude : {longitude}, latitude : {latitude}, so build not valid");
                 }
             }
         }
@@ -80,14 +89,17 @@ namespace LZ.WarGameMap.Runtime
             }
             AddChildTask(terGenMeshRiverNode);
 
-            float simplifyWeight = 0.8f / buildClusterNum;
-            TaskNode simplifyNode = new TaskNode(TerSimplifyTaskName, 0.8f, null, "");
-            for (int i = 0; i < buildClusterNum; i++)
+            if (shouldGenLODBySimplify)
             {
-                Vector2Int clsIdx = clusterIdxList[i];
-                simplifyNode.AddChildTask($"{TerSimplifyTaskName}_{clsIdx}_{TerGenClsSimplifyName}", simplifyWeight, SetSimplifyProgressCall, $"地块{clsIdx} LOD减面中");
+                float simplifyWeight = 0.8f / buildClusterNum;
+                TaskNode simplifyNode = new TaskNode(TerSimplifyTaskName, 0.8f, null, "");
+                for (int i = 0; i < buildClusterNum; i++)
+                {
+                    Vector2Int clsIdx = clusterIdxList[i];
+                    simplifyNode.AddChildTask($"{TerSimplifyTaskName}_{clsIdx}_{TerGenClsSimplifyName}", simplifyWeight, SetSimplifyProgressCall, $"地块{clsIdx} LOD减面中");
+                }
+                AddChildTask(simplifyNode);
             }
-            AddChildTask(simplifyNode);
         }
         
         private void InitSimplifyList()
@@ -186,22 +198,32 @@ namespace LZ.WarGameMap.Runtime
             foreach (var idx in clusterIdxList)
             {
                 int i = idx.x; int j = idx.y;
-                await TerrainCtor.BuildCluster_TerMesh(i, j, shouldGenLODBySimplify, tokenSrc.Token);
+                if (useForRuntime)
+                {
+                    await TerrainCtor.BuildCluster_TerMesh(i, j, tokenSrc.Token);
+                }
+                else
+                {
+                    TerrainCtor.BuildCluster_OnlyMaxLOD(i, j);
+                }
                 GoNextChildTask();
                 await TerrainCtor.BuildCluster_River(i, j, tokenSrc.Token);
                 GoNextChildTask();
             }
 
-            InitSimplifyList();
-            SetSimplifyTargetCnt();
-
-            foreach (var idx in clusterIdxList)
+            if (shouldGenLODBySimplify)
             {
-                int i = idx.x; int j = idx.y;
-                await TerrainCtor.ExeSimplify_MT(i, j, GetSimplifyer, tokenSrc.Token);
-                GoNextChildTask();
+                InitSimplifyList();
+                SetSimplifyTargetCnt();
 
-                Debug.Log($"simplify cluster over : {i}, {j}");
+                foreach (var idx in clusterIdxList)
+                {
+                    int i = idx.x; int j = idx.y;
+                    await TerrainCtor.ExeSimplify_MT(i, j, GetSimplifyer, tokenSrc.Token);
+                    GoNextChildTask();
+
+                    Debug.Log($"simplify cluster over : {i}, {j}");
+                }
             }
         }
 
@@ -219,6 +241,8 @@ namespace LZ.WarGameMap.Runtime
                 TerrainCtor.BuildOriginMesh(i, j);
             }
 
+            TerrainCtor.SetTerrainGened();
+
             if (abortFlag)
             {
                 TerrainCtor.ClearClusterObj();
@@ -226,7 +250,6 @@ namespace LZ.WarGameMap.Runtime
             }
             else
             {
-                TerrainCtor.UpdateTerrain();
                 Debug.Log($"build over, build {clusterIdxList.Count} clusters, cost {costTime} ms");
             }
         }

@@ -3,27 +3,45 @@ using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.Assertions;
 
 namespace LZ.WarGameMap.Runtime
 {
     public class BaseGridTerrain
     {
-        public static GridTerrainLayer SeaLayer =       new GridTerrainLayer(0, "海洋层", "", true);
-        public static GridTerrainLayer BaseLayer =      new GridTerrainLayer(1, "基本地貌层", "", true);
-        public static GridTerrainLayer LandformLayer =  new GridTerrainLayer(2, "叠加地貌层", "", true);
-        public static GridTerrainLayer DecorateLayer =  new GridTerrainLayer(3, "装饰层", "", true);
-        public static GridTerrainLayer DynamicLayer =   new GridTerrainLayer(4, "动态层", "", true);
+        //public static GridTerrainLayer SeaLayer =       new GridTerrainLayer(0, "海洋层", "", true);
+        public static GridTerrainLayer BaseLayer =      new GridTerrainLayer(0, "基本地貌层", "", true);
+        public static GridTerrainLayer LandformLayer =  new GridTerrainLayer(1, "叠加地貌层", "", true);
+        public static GridTerrainLayer DecorateLayer =  new GridTerrainLayer(2, "装饰层", "", true);
+        public static GridTerrainLayer DynamicLayer =   new GridTerrainLayer(3, "动态层", "", true);
 
         public static GridTerrainType ShallowSeaType =  new GridTerrainType(0, "ShallowSea", "浅海", new Color(0.125f, 0.698f, 0.667f, 1.0f), true);
         public static GridTerrainType DeepSeaType =     new GridTerrainType(0, "DeepSea", "深海", new Color(0, 0.47f, 0.62f, 1.0f), true);
+        public static GridTerrainType PlainType =       new GridTerrainType(0, "Plain",     "平原",   new Color(0.55f, 0.75f, 0.45f, 1.0f), true);
+        public static GridTerrainType HillType =        new GridTerrainType(0, "Hill",      "丘陵",   new Color(0.40f, 0.60f, 0.30f, 1.0f), true);
+        public static GridTerrainType MountainType =    new GridTerrainType(0, "Mountain",  "山脉",   new Color(0.50f, 0.45f, 0.40f, 1.0f), true);
+        public static GridTerrainType PlateauType =     new GridTerrainType(0, "Plateau",   "高原",   new Color(0.70f, 0.60f, 0.35f, 1.0f), true);
+        public static GridTerrainType SnowType =        new GridTerrainType(0, "Snow",      "雪地",   new Color(1, 1, 1, 1.0f), true);
 
-        public static GridTerrainType PlainType =       new GridTerrainType(1, "Plain",     "平原",   new Color(0.55f, 0.75f, 0.45f, 1.0f), true);
-        public static GridTerrainType HillType =        new GridTerrainType(1, "Hill",      "丘陵",   new Color(0.40f, 0.60f, 0.30f, 1.0f), true);
-        public static GridTerrainType MountainType =    new GridTerrainType(1, "Mountain",  "山脉",   new Color(0.50f, 0.45f, 0.40f, 1.0f), true);
-        public static GridTerrainType PlateauType =     new GridTerrainType(1, "Plateau",   "高原",   new Color(0.70f, 0.60f, 0.35f, 1.0f), true);
-        public static GridTerrainType SnowType =        new GridTerrainType(1, "Snow",      "雪地",   new Color(1, 1, 1, 1.0f), true);
-    
+        public static GridTerrainType TropicalType = new GridTerrainType(1, "Tropical", "热带", new Color(0.90f, 0.75f, 0.30f, 1), true);
+        public static GridTerrainType SubtropicsType = new GridTerrainType(1, "Subtropics", "亚热带", new Color(0.78f, 0.85f, 0.40f, 1), true);
+        public static GridTerrainType TemperateType = new GridTerrainType(1, "Temperate", "温带", new Color(0.65f, 0.80f, 0.55f, 1), true);
+        public static GridTerrainType CoastType = new GridTerrainType(1, "Coast", "海岸", new Color(0.85f, 0.90f, 0.65f, 1), true);
+        public static GridTerrainType SandType = new GridTerrainType(1, "Sand", "沙漠", new Color(0.92f, 0.78f, 0.68f, 1), true);
+        //public static GridTerrainType SandType = new GridTerrainType(1, "Sand", "湖泊", new Color(0.92f, 0.78f, 0.68f, 1), true);
+
+        public static GridTerrainType WetlandType = new GridTerrainType(2, "Wetland", "湿地", new Color(0.30f, 0.55f, 0.45f, 1), true);
+        public static GridTerrainType ForestType = new GridTerrainType(2, "Forest", "森林", new Color(0.20f, 0.50f, 0.25f, 1), true);
+        public static GridTerrainType FarmlandType = new GridTerrainType(2, "Farmland", "农田", new Color(0.80f, 0.75f, 0.45f, 1), true);
+        public static GridTerrainType TownType = new GridTerrainType(2, "Town", "村镇", new Color(0.70f, 0.60f, 0.55f, 1), true);
+        public static GridTerrainType CityType = new GridTerrainType(2, "City", "城市", new Color(0.55f, 0.55f, 0.65f, 1), true);
+
+        public static GridTerrainType WastelandType = new GridTerrainType(3, "Wasteland", "废土", new Color(0.70f, 0.55f, 0.35f, 1), true);
+        public static GridTerrainType FloodingType = new GridTerrainType(3, "Flooding", "洪涝", new Color(0.15f, 0.50f, 0.75f, 1), true);
+
+
         public static bool IsMountain(GridTerrainType type1)
         {
             return type1.terrainTypeName == MountainType.terrainTypeName;
@@ -34,9 +52,9 @@ namespace LZ.WarGameMap.Runtime
             return typeName == MountainType.terrainTypeName;
         }
 
-        public static bool IsSeaLevel(string layerName)
+        public static bool IsSea(string typeName)
         {
-            return layerName == SeaLayer.layerName;
+            return typeName == ShallowSeaType.terrainTypeName || typeName == DeepSeaType.terrainTypeName;
         }
 
         public static string GetMountainName()
@@ -53,6 +71,18 @@ namespace LZ.WarGameMap.Runtime
         {
             return MountainType.terrainEditColor;
         }
+    }
+
+    public static class TerrainLayerIdxs
+    {
+        public static int BaseLayer = 0;
+        public static int LandformLayer = 1;
+        public static int DecorateLayer = 2;
+        public static int DynamicLayer = 3;
+
+        public static int MountainLayer = 4;
+
+        public const int GridTerCacheNum = 5;
     }
 
     // Storage the setting of GridTerrain
@@ -103,7 +133,7 @@ namespace LZ.WarGameMap.Runtime
 
         Dictionary<int, List<GridTerrainType>> GridLayer_TypeDict = new Dictionary<int, List<GridTerrainType>>();
 
-        bool isTerTypeInit = false;
+        public bool isTerTypeInit = false;
 
         
         // Mountain Data
@@ -116,7 +146,7 @@ namespace LZ.WarGameMap.Runtime
         Dictionary<Vector2Int, int> GridOffset_MountainID_Dict = new Dictionary<Vector2Int, int>();
 
         [LabelText("hex地图宽度"), ReadOnly]
-        public int MountainCounter = 0;
+        public int MountainCounter = 1;
 
 
         // Hex Grid Terrain Data
@@ -132,7 +162,8 @@ namespace LZ.WarGameMap.Runtime
         public List<GridTerrainData> HexmapGridTerDataList;   // TODO : lazy load   // TODO : UNCOMPLETE
 
         [LabelText("地形格-类型索引 列表")]
-        public List<byte> HexmapGridTerTypeList = new List<byte>();
+        public List<uint4> HexmapGridTerTypeList = new List<uint4>();           // uint3x3 : type[0] - layer 0, type[1] - layer 1 (基本地形层), 以此类推
+
 
         public int GridCount => HexmapGridTerDataList.Count;
 
@@ -148,7 +179,6 @@ namespace LZ.WarGameMap.Runtime
                 // Check and add base type
                 GridTerrainLayerList = new List<GridTerrainLayer>
                 {
-                    BaseGridTerrain.SeaLayer,
                     BaseGridTerrain.BaseLayer,
                     BaseGridTerrain.LandformLayer,
                     BaseGridTerrain.DecorateLayer,
@@ -158,12 +188,26 @@ namespace LZ.WarGameMap.Runtime
                 {
                     BaseGridTerrain.ShallowSeaType,
                     BaseGridTerrain.DeepSeaType,
-
                     BaseGridTerrain.PlainType,
                     BaseGridTerrain.HillType,
                     BaseGridTerrain.MountainType,
                     BaseGridTerrain.PlateauType,
-                    BaseGridTerrain.SnowType
+                    BaseGridTerrain.SnowType,
+
+                    BaseGridTerrain.TropicalType,
+                    BaseGridTerrain.SubtropicsType,
+                    BaseGridTerrain.TemperateType,
+                    BaseGridTerrain.CoastType,
+                    BaseGridTerrain.SandType,
+
+                    BaseGridTerrain.WetlandType,
+                    BaseGridTerrain.ForestType,
+                    BaseGridTerrain.FarmlandType,
+                    BaseGridTerrain.TownType,
+                    BaseGridTerrain.CityType,
+
+                    BaseGridTerrain.WastelandType,
+                    BaseGridTerrain.FloodingType
                 };
                 isTerTypeInit = true;
             }
@@ -266,7 +310,7 @@ namespace LZ.WarGameMap.Runtime
             }
 
             HexmapGridTerDataList = new List<GridTerrainData>(width * height);
-            HexmapGridTerTypeList = new List<byte>(width * height);
+            HexmapGridTerTypeList = new List<uint4>(width * height);
             for (int i = 0; i < width; i++)
             {
                 for (int j = 0; j < height; j++)
@@ -279,7 +323,7 @@ namespace LZ.WarGameMap.Runtime
                     gridTerrainData.InitGridTerrainData(offsetCoord, hexagon, hexCenter);
                     HexmapGridTerDataList.Add(new GridTerrainData());
 
-                    HexmapGridTerTypeList.Add(0);
+                    HexmapGridTerTypeList.Add(new uint4(0));     // unvalid type
                 }
             }
         }
@@ -366,7 +410,7 @@ namespace LZ.WarGameMap.Runtime
 
         #region Hexmap grid terrain
 
-        public void UpdateGridTerrainData(List<Vector2Int> offsetHex, byte terrainTypeIdx)
+        public void UpdateGridTerrainData(List<Vector2Int> offsetHex, byte terrainTypeIdx, int layer)
         {
             for (int i = 0; i < offsetHex.Count; i++)
             {
@@ -374,10 +418,12 @@ namespace LZ.WarGameMap.Runtime
                 {
                     continue;
                 }
-                int idx = offsetHex[i].x * mapWidth + offsetHex[i].y;  // 会越界吗？？？
+                int idx = offsetHex[i].x * mapWidth + offsetHex[i].y;
                 if (idx >= 0 && idx < HexmapGridTerTypeList.Count)
                 {
-                    HexmapGridTerTypeList[idx] = terrainTypeIdx;
+                    uint4 gridTerType = HexmapGridTerTypeList[idx];
+                    gridTerType[layer] = terrainTypeIdx;
+                    HexmapGridTerTypeList[idx] = gridTerType;
                 }
             }
         }
@@ -387,12 +433,32 @@ namespace LZ.WarGameMap.Runtime
             return offset.x >= 0 && offset.x < mapHeight && offset.y >= 0 && offset.y < mapWidth;
         }
 
-        public byte GetGridTerrainDataIdx(Vector2Int offsetHex)
+        public byte GetGridTerBaseDataIdx(Vector2Int offsetHex)
+        {
+            return GetGridTerrainDataIdx(offsetHex, TerrainLayerIdxs.BaseLayer);
+        }
+
+        public byte GetGridTerLandformDataIdx(Vector2Int offsetHex)
+        {
+            return GetGridTerrainDataIdx(offsetHex, TerrainLayerIdxs.LandformLayer);
+        }
+
+        public byte GetGridTerDecorateDataIdx(Vector2Int offsetHex)
+        {
+            return GetGridTerrainDataIdx(offsetHex, TerrainLayerIdxs.DecorateLayer);
+        }
+
+        public byte GetGridTerDynamicDataIdx(Vector2Int offsetHex)
+        {
+            return GetGridTerrainDataIdx(offsetHex, TerrainLayerIdxs.DynamicLayer);
+        }
+
+        private byte GetGridTerrainDataIdx(Vector2Int offsetHex, int layer)
         {
             int idx = offsetHex.x * mapWidth + offsetHex.y;
             if (HexmapGridTerTypeList.Count > idx && idx >= 0)
             {
-                return HexmapGridTerTypeList[idx];    // idx
+                return (byte) HexmapGridTerTypeList[idx][layer];
             }
             else
             {
@@ -402,7 +468,7 @@ namespace LZ.WarGameMap.Runtime
 
         public bool GetGridIsMountain(Vector2Int offsetHex)
         {
-            byte idx = GetGridTerrainDataIdx(offsetHex);
+            byte idx = GetGridTerBaseDataIdx(offsetHex);
             return GridTerrainTypeList[idx].terrainTypeName == BaseGridTerrain.MountainType.terrainTypeName;
         }
 
@@ -419,17 +485,21 @@ namespace LZ.WarGameMap.Runtime
 
         public Color GetGridTerrainTypeColorByIdx(byte i)
         {
+            if(i < 0 || i >= GridTerrainTypeList.Count)
+            {
+                return MapColorUtil.NotValidColor;
+            }
             return GridTerrainTypeList[i].terrainEditColor;
         }
 
         public bool GetGridCanCountry(Vector2Int offsetHex)
         {
-            byte idx = GetGridTerrainDataIdx(offsetHex);
+            byte idx = GetGridTerBaseDataIdx(offsetHex);
             GridTerrainType gridTerrainType = GridTerrainTypeList[idx];
             GridTerrainLayer gridTerrainLayer = GetTerrainLayerByType(gridTerrainType);
             // Sea and mountain can not be Country
             bool IsMountain = BaseGridTerrain.IsMountain(gridTerrainType.terrainTypeName);
-            bool IsSea = BaseGridTerrain.IsSeaLevel(gridTerrainLayer.layerName);
+            bool IsSea = BaseGridTerrain.IsSea(gridTerrainType.terrainTypeName);
             return !IsMountain && !IsSea;
         }
 

@@ -4,9 +4,8 @@
 #include "HexLibrary.hlsl"
 
 float _HexGridSize;
-float _HexGridScale;
-float _HexGridEdgeRatio;        // 六边形边框显示透明度，可以控制六边形边框显示程度，建议取值为 0.01 ~ 0.15
-float _HexGridEdgeStartLerp;    // 六边形边框比例起点，可以控制六边形边框大小，建议取值 0.7~0.95
+float _HexGridEdgeRatio = 0.075;        // 六边形边框显示透明度，可以控制六边形边框显示程度，建议取值为 0.01 ~ 0.15
+float _HexGridEdgeStartLerp = 0.75;    // 六边形边框比例起点，可以控制六边形边框大小，建议取值 0.7~0.95
 
 sampler _HexGridTypeTexture;
 float4 _HexGridTypeTexture_ST;

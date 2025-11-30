@@ -11,8 +11,9 @@ namespace LZ.WarGameMap.Runtime
 {
     using GetSimplifierCall = Func<int, int, int, int, int, TerrainSimplifier>;
 
+    // TODO : 思考是否还有划分两种生成方式的必要性
     [Obsolete]
-    public enum TerMeshGenMethod 
+    public enum TerMeshGenMethod
     {
         TIFHeight,
         HexData,
@@ -29,7 +30,7 @@ namespace LZ.WarGameMap.Runtime
         [SerializeField] Transform riverMeshParent;
         [SerializeField] Transform signParent;
 
-        // cluster and tile setting
+        // Cluster and tile setting
         public int terrainWidth;
         public int terrainHeight;
 
@@ -38,10 +39,11 @@ namespace LZ.WarGameMap.Runtime
 
         public Material terMaterial;
 
-        public bool hasInit = false;
-        // NOTE : should change to private
+        public bool IsInit = false;
+        public bool IsGen = false;
+        // NOTE : Should change to private
 
-        // cluster list
+        // Cluster list
         private TDList<TerrainCluster> clusterList;
         public TDList<TerrainCluster> ClusterList { get {
                 if (clusterList == null) {
@@ -51,7 +53,7 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        // height data
+        // Height data
         private HeightDataManager heightDataManager;
 
         private RiverDataManager riverDataManager;
@@ -84,7 +86,7 @@ namespace LZ.WarGameMap.Runtime
 
             // clusterList 进行懒初始化，一次性分配太多内存会炸
             clusterList = new TDList<TerrainCluster>(terrainWidth, terrainHeight);
-            hasInit = true;
+            IsInit = true;
             Debug.Log(string.Format($"successfully init terrain constructor!  create {terrainWidth}*{terrainHeight}"));
         }
 
@@ -109,7 +111,8 @@ namespace LZ.WarGameMap.Runtime
             }
             riverMeshParent.ClearObjChildren();
 
-            hasInit = false;    // clear 之后回归未初始化状态
+            IsInit = false;    // clear 之后回归未初始化状态
+            IsGen = false;
         }
 
         private void OnDestroy()
@@ -132,7 +135,7 @@ namespace LZ.WarGameMap.Runtime
 
             int longitude = this.terSet.startLL.x + i;
             int latitude = this.terSet.startLL.y + j;
-            if (!clusterList[i, j].IsLoaded)
+            if (!clusterList[i, j].IsInited)
             {
                 GameObject clusterGo = CreateTerrainCluster(i, j);
                 //clusterList[i, j].InitTerrainCluster_Static(i, j, longitude, latitude, terSet, heightDataManager, clusterGo, terMaterial, shouldGenLODBySimplify);
@@ -157,20 +160,32 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log($"handle cluster successfully, use heightData : {longitude}, {latitude}");
         }
 
-        public async Task BuildCluster_TerMesh(int i, int j, bool shouldGenLODBySimplify, CancellationToken token)
+        // _TerMesh : 标准的 TerMesh 工作流，通过减面算法生成所有LOD的 Mesh，生成的资产保存后可直接用于 Runtime
+        public async Task BuildCluster_TerMesh(int i, int j, CancellationToken token)
+        {
+            InitCluster(i, j);
+            Action<CancellationToken> exeGenTerMesh = (cancelToken) =>
+            {
+                clusterList[i, j].SetMeshData(heightDataManager);
+            };
+
+            await ThreadManager.GetInstance().RunTaskAsync(exeGenTerMesh, null, token);
+        }
+
+        public void BuildCluster_OnlyMaxLOD(int i, int j)
+        {
+            InitCluster(i, j);
+            clusterList[i, j].SetMeshData_OnlyMaxLOD(heightDataManager);
+            BuildOriginMeshWrapper(i, j);
+        }
+
+        private void InitCluster(int i, int j)
         {
             CheckClusterIdxValid(i, j);
-
             int longitude = this.terSet.startLL.x + i;
             int latitude = this.terSet.startLL.y + j;
             GameObject clusterGo = CreateTerrainCluster(i, j);
             clusterList[i, j].InitTerrainCluster_Static(i, j, longitude, latitude, terSet, clusterGo, terMaterial);
-
-            Action<CancellationToken> exeGenTerMesh = (cancelToken) =>
-            {
-                clusterList[i, j].SetMeshData(heightDataManager, shouldGenLODBySimplify);
-            };
-            await ThreadManager.GetInstance().RunTaskAsync(exeGenTerMesh, null, token);
         }
 
         public async Task BuildCluster_River(int i, int j, CancellationToken token)
@@ -186,6 +201,12 @@ namespace LZ.WarGameMap.Runtime
             await ThreadManager.GetInstance().RunTaskAsync(exeSimplify, null, token);
 
             riverDataManager.BuildRiverMesh(i ,j);
+        }
+
+        public void BuildOriginMeshWrapper(int i, int j)
+        {
+            CheckClusterLoaded(i, j);
+            clusterList[i, j].BuildOriginMeshWrapper();
         }
 
         public void BuildOriginMesh(int i, int j)
@@ -210,7 +231,7 @@ namespace LZ.WarGameMap.Runtime
                 return;
             }
 
-            if (!clusterList[i, j].IsLoaded)
+            if (!clusterList[i, j].IsInited)
             {
                 Debug.LogError($"cluster not valid, index : {i}, {j}");
                 return;
@@ -251,7 +272,7 @@ namespace LZ.WarGameMap.Runtime
 
         private void CheckClusterLoaded(int i, int j)
         {
-            if (!clusterList[i, j].IsLoaded)
+            if (!clusterList[i, j].IsInited)
             {
                 throw new Exception($"you should firstly build the cluster : {i}, {j}");
             }
@@ -265,13 +286,20 @@ namespace LZ.WarGameMap.Runtime
             return go;
         }
 
+
+        // Notify that build is over, now can use terrain data
+        public void SetTerrainGened()
+        {
+            IsGen = true;
+        }
+
         #endregion
 
         #region 序列化/反序列化 terrain mesh 数据
 
         // TODO : 要大改了
         public void ExportClusterByBinary(int idxX, int idxY, int longitude, int latitude, BinaryReader reader) {
-            if (!clusterList[idxX, idxY].IsLoaded) {
+            if (!clusterList[idxX, idxY].IsInited) {
                 GameObject clusterGo = CreateTerrainCluster(idxX, idxY);
                 //clusterList[idxX, idxY].InitTerrainCluster_Static(idxX, idxY, longitude, latitude, terSet, heightDataManager, clusterGo, null, true);
             }
@@ -288,7 +316,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
         public void ImportClusterToBinary(int i, int j, BinaryWriter writer) {
-            if (!clusterList[i, j].IsLoaded) {
+            if (!clusterList[i, j].IsInited) {
                 return;
             }
 
@@ -314,12 +342,19 @@ namespace LZ.WarGameMap.Runtime
         public HashSet<Vector2Int> preClusterIdxSet = new HashSet<Vector2Int>();
 
         public void UpdateTerrain() {
-            if(!hasInit) {
+            if(!IsInit || !IsGen) 
+            {
                 //Debug.LogError("cons do not init!");
                 return; 
             }
-            if (clusterList == null) {
+            if (clusterList == null) 
+            {
                 //Debug.LogError("cluster list is null!");
+                return;
+            }
+            if (!mapSet.UseAOI)
+            {
+                ShowAllTerrain();
                 return;
             }
 
@@ -340,45 +375,60 @@ namespace LZ.WarGameMap.Runtime
             int aoiScope = mapSet.AOIScope;
             HashSet<Vector2Int> newScopeCls = new HashSet<Vector2Int>();
 
-            for (int i = Mathf.Max(0, curCameraIdx.x - aoiScope); i <= Mathf.Min(terrainWidth - 1, curCameraIdx.x + aoiScope); i++) {
-                for (int j = Mathf.Max(0, curCameraIdx.z - aoiScope); j <= Mathf.Min(terrainHeight - 1, curCameraIdx.z + aoiScope); j++) {
+            for (int i = Mathf.Max(0, curCameraIdx.x - aoiScope); i <= Mathf.Min(terrainWidth - 1, curCameraIdx.x + aoiScope); i++)
+            {
+                for (int j = Mathf.Max(0, curCameraIdx.z - aoiScope); j <= Mathf.Min(terrainHeight - 1, curCameraIdx.z + aoiScope); j++)
+                {
                     newScopeCls.Add(new Vector2Int(i, j));
                 }
             }
 
             HashSet<Vector2Int> shouldHideIdxs = new HashSet<Vector2Int>();
             HashSet<Vector2Int> shouldShowIdxs = new HashSet<Vector2Int>();
-            foreach (var idx in preClusterIdxSet) {
-                if (!newScopeCls.Contains(idx)) {
+            foreach (var idx in preClusterIdxSet) 
+            {
+                if (!newScopeCls.Contains(idx)) 
+                {
                     shouldHideIdxs.Add(idx);
                 }
             }
-            foreach (var idx in newScopeCls) {
-                if (!preClusterIdxSet.Contains(idx)) {
+            foreach (var idx in newScopeCls) 
+            {
+                if (!preClusterIdxSet.Contains(idx)) 
+                {
                     shouldShowIdxs.Add(idx);
                 }
             }
 
             // hide all cluster in list
-            foreach (var idx in shouldHideIdxs) {
-                if (idx.x < 0 || idx.x >= terrainHeight || idx.y < 0 || idx.y >= terrainWidth) {
+            foreach (var idx in shouldHideIdxs) 
+            {
+                if (idx.x < 0 || idx.x >= terrainHeight || idx.y < 0 || idx.y >= terrainWidth) 
+                {
                     continue;
                 }
-                if (clusterList[idx.x, idx.y].IsShowing) {
+                if (clusterList[idx.x, idx.y].IsShowing) 
+                {
                     clusterList[idx.x, idx.y].HideTerrainCluster();
                 }
             }
 
             // show all cluster in list
-            foreach (var idx in newScopeCls) {
-                if (idx.x < 0 || idx.x >= terrainHeight || idx.y < 0 || idx.y >= terrainWidth) {
+            foreach (var idx in newScopeCls) 
+            {
+                if (idx.x < 0 || idx.x >= terrainHeight || idx.y < 0 || idx.y >= terrainWidth) 
+                {
                     continue;
                 }
                 TerrainCluster cluster = clusterList[idx.x, idx.y];
-                if (cluster.IsLoaded) {
-                    if(mapSet.lodSwitchMethod == LODSwitchMethod.Height) {
+                if (cluster.IsInited) 
+                {
+                    if(mapSet.lodSwitchMethod == LODSwitchMethod.Height) 
+                    {
                         UpdateTerrain_LODHeight(curLODLevel, cluster);
-                    } else if (mapSet.lodSwitchMethod == LODSwitchMethod.Distance) {
+                    } 
+                    else if (mapSet.lodSwitchMethod == LODSwitchMethod.Distance) 
+                    {
                         UpdateTerrain_LODDistance(cameraPos, cluster);
                     }
                 }
@@ -392,6 +442,22 @@ namespace LZ.WarGameMap.Runtime
             preCameraIdx = new Vector3Int(cameraIdxX, curLODLevel, cameraIdxY);
             preClusterIdxSet = newScopeCls;
             DebugUtility.Log(string.Format("cur camera cls idx : {0}, cur LOD : {1}, hide cluster : {2}, show cluster {3}, load cluster {4}", curCameraIdx, curLODLevel, shouldHideIdxs.Count, shouldShowIdxs.Count, 0), DebugPriority.High);
+        }
+
+        private void ShowAllTerrain()
+        {
+            int maxLODLevel = terSet.LODLevel - 1;
+            for (int i = 0; i < terrainHeight; i++)
+            {
+                for(int j = 0; j < terrainWidth; j++)
+                {
+                    TerrainCluster cluster = clusterList[i, j];
+                    if (cluster.IsInited)
+                    {
+                        UpdateTerrain_LODHeight(maxLODLevel, cluster);
+                    }
+                }
+            }
         }
 
         private void DebugHashSet(HashSet<Vector2Int> sets, string name) {
@@ -459,7 +525,7 @@ namespace LZ.WarGameMap.Runtime
             int validClusterNum = 0;
             for (int i = 0; i < terrainWidth; i++) {
                 for (int j = 0; j < terrainHeight; j++) {
-                    if (clusterList[i, j].IsLoaded) {
+                    if (clusterList[i, j].IsInited) {
                         validClusterNum++;
                     }
                 }

@@ -134,6 +134,30 @@ namespace LZ.WarGameMap.Runtime
             interuptNoiseLite.SetFrequency(interuptFrequency);
             return interuptNoiseLite;
         }
+
+        public static MountainNoiseData DefaultNoise = new MountainNoiseData()
+        {
+            baseHeight = 1.0f,
+            heightFix = 10,
+
+            elevation = 1.0f,
+            interuptInstence = 20,
+
+            randomSeed = 1227,
+            noiseType = NoiseType.Perlin,
+            frequency = 0.010f,
+
+            fractalType = FractalType.FBm,
+            octaves = 3,
+            lacunarity = 2.0f,
+            gain = 0.5f,
+            weightedStrength = 0,
+            pingpongStrength = 0,
+
+            interuptRandomSeed = 196,
+            interuptNoiseType = NoiseType.Perlin,
+            interuptFrequency = 0.030f 
+        };
     }
 
 }

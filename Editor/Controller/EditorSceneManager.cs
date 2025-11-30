@@ -6,6 +6,7 @@ using UnityEngine;
 using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.Enums;
 using static LZ.WarGameMap.Runtime.TerrainMeshDataBinder;
+using LZ.WarGameMap.Runtime.Model;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -30,6 +31,10 @@ namespace LZ.WarGameMap.MapEditor
         static GridTerrainSO gridTerrainSO;
         public static GridTerrainSO GridTerrainSO { get { return gridTerrainSO; } }
 
+        static CountrySO countrySO;
+        public static CountrySO CountrySO { get { return countrySO; } }
+
+
         static MapRuntimeSetting mapSet;
         public static MapRuntimeSetting MapSet { get { return mapSet; } }
 
@@ -41,6 +46,7 @@ namespace LZ.WarGameMap.MapEditor
 
         public static TerrainConstructor TerrainCtor {  get; private set; }
         public static HexmapConstructor HexCtor { get; private set; }
+        public static MapRenderConstructor RenderCtor { get; private set; }
 
         public static MapSceneObjs mapScene { get; private set; }
 
@@ -69,7 +75,9 @@ namespace LZ.WarGameMap.MapEditor
             BaseMapEditor.FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
             BaseMapEditor.FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
             BaseMapEditor.FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+        
             BaseMapEditor.FindOrCreateSO<GridTerrainSO>(ref gridTerrainSO, MapStoreEnum.GamePlayGridTerrainDataPath, "GridTerrainSO_Default.asset");
+            BaseMapEditor.FindOrCreateSO<CountrySO>(ref countrySO, MapStoreEnum.GamePlayCountryDataPath, "CountrySO_256x256.asset");
         }
 
         private static void InitScene() {
@@ -98,6 +106,16 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
             HexCtor.SetHexSetting(hexSet, mapScene.hexClusterParentObj.transform, null);
+
+            // RenderCtor
+            if (RenderCtor == null)
+            {
+                RenderCtor = mapScene.mapRootObj.GetComponent<MapRenderConstructor>();
+                if (RenderCtor == null)
+                {
+                    RenderCtor = mapScene.mapRootObj.AddComponent<MapRenderConstructor>();
+                }
+            }
         }
 
         // Call it when destory the editor window
@@ -149,7 +167,7 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        // call it to load terrain mesh data
+        // Call it to load terrain mesh data
         public void LoadTerScene(int scope, List<MeshAssetBinder> clusterMeshDatas, List<HeightDataModel> heightDataModels, Material material) {
             this.heightDataModels = heightDataModels;
             InitTerScene();
@@ -170,7 +188,7 @@ namespace LZ.WarGameMap.MapEditor
             TerrainCtor.ClearClusterObj();
         }
 
-        // call it and register it to update Ter Scene
+        // Call it and register it to update Ter Scene
         public void UpdateSceneTer() {
             if (!ShowingTer) {
                 return;
@@ -210,6 +228,12 @@ namespace LZ.WarGameMap.MapEditor
             lastUpdateTime_Hex = now;
             HexCtor.UpdateHex();
             //Debug.Log("update scene hex over!");
+        }
+
+        public void LoadMapRenderer(Material mainMat, Material riverMat)
+        {
+            RenderCtor.InitMapRenderCons(terSet, hexSet, mapSet, gridTerrainSO, countrySO);
+            RenderCtor.InitMaterial(mainMat, riverMat);
         }
 
 

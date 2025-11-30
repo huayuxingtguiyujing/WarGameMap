@@ -5,12 +5,14 @@ using LZ.WarGameMap.Runtime.HexStruct;
 using Sirenix.OdinInspector;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
+using Debug = UnityEngine.Debug;
 using Directory = System.IO.Directory;
 
 namespace LZ.WarGameMap.MapEditor
@@ -180,6 +182,8 @@ namespace LZ.WarGameMap.MapEditor
         [Button("生成二进制文件", ButtonSizes.Medium)]
         private void GenSerializeFiles() {
             
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             if (!Directory.Exists(heightMapOutputPath)) {
                 Directory.CreateDirectory(heightMapOutputPath);
             }
@@ -194,6 +198,8 @@ namespace LZ.WarGameMap.MapEditor
                     StartSerialize(batchGridTerrainTileNum, "*.png", gridTerrainTexInputPath);
                     break;
             }
+            stopwatch.Stop();
+            Debug.Log($"Gen serialized file over! cost : {stopwatch.ElapsedMilliseconds}ms");
         }
         
         private void StartSerialize(int batchTileNum, string filterFileSuffix, string fileInputPath)
@@ -216,7 +222,7 @@ namespace LZ.WarGameMap.MapEditor
 
                 // Transfer them to a serialized file
                 string outputName = GetOuputName(length, i);
-                SerializeHeightMap(heightMapOutputPath, outputName, heightMapPaths, compressResultSize);
+                SerializeHeightMap(heightMapOutputPath, outputName, curHandleFilePaths, compressResultSize);
             }
         }
         
@@ -346,7 +352,6 @@ namespace LZ.WarGameMap.MapEditor
             int fixedTerSize = terSet.fixedClusterSize;
             gridTerrainTexs.Add(gridTerrainTex);
             List<Color> gridTerrainTexColors = gridTerrainTex.GetPixels().ToList();
-            int height111 = gridTerrainTex.height;
             TDList<float> heights = new TDList<float>(terrainSize, terrainSize);
 
             Vector2Int longitudeAndLatitude = heightMapInfo.GetFixedLongitudeAndLatitude();
@@ -363,7 +368,7 @@ namespace LZ.WarGameMap.MapEditor
                     }
                     else
                     {
-                        height = 0; // Plain
+                        height = 1; // Plain
                     }
 
                     // 需要进行中心旋转
@@ -393,21 +398,31 @@ namespace LZ.WarGameMap.MapEditor
             //Color color = gridTerrainSO.GetGridTerrainTypeColorByIdx(idx);
 
             // Get mountainNoiseData by cur point
-            int mountainID = gridTerrainSO.GetGridMountainID(offsetHex);
-            MountainData mountainData = gridTerrainSO.GetMountainData(mountainID);
-            if (mountainData == null)
+            MountainData mountainData;
+            MountainNoiseData noiseData = CurMountainNoise;
+            bool IsMountain = gridTerrainSO.GetGridIsMountain(offsetHex);
+            if (IsMountain)
             {
-                return false;
+                int mountainID = gridTerrainSO.GetGridMountainID(offsetHex);
+                mountainData = gridTerrainSO.GetMountainData(mountainID);
+                if (mountainData == null)
+                {
+                    noiseData = MountainNoiseData.DefaultNoise;
+                }
+                else
+                {
+                    noiseData = mountainData.MountainNoiseData;
+                }
             }
             
             // Set interuptNoiseLite and mountainNoiseLite by mountainNoiseData
-            if (mountainData.MountainNoiseData != CurMountainNoise)
+            if (noiseData != CurMountainNoise)
             {
-                CurMountainNoise = mountainData.MountainNoiseData;
+                CurMountainNoise = noiseData;
                 CurMountainNoiseLite = CurMountainNoise.GetNoiseDataLite();
                 CurInteruptNoiseLite = CurMountainNoise.GetSampleNoiseData();
             }
-            return true;
+            return IsMountain;
         }
 
         private float InterpretWithMountain(int i, int j, int terrainSize, int fixedTerSize, Vector2Int longitudeAndLatitude, List<Color> gridTerrainTexColors)
@@ -416,6 +431,17 @@ namespace LZ.WarGameMap.MapEditor
             int clusterSampleFix = (fixedTerSize - terrainSize) / 2;
             Vector2Int sampleFix = new Vector2Int(clusterSampleFix, clusterSampleFix);
             Vector2Int texPos = new Vector2Int(i, j) + sampleFix;
+            //texPos = FixInterpretCoord(texPos, fixedTerSize);
+
+            //if (texPos.y * terrainSize + texPos.x > gridTerrainTexColors.Count)
+            //{
+            //    Debug.Log(111);
+            //}
+            //if (texPos.y * terrainSize + texPos.x < 0)
+            //{
+            //    Debug.Log(111);
+            //}
+
             Color color = gridTerrainTexColors[texPos.y * fixedTerSize + texPos.x];    // TODO : 会越界，想想办法... 让输出的texture额外采样周围的部分点...
 
             // Get true position in this cluster （DONT DEL）
@@ -445,6 +471,28 @@ namespace LZ.WarGameMap.MapEditor
             }
             float height = noise * CurMountainNoise.heightFix;
             return height;
+        }
+
+        private Vector2Int FixInterpretCoord(Vector2Int pos, int fixedTerSize)
+        {
+            if (pos.x >= fixedTerSize)
+            {
+                pos.x = fixedTerSize - 2;
+            }
+            else if (pos.x < 0)
+            {
+                pos.x = 0;
+            }
+
+            if (pos.y >= fixedTerSize)
+            {
+                pos.y = fixedTerSize - 2;
+            }
+            else if (pos.y < 0)
+            {
+                pos.y = 0;
+            }
+            return pos;
         }
 
         #endregion
@@ -495,6 +543,8 @@ namespace LZ.WarGameMap.MapEditor
         [Button("生成HeightDataModel（用于游戏中）", ButtonSizes.Medium)]
         private void DeserializeHeightMaps() 
         {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
             if (!Directory.Exists(heightMapOutputPath)) {
                 Directory.CreateDirectory(heightMapOutputPath);
             }
@@ -506,7 +556,8 @@ namespace LZ.WarGameMap.MapEditor
                 string path = AssetDatabase.GetAssetPath(heightMapSerilzedFile[i]);
                 DeserializeHeightMaps(i, path, deserlDataOutputPath);
             }
-
+            stopwatch.Stop();
+            Debug.Log($"Gen HeightDataModel over! cost : {stopwatch.ElapsedMilliseconds}ms");
         }
 
         private void DeserializeHeightMaps(int batch, string fileRelativePath, string deserlOutputFilePath) 

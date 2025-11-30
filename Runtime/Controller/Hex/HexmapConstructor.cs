@@ -432,6 +432,12 @@ namespace LZ.WarGameMap.Runtime {
             return countryManager.GetBoundCenterByIndex(layer, indexInLayer);
         }
 
+        // Country rendering
+        public void UpdateCountryTex()
+        {
+            // TODO : 对一个地块生成 SDF 纹理，转为 Vector2Int[]，传入到 地块的 Mesh 数据里
+        }
+
         #endregion
 
 

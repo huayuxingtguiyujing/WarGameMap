@@ -124,7 +124,7 @@ namespace LZ.WarGameMap.Runtime
             triangleIndex = 0;
             outOfMeshTriangleIndex = 0;
 
-            IsInit = true;  // already complete while copy other meshdata
+            SetInited();  // already complete while copy other meshdata
         }
 
         public void SetInited()

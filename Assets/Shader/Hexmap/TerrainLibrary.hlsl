@@ -22,7 +22,7 @@ float4 _GridTerrainTypeTexture_ST;
 float4 _GridTerrainTypeTexture_TexelSize;
 
 // TODO : 根据地形类型，返回对应的基础颜色
-float4 GetGridBaseColor(float3 worldPos)
+float4 GetGridBaseColor(float3 worldPos, float _HexGridSize)
 {
     float3 offsetHex = WorldToOffset(worldPos, _HexGridSize);
     float4 terrainDataType = tex2D(_GridTerrainTypeTexture, offsetHex.xy);

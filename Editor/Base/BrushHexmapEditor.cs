@@ -81,7 +81,7 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("涂刷Hexmap格子")]
         [LabelText("Hex涂刷范围")]
-        [Range(0, 100)]
+        [Range(-1, 100)]
         public int brushScope;
 
         [FoldoutGroup("涂刷Hexmap格子")]
@@ -97,6 +97,8 @@ namespace LZ.WarGameMap.MapEditor
         public Color brushColor;
 
         protected List<Color> brushCachePageColorList = new List<Color>();
+
+        protected List<bool> lockBrushCacheList = new List<bool>();
 
         private void EnableBrushValueChanged()
         {
@@ -137,7 +139,7 @@ namespace LZ.WarGameMap.MapEditor
 
             Parallel.ForEach(colors, (item, state, index) => 
             {
-                colors[(int)index] = PaintHexGridWhenLoad((int)index);
+                colors[(int)index] = PaintHexGridWhenBuild((int)index);
             });
             hexmapDataTexManager.SetRTPixel(colors);
             PostBuildHexGridMap();
@@ -179,12 +181,29 @@ namespace LZ.WarGameMap.MapEditor
                     brushCachePageColorList.Add(brushCacheColor[i]);
                 }
             }
-            else
+
+            for (int i = 0; i < brushCacheColor.Length; i++)
             {
-                for (int i = 0; i < brushCacheColor.Length; i++)
+                brushCachePageColorList[i] = brushCacheColor[i];
+            }
+        }
+
+        // 调用该函数 锁定 Cache 层级，涂刷时不会影响到被锁定的 Cache 层级
+        protected void LockBrushCacheIdx(bool[] lockIdxs)
+        {
+            BrushHexmapSetting brushHexmapSetting = GetBrushSetting();
+            if (lockBrushCacheList == null || lockBrushCacheList.Count == 0)
+            {
+                lockBrushCacheList = new List<bool>(brushHexmapSetting.texCacheNum);
+                for (int i = 0; i < lockIdxs.Length; i++)
                 {
-                    brushCachePageColorList[i] = brushCacheColor[i];
+                    lockBrushCacheList.Add(true);
                 }
+            }
+
+            for (int i = 0; i < lockIdxs.Length; i++)
+            {
+                lockBrushCacheList[i] = lockIdxs[i];
             }
         }
 
@@ -212,7 +231,7 @@ namespace LZ.WarGameMap.MapEditor
 
         protected override void OnKeyCodeA()
         {
-            brushScope = Mathf.Max(1, brushScope - scopeModify_Little);
+            brushScope = Mathf.Max(0, brushScope - scopeModify_Little);
             LogCurBrushScope();
         }
 
@@ -273,7 +292,7 @@ namespace LZ.WarGameMap.MapEditor
 
             // TODO : 提高性能，适配不同的涂刷范围
             //hexmapDataTexManager.PaintHexDataTexture_RectScope(offsetHexPos.TransToXZ(), brushScope, brushColor);
-            hexmapDataTexManager.PaintHexDataTexture_Scope(offsetHexList, brushColor, brushCachePageColorList);
+            hexmapDataTexManager.PaintHexDataTexture_Scope(offsetHexList, brushColor, brushCachePageColorList, lockBrushCacheList);
             PaintHexRTEvent(offsetHexList);
         }
 
@@ -286,7 +305,7 @@ namespace LZ.WarGameMap.MapEditor
                     worldPoss.RemoveAt(i);
                 }
             }
-            hexmapDataTexManager.PaintHexDataTexture_Scope(worldPoss, color, brushCachePageColorList);
+            hexmapDataTexManager.PaintHexDataTexture_Scope(worldPoss, color, brushCachePageColorList, lockBrushCacheList);
         }
 
         // Call it to get enable paint pixel
@@ -296,7 +315,7 @@ namespace LZ.WarGameMap.MapEditor
         protected virtual void PaintHexRTEvent(List<Vector2Int> offsetHexList) { }
 
         // Call it when click init hex grid map
-        protected virtual Color PaintHexGridWhenLoad(int index) { return Color.white; }
+        protected virtual Color PaintHexGridWhenBuild(int index) { return Color.white; }
 
         protected void UpdateHexTexManager()
         {

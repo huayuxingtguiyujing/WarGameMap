@@ -5,7 +5,6 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
     {
         _BackgroundColor ("Background Color", Color) = (1, 1, 1, 0.5)
         _EdgeLineColor ("Edge Line Color", Color) = (1, 1, 1, 0.5)
-        _HexGridScale("Hex Grid Scale", Float) = 2
         _HexGridSize("Hex Grid Size", Range(1, 30)) = 20
         _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0, 1)) = 0.1     // HexOutline need, control the aphla of hex outline rect
         _HexGridEdgeStartLerp("Hex Grid Edge StartLerp", Range(0, 0.95)) = 0.9     // HexOutline need, control the ratio of hex outline rect

@@ -82,11 +82,16 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
 
-            public void PaintTexCache(List<Vector2Int> poss, List<Color> cachePageColors)
+            public void PaintTexCache(List<Vector2Int> poss, List<Color> cachePageColors, List<bool> lockBrushCache)
             {
                 int length = mapHeight * mapWidth;
                 for(int i = 0; i < texDataCacheNum; i++)
                 {
+                    if (lockBrushCache[i])
+                    {
+                        continue;
+                    }
+
                     // No more color
                     if (cachePageColors.Count - 1 < i)
                     {
@@ -433,7 +438,7 @@ namespace LZ.WarGameMap.MapEditor
         // For hexmap paint
         RenderTexturePainter renderTexturePainter;
 
-        public void PaintHexDataTexture_Scope(List<Vector2Int> poss, Color color, List<Color> cachePageColors)
+        public void PaintHexDataTexture_Scope(List<Vector2Int> poss, Color color, List<Color> cachePageColors, List<bool> lockBrushCacheList)
         {
             if(renderTexturePainter == null)
             {
@@ -444,7 +449,7 @@ namespace LZ.WarGameMap.MapEditor
             // 为什么山脉editor当中，这里不会被触发?
             if (useTexDataCache)
             {
-                rtDataCache.PaintTexCache(poss, cachePageColors);
+                rtDataCache.PaintTexCache(poss, cachePageColors, lockBrushCacheList);
             }
         }
 

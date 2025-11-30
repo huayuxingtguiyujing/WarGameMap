@@ -1,15 +1,15 @@
 using Sirenix.OdinInspector;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
-    public enum LODSwitchMethod {
+    public enum LODSwitchMethod 
+    {
         Height, Distance
     }
 
-    public class MapRuntimeSetting : MapSettingSO {
+    public class MapRuntimeSetting : MapSettingSO 
+    {
         public override string MapSettingName => "TerrainRuntimeSet_Default.asset";
 
         public override string MapSettingDescription => "TerrainRuntimeSet, but Runtime";
@@ -24,6 +24,9 @@ namespace LZ.WarGameMap.Runtime
         [LabelText("最大cluster数目")]
         [Tooltip("已载入内存的cluster mesh超出这个数目后，开始进行卸载")]
         public float MaxClusterNum = 12;
+
+        [LabelText("是否使用AOI")]
+        public bool UseAOI = true;
 
         [LabelText("AOI 范围")]
         [Tooltip("加载摄像机 AOI 范围内的所有 cluster")]

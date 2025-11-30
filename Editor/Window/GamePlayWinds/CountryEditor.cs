@@ -1,4 +1,3 @@
-using Codice.Client.BaseCommands.BranchExplorer;
 using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.Enums;
 using LZ.WarGameMap.Runtime.Model;
@@ -8,7 +7,6 @@ using System.Collections.Generic;
 using System.Text;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
 
 namespace LZ.WarGameMap.MapEditor
 {
