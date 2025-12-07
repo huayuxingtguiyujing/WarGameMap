@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
+using static UnityEditor.PlayerSettings;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -45,7 +46,7 @@ namespace LZ.WarGameMap.Runtime
         public TerrainTile() { }
 
 
-        #region init tile data
+        #region Init tile data
 
         public void InitTileMeshData(int idxX, int idxY, int longitude, int latitude, Vector3 startPoint, MeshFilter meshFilter, MeshRenderer renderer, int[] lODLevels) {
             this.clusterStartPoint = startPoint;
@@ -438,7 +439,7 @@ namespace LZ.WarGameMap.Runtime
         }
         
         
-        #region serialize
+        #region Serialize
 
         public string GetTileInfo() {
             return $"{tileIdxX},{tileIdxY},{longitude},{latitude},{curLODLevel},{clusterStartPoint.ToStringFixed()}";
@@ -467,6 +468,23 @@ namespace LZ.WarGameMap.Runtime
             clusterStartPoint.x = reader.ReadSingle();
             clusterStartPoint.y = reader.ReadSingle();
             clusterStartPoint.z = reader.ReadSingle();
+        }
+
+        #endregion
+
+
+        #region Paint In Editor
+
+        public List<Vector3> GetPointsInScope(Vector3 pos, float scope)
+        {
+            int maxLOD = LODMeshes.Length - 1;
+            return LODMeshes[maxLOD].GetPointsInScope(pos, scope);
+        }
+
+        public void UpdatePaintPoints(List<Vector3> newPoints, List<Vector2Int> pointInTileIdx)
+        {
+            int maxLOD = LODMeshes.Length - 1;
+            LODMeshes[maxLOD].UpdatePaintPoints(newPoints, pointInTileIdx);
         }
 
         #endregion

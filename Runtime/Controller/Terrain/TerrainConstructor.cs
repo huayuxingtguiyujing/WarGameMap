@@ -5,10 +5,13 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
+    using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
+    using static UnityEditor.PlayerSettings;
     using GetSimplifierCall = Func<int, int, int, int, int, TerrainSimplifier>;
 
     // TODO : 思考是否还有划分两种生成方式的必要性
@@ -58,7 +61,7 @@ namespace LZ.WarGameMap.Runtime
 
         private RiverDataManager riverDataManager;
 
-        #region init terrain cons
+        #region Init terrain cons
 
         public void SetMapPrefab(Transform originPoint, Transform heightClusterParent, Transform riverMeshParent) {
             this.originPoint = originPoint;
@@ -81,8 +84,8 @@ namespace LZ.WarGameMap.Runtime
             // 地图分块
             // TerrainCluster，cluster 对应单独的一个高度图 tif 文件
             // TerrainCluster 分为多个 TerrainTile，每个 Tile 拥有多个 LOD 层级的 mesh
-            terrainWidth = terSet.terrainSize.x;
-            terrainHeight = terSet.terrainSize.z;
+            terrainWidth = terSet.terrainSize.x + 1;
+            terrainHeight = terSet.terrainSize.z + 1;
 
             // clusterList 进行懒初始化，一次性分配太多内存会炸
             clusterList = new TDList<TerrainCluster>(terrainWidth, terrainHeight);
@@ -122,7 +125,7 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-        #region build terrain
+        #region Build Terrain
 
         [Obsolete("现在应该分阶段地在外部调用各个步骤进行生成，逻辑放到了 TerrainGenTask 里头")]
         public void BuildCluster(int i, int j, bool shouldGenRiver, bool shouldGenLODBySimplify, int timerID)
@@ -335,7 +338,7 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-        #region runtime updating
+        #region Runtime Updating
 
         public Vector3Int preCameraIdx = new Vector3Int(-100, 0, -100);   // NOTE : x z is idx, y is the curLODLevel
 
@@ -503,6 +506,255 @@ namespace LZ.WarGameMap.Runtime
         }
 
         #endregion
+
+        #region Paint Terrain (Only Editor)
+
+        public Vector2Int GetCurMapRightUp()
+        {
+            int maxX = 0;
+            int maxY = 0;
+            for(int i = 0; i < terrainWidth; i++)
+            {
+                for(int j = 0; j < terrainHeight; j++)
+                {
+                    if (clusterList[i, j].IsLoaded && clusterList[i, j].IsShowing)
+                    {
+                        maxX = Mathf.Max(maxX, i * terSet.clusterSize);
+                        maxY = Mathf.Max(maxY, j * terSet.clusterSize);
+                    }
+                }
+            }
+            return new Vector2Int(maxX, maxY);
+        }
+
+        public Vector2Int GetCurMapLeftDown()
+        {
+            return new Vector2Int();
+        }
+
+        // NOTE : When painting terrain, terrain hold only max lod mesh
+        public List<Vector3> GetPaintTargets(Vector3 mousePos, float paintScope)
+        {
+            // Get the tileIdx (left down, right up) which the mousePos exist in
+            int tileIdxX = (int)(mousePos.x / terSet.tileSize);
+            int tileIdxY = (int)(mousePos.z / terSet.tileSize);
+            int nextTileIdxX = tileIdxX + 1;
+            int nextTileIdxY = tileIdxY + 1;
+
+            int tileNumClsPerLine = terSet.GetTileNumClsPerLine();
+            int tileNumPaintScope = (int)(paintScope / terSet.tileSize) + 1;
+            int totalTileInPaintScope = (tileNumPaintScope * 2 + 1) * (tileNumPaintScope * 2 + 1);
+
+            // Get all tiles that in the scope
+            List<Vector2Int> tileInPaintScope = new List<Vector2Int>(totalTileInPaintScope);
+            int startTileIdxX = Mathf.Max(tileIdxX - tileNumPaintScope, 0);
+            int startTileIdxY = Mathf.Max(tileIdxY - tileNumPaintScope, 0);
+            int endTileIdxX = Mathf.Min(nextTileIdxX + tileNumPaintScope, terrainHeight * tileNumClsPerLine);
+            int endTileIdxY = Mathf.Min(nextTileIdxY + tileNumPaintScope, terrainWidth * tileNumClsPerLine);
+
+            for(int i = startTileIdxX; i < endTileIdxX; i++)
+            {
+                for (int j = startTileIdxY; j < endTileIdxY; j++)
+                {
+                    Vector2Int tileIdx = new Vector2Int(i, j);
+                    tileInPaintScope.Add(tileIdx);
+                }
+            }
+
+            // Get all point that need paint
+            int pointNumInTile = terSet.GetTilePointNumMaxLOD();
+            List<Vector3> targetPoints = new List<Vector3>(totalTileInPaintScope * pointNumInTile);
+            foreach (var tileIdx in tileInPaintScope)
+            {
+                int i = tileIdx.x / tileNumClsPerLine;
+                int j = tileIdx.y / tileNumClsPerLine;
+                if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth)
+                {
+                    Debug.LogError($"Wrong cluster index : {i}, {j}");
+                    continue;
+                }
+
+                // Get the cluster which contains the tileIdx
+                TerrainCluster cluster = clusterList[i, j];
+                if (!cluster.IsInited || !cluster.IsLoaded || !cluster.IsShowing)
+                {
+                    continue;
+                }
+
+                int tileInClsIdxX = tileIdx.x % tileNumClsPerLine;
+                int tileInClsIdxY = tileIdx.y % tileNumClsPerLine;
+
+                // Get point, add them to list
+                List<Vector3> pointInScope = cluster.GetPointsInScope(tileInClsIdxX, tileInClsIdxY, mousePos, paintScope);
+                foreach (var point in pointInScope)
+                {
+                    targetPoints.Add(point);
+                }
+            }
+
+            return targetPoints;
+        }
+
+        Dictionary<int4, List<Vector3>> tileNewPoints = new Dictionary<int4, List<Vector3>>();
+        Dictionary<int4, List<Vector2Int>> tileNewPointIdxs = new Dictionary<int4, List<Vector2Int>>();
+
+        // TODO : HeightDataManager 也需要同步地更新
+        public void UpdatePaintVerts(List<Vector3> newPoints)
+        {
+            tileNewPoints.Clear();
+            tileNewPointIdxs.Clear();
+
+            // TODO : 后续最好用多线程，更快
+            //Parallel.ForEach(newPoints, point =>
+            //{
+            //});
+            foreach (var point in newPoints)
+            {
+                Vector2Int tile;
+                Vector2Int pointInTile;
+                DecodePointPos(point, out tile, out pointInTile);
+                Vector2Int cluster = GetClsIdxByTile(tile);
+                int4 clusterTileIdx = new int4(cluster.x, cluster.y, tile.x, tile.y);
+                AddToNewPointLists(clusterTileIdx, point, pointInTile);
+
+                List<Vector2Int> extraTileList = GetPointExtraTile(point, tile);
+                if(extraTileList != null)
+                {
+                    foreach (Vector2Int extraTile in extraTileList)
+                    {
+                        if (extraTile.y < 0 || extraTile.y < 0)
+                        {
+                            continue;
+                        }
+
+                        Vector2Int extraCluster = GetClsIdxByTile(extraTile);
+                        int4 extraClusterTileIdx = new int4(extraCluster.x, extraCluster.y, extraTile.x, extraTile.y);
+                        Vector2Int extraPointInTile = GetPointInTile(point, extraTile);
+                        AddToNewPointLists(extraClusterTileIdx, point, extraPointInTile);
+                    }
+                }
+            }
+
+            Parallel.ForEach(tileNewPoints, pair =>
+            {
+                int4 clusterTileIdx = pair.Key;
+                Vector2Int clusterIdx = new Vector2Int(clusterTileIdx.x, clusterTileIdx.y);
+                Vector2Int tileIdx =  new Vector2Int(clusterTileIdx.z, clusterTileIdx.w);
+                Vector2Int tileClsIdx = GetTileInClsIdx(tileIdx);
+
+                // Get the cluster which contains the tileIdx
+                TerrainCluster cluster = clusterList[clusterIdx.x, clusterIdx.y];
+                if (!cluster.IsInited || !cluster.IsLoaded || !cluster.IsShowing)
+                {
+                    return;
+                }
+
+                cluster.UpdatePaintPoints(tileClsIdx.x, tileClsIdx.y, pair.Value, tileNewPointIdxs[clusterTileIdx]);
+            });
+
+            foreach (var pair in tileNewPoints)
+            {
+                int4 clusterTileIdx = pair.Key;
+                Vector2Int clusterIdx = new Vector2Int(clusterTileIdx.x, clusterTileIdx.y);
+                Vector2Int tileIdx = new Vector2Int(clusterTileIdx.z, clusterTileIdx.w);
+                Vector2Int tileClsIdx = GetTileInClsIdx(tileIdx);
+
+                TerrainCluster cluster = clusterList[clusterIdx.x, clusterIdx.y]; 
+                if (!cluster.IsInited || !cluster.IsLoaded || !cluster.IsShowing)
+                {
+                    return;
+                }
+                cluster.BuildOriginMesh(tileClsIdx.x, tileClsIdx.y);
+            }
+        }
+
+        private void DecodePointPos(Vector3 point, out Vector2Int tile, out Vector2Int pointInTile)
+        {
+            int tileIdxX = (int)point.x / terSet.tileSize;
+            int tileIdxY = (int)point.z / terSet.tileSize;
+            tile = new Vector2Int(tileIdxX, tileIdxY);
+
+            pointInTile = GetPointInTile(point, tile);
+        }
+
+        private List<Vector2Int> GetPointExtraTile(Vector3 point, Vector2Int tile)
+        {
+            // NOTE : 因为 tile 会重复设置边界点，所以并非一个 point 仅对应一个 tile，边界 point 就需要额外处理
+            bool isLeftOrRightBorder = point.x % terSet.tileSize == 0;
+            bool isUpOrDownBorder = point.z % terSet.tileSize == 0;
+            if(!isLeftOrRightBorder && !isUpOrDownBorder)
+            {
+                return null;    // Is not right up border point
+            }
+
+            List<Vector2Int> extraTile = new List<Vector2Int>(4);
+            if (isLeftOrRightBorder)
+            {
+                extraTile.Add(new Vector2Int(tile.x - 1, tile.y));
+            }
+
+            if (isUpOrDownBorder)
+            {
+                extraTile.Add(new Vector2Int(tile.x, tile.y - 1));
+            }
+
+            if (isLeftOrRightBorder && isUpOrDownBorder)
+            {
+                extraTile.Add(new Vector2Int(tile.x - 1, tile.y - 1));
+            }
+            return extraTile;
+        }
+
+        private Vector2Int GetClsIdxByTile(Vector2Int tile)
+        {
+            int tileNumClsPerLine = terSet.GetTileNumClsPerLine();
+            int clusterX = tile.x / tileNumClsPerLine;
+            int clusterY = tile.y / tileNumClsPerLine;
+            return new Vector2Int(clusterX, clusterY);
+        }
+
+        private Vector2Int GetTileInClsIdx(Vector2Int tile)
+        {
+            int tileNumClsPerLine = terSet.GetTileNumClsPerLine();
+            int tileX = tile.x % tileNumClsPerLine;
+            int tileY = tile.y % tileNumClsPerLine;
+            return new Vector2Int(tileX, tileY);
+        }
+
+        // TODO : 目前这个是错的，原因未知
+        private Vector2Int GetPointInTile(Vector3 point, Vector2Int tile)
+        {
+            Vector2Int pos = new Vector2Int((int)point.x, (int)point.z);
+            //Vector3 clusterStartPoint = new Vector3(clusterX * terSet.clusterSize, 0, clusterY * terSet.clusterSize);
+            Vector2Int startPoint = new Vector2Int(tile.x * terSet.tileSize, tile.y * terSet.tileSize); //  + clusterStartPoint
+            
+            // TODO : offsetInMeshVert 可见 TerrainTile -> SetMeshData_Origin() 内的构建顶点过程
+            //Vector2Int offsetInMeshVert = new Vector2Int(1, 1);
+            Vector2Int offsetInMeshVert = new Vector2Int(1, 1);
+            int pointInTileX = (pos.x + offsetInMeshVert.x - startPoint.x);   // % terSet.tileSize  //  这里有问题？？？ 不应该 用 % ？ 
+            int pointInTileY = (pos.y + offsetInMeshVert.y - startPoint.y);   // % terSet.tileSize
+            return new Vector2Int(pointInTileX, pointInTileY);
+        }
+
+        private void AddToNewPointLists(int4 clusterTileIdx, Vector3 point, Vector2Int pointInTile)
+        {
+
+            if (!tileNewPoints.ContainsKey(clusterTileIdx))
+            {
+                tileNewPoints.Add(clusterTileIdx, new List<Vector3>(32) { point });
+                tileNewPointIdxs.Add(clusterTileIdx, new List<Vector2Int>(32) { pointInTile });
+            }
+            else
+            {
+                var newPointList = tileNewPoints[clusterTileIdx];
+                newPointList.Add(point);
+                var newPointIdxList = tileNewPointIdxs[clusterTileIdx];
+                newPointIdxList.Add(pointInTile);
+            }
+        }
+
+        #endregion
+
 
         public Mesh GetTerTileMesh(int lodLevel, int clusterX, int clusterY, int tileX, int tileY) {
             TerrainCluster cluster = GetTerrainCluster(clusterX, clusterY);

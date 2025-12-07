@@ -25,6 +25,8 @@ namespace LZ.WarGameMap.MapEditor {
         [OnValueChanged("OnLockSceneViewValueChanged")]
         public bool lockSceneView = true;
 
+        protected bool enableBtnEvent = false;
+
         [FoldoutGroup("配置scene", -9)]
         [LabelText("接收键盘输入")]
         [Tooltip("仅为true时，接收键盘输入")]
@@ -94,20 +96,22 @@ namespace LZ.WarGameMap.MapEditor {
 
         private int dragInterval = 5;
 
-        protected virtual void OnSceneGUI(SceneView sceneView) {
+        protected virtual void OnSceneGUI(SceneView sceneView) 
+        {
             if (!RootMapEditor.IsCurMapEditor(this))
             {
                 return;
             }
 
-            HandleSceneDraw();
-
             Event e = Event.current;
+            HandleSceneDraw(e);
+
             if (enableKeyCode)
             {
                 OnKeyCodeUpEvent(e);
             }
-            if (lockSceneView) {
+            if (lockSceneView || enableBtnEvent) 
+            {
                 OnButtonEvent(e);
             }
         }
@@ -222,7 +226,7 @@ namespace LZ.WarGameMap.MapEditor {
         protected virtual void OnMouseDown(Event e) { }
         protected virtual void OnMouseMove(Event e) { }
         protected virtual void OnMouseDrag(Event e) { }
-        protected virtual void HandleSceneDraw() { }
+        protected virtual void HandleSceneDraw(Event e) { }
 
         protected Vector3 GetMousePosToScene(Event e) {
             SceneView sceneView = SceneView.currentDrawingSceneView;
@@ -242,5 +246,26 @@ namespace LZ.WarGameMap.MapEditor {
             return point;
         }
 
+        // TODO : 测试它
+        protected Vector3 GetMousePosIny0(Event e)
+        {
+            return GetMousePosIny0(e.mousePosition);
+        }
+
+        protected Vector3 GetMousePosIny0(Vector3 cur)
+        {
+            // GUI坐标转射线
+            Ray ray = HandleUtility.GUIPointToWorldRay(cur);
+
+            // y=0 平面
+            Plane plane = new Plane(Vector3.up, Vector3.zero);
+
+            if (plane.Raycast(ray, out float enter))
+            {
+                return ray.GetPoint(enter);
+            }
+
+            return Vector3.zero; // 没撞到平面（几乎不会）
+        }
     }
 }

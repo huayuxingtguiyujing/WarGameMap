@@ -24,10 +24,11 @@ namespace LZ.WarGameMap.Runtime {
 
         public override string MapSettingDescription {
             get {
-                return "setting for game map terrain, include lod levels, cluster size, tile size; and note terrain is not gameplay only to show";
+                return "Setting for game map terrain, include lod levels, cluster size, tile size; and note terrain is not gameplay only to show";
             }
         }
 
+        [Header("LOD Setting")]
         [LabelText("LOD总层级数")]
         public int LODLevel = 3;
 
@@ -54,6 +55,7 @@ namespace LZ.WarGameMap.Runtime {
         }
 
 
+        [Header("Terrain Setting")]
         [LabelText("Terrain大小")]
         [Tooltip("大地图规模，表示共有多少个cluster，它不必是2的倍数")]
         public Vector3Int terrainSize = new Vector3Int(10, 0, 10);
@@ -78,7 +80,19 @@ namespace LZ.WarGameMap.Runtime {
             return clusterSize / tileSize;
         }
 
-        // river setting
+        public int GetTilePointNumMaxLOD()
+        {
+            return tileSize * tileSize;
+        }
+
+        public int GetClusterPointNumMaxLOD()
+        {
+            return clusterSize * clusterSize;
+        }
+
+
+        // River setting
+        [Header("River Setting")]
         [LabelText("河流编辑数据相比大地图的缩放")]
         public ushort paintRTSizeScale = 4;     // only editor
 

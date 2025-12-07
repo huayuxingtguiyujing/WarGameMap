@@ -54,6 +54,28 @@ namespace LZ.WarGameMap.MapEditor
             Handles.Label(worldPos, text, style);
         }
 
+        public static void DrawScope(Vector3 center, float radius, Color32 color, int segments = 64)
+        {
+            Gizmos.color = color;
+
+            float angleStep = 360f / segments;
+            Vector3 prev = center + new Vector3(radius, 0, 0);
+
+            for (int i = 1; i <= segments; i++)
+            {
+                float rad = Mathf.Deg2Rad * (i * angleStep);
+                Vector3 next = center + new Vector3(Mathf.Cos(rad) * radius, 0, Mathf.Sin(rad) * radius);
+                Gizmos.DrawLine(prev, next);
+                prev = next;
+            }
+        }
+
+        public static void DrawScope3D(Vector3 center, float radius, Color32 color)
+        {
+            Gizmos.color = color;
+            Gizmos.DrawWireSphere(center, radius);
+        }
+
 
         private static readonly Color[] colors = new Color[]
         {

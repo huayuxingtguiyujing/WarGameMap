@@ -4,6 +4,9 @@ using Sirenix.OdinInspector;
 using System;
 using UnityEditor;
 using UnityEngine;
+using System.Collections.Generic;
+using UnityEngine.Events;
+using static LZ.WarGameMap.Runtime.GizmosCtrl;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -18,16 +21,14 @@ namespace LZ.WarGameMap.MapEditor
 
         protected MapRuntimeSetting mapSet;
 
+        protected TerrainConstructor terrainCtor;
+
         protected override void InitMapSetting() {
             base.InitMapSetting();
             mapSet = EditorSceneManager.MapSet;
-            //FindOrCreateSO<MapRuntimeSetting>(ref mapSet, MapStoreEnum.WarGameMapSettingPath, "TerrainRuntimeSet_Default.asset");
-
             terSet = EditorSceneManager.TerSet;
-            //FindOrCreateSO<TerrainSettingSO>(ref terSet, MapStoreEnum.WarGameMapSettingPath, "TerrainSetting_Default.asset");
-
             hexSet = EditorSceneManager.HexSet;
-            //FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
+            terrainCtor = EditorSceneManager.TerrainCtor;
         }
 
         #region 地图信息配置
@@ -163,7 +164,161 @@ namespace LZ.WarGameMap.MapEditor
 
 
         // TODO : 笔刷涂抹效果
-        #region 涂刷地图
+        #region 笔刷 编辑地图
+
+        class PaintTerrainEnums
+        {
+            public static Color BrushTerColor = Color.yellow;
+        }
+
+        [FoldoutGroup("笔刷 编辑地图")]
+        [LabelText("开启涂刷")]
+        [OnValueChanged("OnEnablePaintChanged")]
+        public bool enablePaintTerrain = false;
+
+        [FoldoutGroup("笔刷 编辑地图")]
+        [LabelText("涂刷范围"), Range(0, 200)]
+        public float brushTerrainScope = 10;
+
+        [FoldoutGroup("笔刷 编辑地图")]
+        [LabelText("涂刷力度"), Range(0, 100)]
+        public float brushTerrainStrength = 0.5f;
+
+        BaseBrushTool CurBrushTool = new CircleBrushTool();
+
+        [FoldoutGroup("笔刷 编辑地图")]
+        [LabelText("当前笔刷")]
+        [OnValueChanged("OnCurBrushTypeChanged")]
+        public BrushToolType CurBrushType;
+
+        Vector3 lastPaintCenter = new Vector3();
+
+        List<Vector3> paintTargets = new List<Vector3>();
+
+        private void OnEnablePaintChanged()
+        {
+            enableBtnEvent = enablePaintTerrain;
+            if (enablePaintTerrain)
+            {
+                //GizmosCtrl.GetInstance().RegisterGizmoEvent(ShowPaintScope_UnityAction);
+            }
+            else
+            {
+                //GizmosCtrl.GetInstance().UnregisterGizmoEvent(ShowPaintScope_UnityAction);
+            }
+        }
+
+        private void OnCurBrushTypeChanged()
+        {
+            switch (CurBrushType)
+            {
+                case BrushToolType.Circle:
+                    CurBrushTool = new CircleBrushTool();
+                    break;
+                case BrushToolType.CircleLinearLerped:
+                    CurBrushTool = new CircleLinearLerpBrushTool();
+                    break;
+                case BrushToolType.CircleSoothStep1:
+                    break;
+                case BrushToolType.CircleSoothStep2:
+                    break;
+                case BrushToolType.CircleNoise:
+                    break;
+            }
+        }
+
+        private void ShowPaintScope_UnityAction()
+        {
+            ShowPaintScope(Input.mousePosition);
+        }
+
+        private void ShowPaintScope(Event e)
+        {
+            ShowPaintScope(e.mousePosition);
+        }
+
+        // TODO : 测试它
+        private void ShowPaintScope(Vector3 mousePos)
+        {
+            if (!enablePaintTerrain)
+            {
+                return;
+            }
+
+            // 获取到鼠标在scene的位置，然后映射到 y=0 的平面上
+            Vector3 paintCenter = GetMousePosIny0(mousePos);
+
+            Vector3 paintScopeNormal = new Vector3(0, 1, 0);
+            Handles.color = PaintTerrainEnums.BrushTerColor;
+            Handles.DrawWireDisc(paintCenter, paintScopeNormal, brushTerrainScope);
+
+            //GizmosUtils.DrawScope(paintCenter, brushTerrainScope, PaintTerrainEnums.BrushTerColor);
+        }
+
+        // TODO : 测试它
+        private void UpdatePaintTargets(Event e)
+        {
+            if (!enablePaintTerrain)
+            {
+                return;
+            }
+
+            if (CurBrushTool == null)
+            {
+                return;
+            }
+
+            if (!terrainCtor.IsGen)
+            {
+                return;
+            }
+
+            // 获取到鼠标在scene的位置，然后映射到 y=0 的平面上
+            Vector3 paintCenter = GetMousePosIny0(e);
+            if (lastPaintCenter == paintCenter)
+            {
+                return;
+            }
+            lastPaintCenter = paintCenter;
+            paintTargets.Clear();
+
+            // 判断所在的区域是否超过当前展示的 terrain 的范围，如果超过则 return
+            Vector2Int mapRightUp = terrainCtor.GetCurMapRightUp();
+            Vector2Int mapLeftUp = terrainCtor.GetCurMapLeftDown();
+            if (paintCenter.x < mapLeftUp.x || paintCenter.x > mapRightUp.x
+                || paintCenter.y < mapLeftUp.y || paintCenter.y > mapRightUp.y)
+            {
+                return;
+            }
+
+            // Refresh paint targets
+            paintTargets = terrainCtor.GetPaintTargets(paintCenter, brushTerrainScope);
+            Debug.Log($"Paint over, point num : {paintTargets.Count}");
+        }
+
+        // TODO : 测试它
+        private void HandlePaintProcess(Event e)
+        {
+            if (!enablePaintTerrain)
+            {
+                return;
+            }
+
+            if (CurBrushTool == null)
+            {
+                return;
+            }
+
+            if (paintTargets == null || paintTargets.Count == 0)
+            {
+                return;
+            }
+
+            Vector3 paintCenter = GetMousePosIny0(e);
+            CurBrushTool.Brush(brushTerrainStrength, brushScope, paintCenter, paintTargets);
+            terrainCtor.UpdatePaintVerts(paintTargets);
+        }
+
 
         #endregion
 
@@ -171,6 +326,10 @@ namespace LZ.WarGameMap.MapEditor
         public override void Enable() {
             base.Enable();
             sceneManager.UpdateSceneView(showTerrainScene, showHexScene);
+
+            //UnityEditorManager.RegisterUpdate(ShowPaintScope_UnityAction);
+            //GizmoDrawEventHandler handler = new GizmoDrawEventHandler(ShowPaintScope_UnityAction);
+            //GizmosCtrl.GetInstance().RegisterGizmoEvent(ShowPaintScope_UnityAction);
         }
 
         public override void Disable() { 
@@ -181,6 +340,9 @@ namespace LZ.WarGameMap.MapEditor
                 ShowHideTexture(false);     // if open, close it
             }
             lockSceneView = false;
+
+            //UnityEditorManager.UnregisterUpdate(ShowPaintScope_UnityAction);
+            //GizmosCtrl.GetInstance().UnregisterGizmoEvent(ShowPaintScope_UnityAction);
         }
 
         private void ShowHideTexture(bool enableBrush)
@@ -193,30 +355,40 @@ namespace LZ.WarGameMap.MapEditor
             hexmapDataTexManager.ShowHideTexture(enableBrush);
         }
 
+        protected override void OnMouseMove(Event e)
+        {
+            //ShowPaintScope(e);
+        }
+
         protected override void OnMouseDown(Event e) {
-            if (!enableBrush) {
-                return;
+            if (enableBrush)
+            {
+                // only valid when lock scene view
+                Vector3 worldPos = GetMousePosToScene(e);
+                hexmapDataTexManager.PaintHexDataTexture_RectScope(worldPos, brushScope, brushColor);
+                SceneView.RepaintAll();
             }
 
-            //Debug.Log(22222);
-
-            // only valid when lock scene view
-            Vector3 worldPos = GetMousePosToScene(e);
-            hexmapDataTexManager.PaintHexDataTexture_RectScope(worldPos, brushScope, brushColor);
-            SceneView.RepaintAll();
+            UpdatePaintTargets(e);
+            HandlePaintProcess(e);
         }
 
         protected override void OnMouseDrag(Event e) {
-            if (!enableBrush) {
-                return;
+            if (enableBrush) 
+            {
+                // only valid when lock scene view
+                Vector3 worldPos = GetMousePosToScene(e);
+                hexmapDataTexManager.PaintHexDataTexture_RectScope(worldPos, brushScope, brushColor);
+                SceneView.RepaintAll();
             }
 
-            //Debug.Log(333333);
+            UpdatePaintTargets(e);
+            HandlePaintProcess(e);
+        }
 
-            // only valid when lock scene view
-            Vector3 worldPos = GetMousePosToScene(e);
-            hexmapDataTexManager.PaintHexDataTexture_RectScope(worldPos, brushScope, brushColor);
-            SceneView.RepaintAll();
+        protected override void HandleSceneDraw(Event e)
+        {
+            ShowPaintScope(e);
         }
 
     }

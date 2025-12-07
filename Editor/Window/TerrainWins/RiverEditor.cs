@@ -850,7 +850,7 @@ namespace LZ.WarGameMap.MapEditor
             SceneView.RepaintAll();
         }
 
-        protected override void HandleSceneDraw() {
+        protected override void HandleSceneDraw(Event e) {
             if(curBezierCurveEditor == null) {
                 return;
             }// curBezierCurveEditor

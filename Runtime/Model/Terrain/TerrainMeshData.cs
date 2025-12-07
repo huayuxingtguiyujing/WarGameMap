@@ -137,7 +137,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
 
-        #region add vertex; geometry handle
+        #region Add vertex; geometry handle
 
         public void AddVertex(Vector3 vertexPosition, Vector2 uv, int vertIndex) {
             if (vertIndex < 0) {
@@ -494,7 +494,7 @@ namespace LZ.WarGameMap.Runtime
             this.meshWrapper = meshWrapper;
         }
 
-        #region mesh data get/set
+        #region Mesh data get/set
 
         public List<int> GetOutOfMeshTris() {
             return outOfMeshTriangles.ToList();
@@ -654,7 +654,7 @@ namespace LZ.WarGameMap.Runtime
         #endregion
 
 
-        #region set landform (color) data
+        #region Set landform (color) data
 
         public void InitLandform() {
             int len = vertexs.Count;
@@ -687,7 +687,7 @@ namespace LZ.WarGameMap.Runtime
         #endregion
 
 
-        #region serialize
+        #region Serialize
 
         // obsolete
         public void SerializeTerrainMesh(StreamWriter writer) {
@@ -839,6 +839,48 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
+
+        #endregion
+
+
+        #region Paint In Editor
+
+        // TODO : 验证
+        public List<Vector3> GetPointsInScope(Vector3 pos, float scope)
+        {
+            Vector2 posXZ = new Vector2(pos.x, pos.z);
+            List<Vector3> pointList = new List<Vector3>(16);
+            for(int i = 0; i < vertexs.Count; i++)
+            {
+                Vector3 point = vertexs[i];
+                Vector2 pointXZ = new Vector2(point.x, point.z);
+                float dist = Vector2.Distance(posXZ, pointXZ);
+                if(dist <= scope)
+                {
+                    pointList.Add(point);
+                }
+            }
+            return pointList;
+        }
+
+        // TODO : 验证
+        public void UpdatePaintPoints(List<Vector3> newPoints, List<Vector2Int> pointInTileIdx)
+        {
+            for (int i = 0; i < pointInTileIdx.Count; i++)
+            {
+                Vector2Int pointInTile = pointInTileIdx[i];
+                int idx = GetIndiceInMap(pointInTile.x, pointInTile.y);
+                if (idx < 0)
+                {
+                    outofMeshVertexs[-idx - 1] = newPoints[i];
+                }
+                else
+                {
+                    vertexs[idx] = newPoints[i];
+                }
+            }
+            meshWrapper.SetVertex(vertexs);
+        }
 
         #endregion
 

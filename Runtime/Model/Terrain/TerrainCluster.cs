@@ -5,6 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -38,7 +39,7 @@ namespace LZ.WarGameMap.Runtime
         public TerrainCluster() { IsInited = false; IsLoaded = false; IsShowing = false; }
 
 
-        #region init cluster
+        #region Init cluster
 
         public void InitTerrainCluster_Static(int idxX, int idxY, int longitude, int latitude, TerrainSettingSO terSet, GameObject clusterGo, Material mat)
         {
@@ -218,9 +219,14 @@ namespace LZ.WarGameMap.Runtime
             {
                 for (int j = 0; j < tileNumPerLine; j++)
                 {
-                    tileList[i, j].BuildOriginMesh();
+                    BuildOriginMesh(i, j);
                 }
             }
+        }
+
+        public void BuildOriginMesh(int tileX, int tileY)
+        {
+            tileList[tileX, tileY].BuildOriginMesh();
         }
 
         public void SampleMeshNormal(Texture2D normalTex)
@@ -247,6 +253,8 @@ namespace LZ.WarGameMap.Runtime
         }
 
         #endregion
+        
+        #region Simplify
 
         public async Task ExeSimplify_MT(GetSimplifierCall getSimplifierCall, CancellationToken token)
         {
@@ -273,7 +281,7 @@ namespace LZ.WarGameMap.Runtime
                         //    tileList[tileX, tileY].ExeTerrainSimplify(lodLevelRec, terrainSimplifier, terSet.GetSimplifyTarget(lodLevelRec));
                         //    return 0;
                         //};*/
-                        
+
                         Action<CancellationToken> exeSimplify = (cancelToken) =>
                         {
                             TerrainSimplifier terrainSimplifier = getSimplifierCall(idxX, idxY, _tileX, _tileY, lodLevelRec);
@@ -395,8 +403,9 @@ namespace LZ.WarGameMap.Runtime
             return targetVertNum;
         }
 
+        #endregion
 
-        #region runtime update terrain, fix LOD seam
+        #region Runtime update terrain, fix LOD seam
 
         // NOTE : LODHeight 根据摄像机距离地面的高度决定地块的 lod level
         public int UpdateTerrainCluster_LODHeight(int curLODLevel, int LODLevels)
@@ -597,8 +606,7 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-
-        #region serialize
+        #region Serialize
 
         public string GetClusterInfo()
         {
@@ -619,6 +627,20 @@ namespace LZ.WarGameMap.Runtime
             idxY = reader.ReadInt32();
             longitude = reader.ReadInt32();
             latitude = reader.ReadInt32();
+        }
+
+        #endregion
+
+        #region Paint In Editor
+
+        public List<Vector3> GetPointsInScope(int tileX, int tileY, Vector3 pos, float scope)
+        {
+            return tileList[tileX, tileY].GetPointsInScope(pos, scope);
+        }
+
+        public void UpdatePaintPoints(int tileX, int tileY, List<Vector3> newPoints, List<Vector2Int> pointInTileIdx)
+        {
+            tileList[tileX, tileY].UpdatePaintPoints(newPoints, pointInTileIdx);
         }
 
         #endregion

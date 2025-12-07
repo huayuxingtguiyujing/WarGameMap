@@ -65,7 +65,9 @@ namespace LZ.WarGameMap.Runtime
     }
 
     // TODO: 实现一个简单的观察者模式
-    public abstract class EventMode : MonoBehaviour {
+    public abstract class EventMode : MonoBehaviour 
+    {
+
     }
 
 }
