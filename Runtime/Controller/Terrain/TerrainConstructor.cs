@@ -720,8 +720,7 @@ namespace LZ.WarGameMap.Runtime
             int tileY = tile.y % tileNumClsPerLine;
             return new Vector2Int(tileX, tileY);
         }
-
-        // TODO : 目前这个是错的，原因未知
+        
         private Vector2Int GetPointInTile(Vector3 point, Vector2Int tile)
         {
             Vector2Int pos = new Vector2Int((int)point.x, (int)point.z);

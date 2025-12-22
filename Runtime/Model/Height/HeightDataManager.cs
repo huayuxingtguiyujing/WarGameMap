@@ -104,7 +104,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
 
-        #region sample height, TIF heightModelData
+        #region Sample height, TIF heightModelData
 
         public float SampleFromHeightData(Vector3 vertPos) {
             Vector3 clusterStartPoint = Vector3.zero;
@@ -279,7 +279,7 @@ namespace LZ.WarGameMap.Runtime
         #endregion
 
 
-        #region sample height, HexMap
+        #region Sample height, HexMap
 
         public float SampleFromHexMap(Vector3 vertPos) {
             if (HexSet == null || RawHexMap == null) {
@@ -364,7 +364,7 @@ namespace LZ.WarGameMap.Runtime
         #endregion
 
 
-        #region sample normal
+        #region Sample normal
 
         public Vector3 SampleNormalFromData(Vector2Int startLongitudeLatitude, Vector3 vertPos) {
             Vector3 clusterStartPoint = Vector3.zero;

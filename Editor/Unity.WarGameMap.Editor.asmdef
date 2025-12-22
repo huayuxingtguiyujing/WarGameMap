@@ -3,9 +3,9 @@
     "rootNamespace": "LZ.WarGameMap.MapEditor",
     "references": [
         "GUID:035ce3cbf07a21a44bb3e25664c0338a",
-        "GUID:f077275c9e863ed43b96d727f0d33c86",
         "GUID:e0cd26848372d4e5c891c569017e11f1",
-        "GUID:d8b63aba1907145bea998dd612889d6b"
+        "GUID:d8b63aba1907145bea998dd612889d6b",
+        "GUID:7976a68a89a3d03409d0ba3f75d7deec"
     ],
     "includePlatforms": [
         "Editor"

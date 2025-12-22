@@ -1,19 +1,14 @@
 {
-    "name": "Unity.LZWarGameMap",
-    "rootNamespace": "LZ.WarGameMap.Runtime",
+    "name": "Unity.WarGameCommon",
+    "rootNamespace": "LZ.WarGameCommon",
     "references": [
-        "GUID:d8b63aba1907145bea998dd612889d6b",
-        "GUID:e0cd26848372d4e5c891c569017e11f1",
-        "GUID:15fc0a57446b3144c949da3e2b9737a9",
-        "GUID:7976a68a89a3d03409d0ba3f75d7deec"
+        "GUID:9e24947de15b9834991c9d8411ea37cf",
+        "GUID:84651a3751eca9349aac36a66bba901b"
     ],
     "includePlatforms": [
-        "Android",
         "Editor",
-        "EmbeddedLinux",
         "GameCoreScarlett",
         "GameCoreXboxOne",
-        "iOS",
         "macOSStandalone",
         "macOSStandaloneServer",
         "WindowsStandalone32",
