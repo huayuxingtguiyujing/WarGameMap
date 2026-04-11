@@ -94,7 +94,7 @@ namespace LZ.WarGameMap.Runtime {
         // River setting
         [Header("River Setting")]
         [LabelText("河流编辑数据相比大地图的缩放")]
-        public ushort paintRTSizeScale = 4;     // only editor
+        public ushort paintRTSizeScale = 1;     // only editor
 
         [LabelText("河道最大沉降")]
         public int riverDownOffset = 15;

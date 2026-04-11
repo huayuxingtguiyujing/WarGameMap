@@ -7,6 +7,7 @@ using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.Enums;
 using static LZ.WarGameMap.Runtime.TerrainMeshDataBinder;
 using LZ.WarGameMap.Runtime.Model;
+using Sirenix.OdinInspector;
 
 namespace LZ.WarGameMap.MapEditor
 {
@@ -27,7 +28,7 @@ namespace LZ.WarGameMap.MapEditor
             return Instance;
         }
 
-
+        // 各资产 SO
         static GridTerrainSO gridTerrainSO;
         public static GridTerrainSO GridTerrainSO { get { return gridTerrainSO; } }
 
@@ -44,6 +45,7 @@ namespace LZ.WarGameMap.MapEditor
         static HexSettingSO hexSet;
         public static HexSettingSO HexSet { get { return hexSet; } }
 
+        // 各 Controller
         public static TerrainConstructor TerrainCtor {  get; private set; }
         public static HexmapConstructor HexCtor { get; private set; }
         public static MapRenderConstructor RenderCtor { get; private set; }

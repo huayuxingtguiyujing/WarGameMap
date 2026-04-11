@@ -70,7 +70,7 @@ namespace LZ.WarGameMap.Runtime
         // Lazy Build : when building a cluster of terrain, we will build the riverdata exists in this cluster
         public void BuildRiverData(int clsX, int clsY)
         {
-            mapRiverData.UpdateClsExistRiverDict();
+            mapRiverData.UpdateMapRiverData();
             Vector2Int clusterID = new Vector2Int(clsX, clsY);
             List<RiverData> existRiverDatas = mapRiverData.GetClsExistRiverData(clusterID);
             foreach (var riverData in existRiverDatas)
@@ -205,7 +205,7 @@ namespace LZ.WarGameMap.Runtime
 
         public void BuildRiverMesh(int clsX, int clsY)
         {
-            mapRiverData.UpdateClsExistRiverDict();
+            mapRiverData.UpdateMapRiverData();
             Vector2Int clusterID = new Vector2Int(clsX, clsY);
             List<RiverData> existRiverDatas = mapRiverData.GetClsExistRiverData(clusterID);
             foreach (var riverData in existRiverDatas)

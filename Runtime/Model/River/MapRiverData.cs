@@ -1,4 +1,5 @@
 using Sirenix.OdinInspector;
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Jobs;
@@ -7,12 +8,6 @@ using UnityEngine;
 namespace LZ.WarGameMap.Runtime {
     using ReadOnlyAttribute = Unity.Collections.ReadOnlyAttribute;
     using RvClusterPixelDict = Dictionary<Vector2Int, List<Vector2Int>>;
-
-    public enum RiverDataFlow
-    {
-        Texture,       // 以纹理 (pixel) 的形式 保存河流数据       
-        Bezier,        // 以贝塞尔曲线的形式    保存河流数据
-    }
 
     public static class RiverPaintColor
     {
@@ -47,8 +42,7 @@ namespace LZ.WarGameMap.Runtime {
 
 
         Dictionary<Vector2Int, List<RiverData>> clusterExistRiverDict;      // Key : terrain cluster index, Value : riverdata exists in terrain cluster
-        public Dictionary<Vector2Int, List<RiverData>> ClusterExistRiverDict { get => clusterExistRiverDict; }
-
+        
 
         public void InitMapRiverData(TerrainSettingSO bindTerSet, HexSettingSO bindHexSet) {
             this.bindTerSet = bindTerSet;
@@ -60,6 +54,30 @@ namespace LZ.WarGameMap.Runtime {
             foreach (var riverData in RiverDatas)
             {
                 RiverDataDict.Add(riverData.riverID, riverData);
+            }
+            UpdateClsExistRiverDict();
+        }
+
+        private void UpdateClsExistRiverDict()
+        {
+            if (clusterExistRiverDict != null)
+            {
+                clusterExistRiverDict.Clear();
+            }
+            clusterExistRiverDict = new Dictionary<Vector2Int, List<RiverData>>();
+            foreach (var river in RiverDatas)
+            {
+                foreach (var clusterID in river.existTerrainClusterIDs)
+                {
+                    if (clusterExistRiverDict.ContainsKey(clusterID))
+                    {
+                        clusterExistRiverDict[clusterID].Add(river);
+                    }
+                    else
+                    {
+                        clusterExistRiverDict.Add(clusterID, new List<RiverData>() { river });
+                    }
+                }
             }
         }
 
@@ -84,30 +102,6 @@ namespace LZ.WarGameMap.Runtime {
         }
 
 
-        public void UpdateClsExistRiverDict()
-        {
-            if(clusterExistRiverDict != null)
-            {
-                clusterExistRiverDict.Clear();
-            }
-            clusterExistRiverDict = new Dictionary<Vector2Int, List<RiverData>>();
-            foreach (var river in RiverDatas)
-            {
-                foreach (var clusterID in river.existTerrainClusterIDs)
-                {
-                    if (clusterExistRiverDict.ContainsKey(clusterID))
-                    {
-                        clusterExistRiverDict[clusterID].Add(river);
-                    }
-                    else
-                    {
-                        clusterExistRiverDict.Add(clusterID, new List<RiverData>() { river });
-                    }
-                }
-
-            }
-        }
-
         public List<RiverData> GetClsExistRiverData(Vector2Int clusterID)
         {
             if (clusterExistRiverDict.ContainsKey(clusterID))
@@ -121,7 +115,7 @@ namespace LZ.WarGameMap.Runtime {
         }
 
 
-        #region generate river data
+        #region Generate river data
 
         struct GenRiverTexJob : IJobParallelFor
         {
@@ -141,7 +135,7 @@ namespace LZ.WarGameMap.Runtime {
             }
         }
 
-        public Texture2D GenRiverTexture(RiverDataFlow CurRiverDataFlow, TerrainSettingSO terSet)
+        public Texture2D GenRiverTexture(TerrainSettingSO terSet)
         {
             int texSize = terSet.clusterSize * terSet.terrainSize.x / terSet.paintRTSizeScale;
             Texture2D riverTex = new Texture2D(texSize, texSize, TextureFormat.RGB24, false);
@@ -152,14 +146,7 @@ namespace LZ.WarGameMap.Runtime {
             }
             foreach (var riverData in RiverDatas)
             {
-                if (CurRiverDataFlow == RiverDataFlow.Texture)
-                {
-                    GenRiverTexture_RvTex(texSize, ref riverTexData, riverData, terSet.paintRTSizeScale);
-                }
-                else if (CurRiverDataFlow == RiverDataFlow.Bezier)
-                {
-                    GenRiverTexture_RvCurve(texSize, ref riverTexData, riverData, terSet.paintRTSizeScale);
-                }
+                GenRiverTexture_RvTex(texSize, ref riverTexData, riverData, terSet.paintRTSizeScale);
             }
             riverTex.SetPixels(riverTexData.ToArray());
             riverTex.Apply();
@@ -194,6 +181,7 @@ namespace LZ.WarGameMap.Runtime {
             riverPixels.Dispose();
         }
 
+        [Obsolete]
         private void GenRiverTexture_RvCurve(int texSize, ref NativeArray<Color> riverTexData, RiverData riverData, int paintRTSizeScale)
         {
             if (riverData.curve == null)

@@ -29,6 +29,11 @@ namespace LZ.WarGameMap.MapEditor
             InitMapSetting();
         }
 
+        protected override BrushMapSetting GetBrushMapSetting()
+        {
+            return new BrushMapSetting(false, true);
+        }
+
         #region 构建地形-高度图流程
 
         [FoldoutGroup("构建地形-高度图流程")]

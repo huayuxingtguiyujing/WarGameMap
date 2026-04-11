@@ -31,6 +31,31 @@ namespace LZ.WarGameMap.MapEditor
             terrainCtor = EditorSceneManager.TerrainCtor;
         }
 
+        protected struct BrushMapSetting
+        {
+            public bool UsePaintHex;
+            public bool UsePaintTerrain;
+
+            public BrushMapSetting(bool usePaintHex, bool usePaintTerrain)
+            {
+                UsePaintHex = usePaintHex;
+                UsePaintTerrain = usePaintTerrain;
+            }
+
+            public static BrushMapSetting DefaultSetting()
+            {
+                return new BrushMapSetting(false, false);
+            }
+        }
+
+        protected virtual BrushMapSetting GetBrushMapSetting()
+        {
+            return BrushMapSetting.DefaultSetting();
+        }
+
+        public bool UsePaintHex => GetBrushMapSetting().UsePaintHex;
+        public bool UsePaintTerrain => GetBrushMapSetting().UsePaintTerrain;
+
         #region 地图信息配置
 
         [FoldoutGroup("配置scene", -10)]
@@ -62,32 +87,32 @@ namespace LZ.WarGameMap.MapEditor
         #region 涂刷 Hex 纹理
 
         [FoldoutGroup("涂刷Hexmap纹理", -9)]
-        [LabelText("允许涂刷Hex")]
+        [LabelText("允许涂刷Hex"), ShowIf("UsePaintHex")]
         [OnValueChanged("EnableBrushValueChanged")]
         public bool enableBrush;
 
         [FoldoutGroup("涂刷Hexmap纹理", -9)]
-        [LabelText("涂刷范围")]
+        [LabelText("涂刷范围"), ShowIf("UsePaintHex")]
         public int brushScope = 5;
 
         [FoldoutGroup("涂刷Hexmap纹理", -9)]
-        [LabelText("涂刷颜色")]
+        [LabelText("涂刷颜色"), ShowIf("UsePaintHex")]
         public Color brushColor = Color.blue;
 
         [FoldoutGroup("涂刷Hexmap纹理", -9)]
-        [LabelText("纹理尺寸")]
+        [LabelText("纹理尺寸"), ShowIf("UsePaintHex")]
         public int hexTexScale = 1;
 
         [FoldoutGroup("涂刷Hexmap纹理", -9)]
-        [LabelText("纹理偏移")]
+        [LabelText("纹理偏移"), ShowIf("UsePaintHex")]
         public Vector3 hexTextureOffset = new Vector3(0, 0, 0);
 
         [FoldoutGroup("涂刷Hexmap纹理", -9)]
-        [LabelText("涂刷画板所用的材质")]
+        [LabelText("涂刷画板所用的材质"), ShowIf("UsePaintHex")]
         public Material hexmapTexMaterial;
 
         [FoldoutGroup("涂刷Hexmap纹理", -9)]
-        [LabelText("HexData纹理路径"), ReadOnly]
+        [LabelText("HexData纹理路径"), ReadOnly, ShowIf("UsePaintHex")]
         public string hexmapDataPath = MapStoreEnum.TerrainHexmapDataPath;
 
         HexmapDataTexManager hexmapDataTexManager = new HexmapDataTexManager();
@@ -102,7 +127,7 @@ namespace LZ.WarGameMap.MapEditor
             ShowHideTexture(enableBrush);
         }
 
-        [FoldoutGroup("涂刷Hexmap纹理")]
+        [FoldoutGroup("涂刷Hexmap纹理"), ShowIf("UsePaintHex")]
         [Button("初始化Hex数据纹理", ButtonSizes.Medium)]
         private void InitHexmapDataTexture() {
             // TODO : generate a texture to storage the data of hex map;
@@ -112,7 +137,7 @@ namespace LZ.WarGameMap.MapEditor
                 EditorSceneManager.mapScene.hexTextureParentObj, hexmapTexMaterial, null);
         }
 
-        [FoldoutGroup("涂刷Hexmap纹理")]
+        [FoldoutGroup("涂刷Hexmap纹理"), ShowIf("UsePaintHex")]
         [Button("读取Hex数据纹理", ButtonSizes.Medium)]
         private void LoadHexmapDataTexture() {
             string hexmapImportPath = EditorUtility.OpenFilePanel("Import Hexmap Data Texture", "", "");
@@ -132,7 +157,7 @@ namespace LZ.WarGameMap.MapEditor
                 EditorSceneManager.mapScene.hexTextureParentObj, hexmapTexMaterial, null);
         }
 
-        [FoldoutGroup("涂刷Hexmap纹理")]
+        [FoldoutGroup("涂刷Hexmap纹理"), ShowIf("UsePaintHex")]
         [Button("存储Hex数据纹理", ButtonSizes.Medium)]
         private void SaveHexmapDataTexture() {
             // TODO : 这里是不是有问题？真的存到了吗？
@@ -151,7 +176,7 @@ namespace LZ.WarGameMap.MapEditor
             GameObject.DestroyImmediate(tex);
         }
 
-        [FoldoutGroup("涂刷Hexmap纹理")]
+        [FoldoutGroup("涂刷Hexmap纹理"), ShowIf("UsePaintHex")]
         [Button("清空Hex数据纹理", ButtonSizes.Medium)]
         private void ClearHexmapDataTexture() {
             // TODO : clear it! but do not delete it!
@@ -163,7 +188,6 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-        // TODO : 笔刷涂抹效果
         #region 笔刷 编辑地图
 
         class PaintTerrainEnums
@@ -172,22 +196,22 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         [FoldoutGroup("笔刷 编辑地图")]
-        [LabelText("开启涂刷")]
+        [LabelText("开启涂刷"), ShowIf("UsePaintTerrain")]
         [OnValueChanged("OnEnablePaintChanged")]
         public bool enablePaintTerrain = false;
 
         [FoldoutGroup("笔刷 编辑地图")]
-        [LabelText("涂刷范围"), Range(0, 200)]
+        [LabelText("涂刷范围"), Range(0, 200), ShowIf("UsePaintTerrain")]
         public float brushTerrainScope = 10;
 
         [FoldoutGroup("笔刷 编辑地图")]
-        [LabelText("涂刷力度"), Range(0, 100)]
+        [LabelText("涂刷力度"), Range(0, 100), ShowIf("UsePaintTerrain")]
         public float brushTerrainStrength = 0.5f;
 
         BaseBrushTool CurBrushTool = new CircleBrushTool();
 
         [FoldoutGroup("笔刷 编辑地图")]
-        [LabelText("当前笔刷")]
+        [LabelText("当前笔刷"), ShowIf("UsePaintTerrain")]
         [OnValueChanged("OnCurBrushTypeChanged")]
         public BrushToolType CurBrushType;
 
@@ -237,7 +261,6 @@ namespace LZ.WarGameMap.MapEditor
             ShowPaintScope(e.mousePosition);
         }
 
-        // TODO : 测试它
         private void ShowPaintScope(Vector3 mousePos)
         {
             if (!enablePaintTerrain)
@@ -255,7 +278,6 @@ namespace LZ.WarGameMap.MapEditor
             //GizmosUtils.DrawScope(paintCenter, brushTerrainScope, PaintTerrainEnums.BrushTerColor);
         }
 
-        // TODO : 测试它
         private void UpdatePaintTargets(Event e)
         {
             if (!enablePaintTerrain)
@@ -296,7 +318,6 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log($"Paint over, point num : {paintTargets.Count}");
         }
 
-        // TODO : 测试它
         private void HandlePaintProcess(Event e)
         {
             if (!enablePaintTerrain)
