@@ -124,7 +124,7 @@ namespace LZ.WarGameMap.Runtime
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
                     // NOTE : 这里的代码不能删！千万不能删啊
-                    float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
+                    float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint) * 500;
                     //float height = heightDataManager.SampleFromHexMap(vert);
                     //float height = 0;
 

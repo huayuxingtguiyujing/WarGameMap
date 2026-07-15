@@ -101,6 +101,10 @@ namespace LZ.WarGameMap.MapEditor
             {
                 CreateWindowObj<ResourceEditor>(MapEditorClass.GamePlayClass);
             }
+            if (!gameplayFileNames.Contains(MapEditorEnum.ArrivalTimeEditor))
+            {
+                CreateWindowObj<ArrivalTimeEditor>(MapEditorClass.GamePlayClass);
+            }
 
             // common tools
             if (!toolFileNames.Contains(MapEditorEnum.TextureToolEditor)) {
@@ -169,6 +173,7 @@ namespace LZ.WarGameMap.MapEditor
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.FactionEditor);
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.PeopleEditor);
             AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.ResourceEditor);
+            AddWinEditorAsMenuItem(tree, gamePlayWinGroup, MapEditorClass.GamePlayClass, MapEditorEnum.ArrivalTimeEditor);
 
             tree.AddAllAssetsAtPath(MapEditorClass.ToolClass, MapStoreEnum.MapWindowPath + "/" + MapEditorClass.ToolClass, typeof(BaseMapEditor), true);
 

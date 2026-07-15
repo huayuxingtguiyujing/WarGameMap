@@ -232,10 +232,10 @@ namespace LZ.WarGameMap.MapEditor
             //Debug.Log("update scene hex over!");
         }
 
-        public void LoadMapRenderer(Material mainMat, Material riverMat)
+        public void LoadMapRenderer(Material mainMat, Material terrainLandformMat, Material riverMat)
         {
             RenderCtor.InitMapRenderCons(terSet, hexSet, mapSet, gridTerrainSO, countrySO);
-            RenderCtor.InitMaterial(mainMat, riverMat);
+            RenderCtor.InitMaterial(mainMat, terrainLandformMat, riverMat);
         }
 
 

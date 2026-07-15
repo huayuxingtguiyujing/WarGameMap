@@ -52,8 +52,7 @@ namespace LZ.WarGameMap.MapEditor
         [Button("生成地貌图集", ButtonSizes.Medium)]
         private void GenerateTexSplat() {
             if (terrainTexSplat != null) {
-                Debug.LogError("already exist texture splat，please clean before generate");
-                return;
+                GameObject.DestroyImmediate(terrainTexSplat);
             }
             
             int texSize = baseResolution / 4;
@@ -79,7 +78,7 @@ namespace LZ.WarGameMap.MapEditor
                 }
                 terrainTexSplat.Apply();
             }
-            Debug.LogError("texture splat generate successfully！");
+            Debug.Log("texture splat generate successfully！");
         }
 
         private Color GetPixelColor(int rowNum, int columnNum, Texture2D oriTex) {

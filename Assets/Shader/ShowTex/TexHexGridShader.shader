@@ -8,6 +8,7 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
         _HexGridSize("Hex Grid Size", Range(1, 30)) = 20
         _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0, 1)) = 0.1     // HexOutline need, control the aphla of hex outline rect
         _HexGridEdgeStartLerp("Hex Grid Edge StartLerp", Range(0, 0.95)) = 0.9     // HexOutline need, control the ratio of hex outline rect
+        _GlobalAlpha("Global Alpha", Range(0, 1)) = 1.0
 
         _HexGridTexture("Hex Grid Texture", 2D) = "white" {}
     }
@@ -32,6 +33,7 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
             sampler _HexGridTexture;
             float4 _HexGridTexture_ST;
             float4 _HexGridTexture_TexelSize;
+            float _GlobalAlpha;
 
 
             struct appdata
@@ -72,7 +74,7 @@ Shader "WarGameMap/Terrain/ShowTex/HexGridShader"
                 half3 gridColor = tex2D(_HexGridTexture, hex_uv);
                 // return half4(gridColor, c.a);
                 float3 outlineColor = GetHexOutlineColor(i.worldPos, gridColor);
-                return float4(outlineColor, 1); //  finalColor.a;
+                return float4(outlineColor, _GlobalAlpha);
             }
             
             ENDCG

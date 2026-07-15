@@ -60,11 +60,16 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
+            // TIF File Sample: n32_e109_1arc_v3.tif
+            // Remove offset of tif longitude and latitude, because the tif file is not start from (0, 0)
+            int baseLatitude = 32;
+            int baseLongitude = 109;
+
             // Read the tif file, get longitude and latitude, write to this output file
             Match matchLatitude = Regex.Match(tifFileInfo[0], @"^[a-zA-Z]+(\d+)$");
-            latitude = int.Parse(matchLatitude.Groups[1].Value);
+            latitude = int.Parse(matchLatitude.Groups[1].Value) - baseLatitude;
             Match matchLongitude = Regex.Match(tifFileInfo[1], @"^[a-zA-Z]+(\d+)$");
-            longitude = int.Parse(matchLongitude.Groups[1].Value);
+            longitude = int.Parse(matchLongitude.Groups[1].Value) - baseLongitude;
         }
 
         private void SetGridTerrainHeightInfo(string inputFileName)

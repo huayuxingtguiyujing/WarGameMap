@@ -120,18 +120,23 @@ float2 GetHexEdgeCenter(float3 cubePos, float _HexGridSize, float idx){
     return edgeCenter;
 }
 
-// hex area : 
+// hex area : 取方向时以此为准
 //          
 //       / \
 //      /   \
-// NW-1/     \NE-2
+// NW-4/     \NE-5
 //    |       |
-// W-0|       |E-3
+// W-3|       |E-0
 //    |       |
-// SW-5\     /SE-4
+// SW-2\     /SE-1
 //      \   /
 //       \ /
 //        
+//     unity scene world xz dir：
+//          z
+//          |
+//          |
+//          -——> x
 // W  NW  NE  E  SE  SW
 //
 static const float2 OffsetHexOddNeighbor[6] = {
@@ -144,12 +149,11 @@ static const float2 OffsetHexEvenNeighbor[6] = {
     {-1, 0}, {-1, 1}, {0, 1}
 };
 
+// NOTE ：结合上方注释理解，如果你需要获取W方向的邻居，则direction传入3，如果要获取E方向，则传入0，以此类推
 float2 GetOffsetHexNeighbor(float2 offsetHex, int direction, float _HexGridSize){
     int row = (int)offsetHex.y;
     int isOdd = row & 1;
     int dir = ((direction % 6) + 6) % 6;
-    // return offsetHex + OffsetHexEvenNeighbor[3];
-    // dir = 5;
     if (isOdd == 1)
     {
         // 奇行 -> 使用为奇行准备的偏移表（名字可能是 EvenNeighbor / OddNeighbor，取决于你数组定义）
@@ -173,9 +177,9 @@ void GetOffsetHexNeighbour(float2 offsetHex, out float2 neighbour[6]){
 // TODO : WorldToCube 有问题
 int GetOffsetHexArea(float3 worldPos, float2 offsetHex, float _HexGridSize){
     // firstly get distance to hex center : 
-    float3 cubePos = WorldToCube(float3(worldPos.x, 0, worldPos.z), _HexGridSize);
+    // float3 cubePos = WorldToCube(float3(worldPos.x, 0, worldPos.z), _HexGridSize);
     float2 worldXZ = float2(worldPos.x, worldPos.z);
-    float2 hexCenter = CubeToWorldXZ(cubePos, _HexGridSize);
+    float2 hexCenter = OffsetToWorldXZ(offsetHex, _HexGridSize);    // cubePos
 
     // get the area idx where the worldXZ in
     float angleDeg = GetDegrees(worldXZ - hexCenter);
@@ -212,17 +216,13 @@ int GetOffsetHexArea(float3 worldPos, float2 offsetHex, float _HexGridSize){
 
 // get the ratio of point to center, return a ratio (0 ~ 1.0)
 float GetRatioToHexEdge(float3 worldPos, float _HexGridSize){
-    // firstly get distance to hex center : 
     float3 cubePos = WorldToCube(float3(worldPos.x, 0, worldPos.z), _HexGridSize);
     float2 worldXZ = float2(worldPos.x, worldPos.z);
     float2 hexCenter = CubeToWorldXZ(cubePos, _HexGridSize);
 
-    // get the area idx where the worldXZ in
     float angleDeg = GetDegrees(worldXZ - hexCenter);
     float mappedIdx = floor((angleDeg + 30.0) / 60.0);
 
-    // TODO : 后续要处理下处于边界点（或者area交界处）的情况
-    // get the two hex corner, and start caculate distance finally we get ratio
     int curIdx = fmod(mappedIdx - 1 + 6, 6);    
     int nextIdx = fmod(mappedIdx + 6, 6);
     float2 curCorner = GetHexCorner(cubePos, _HexGridSize, curIdx);
@@ -232,11 +232,25 @@ float GetRatioToHexEdge(float3 worldPos, float _HexGridSize){
     float distance_center_edge = DistancePointToLine(hexCenter, curCorner, nextCorner);
 
     return (distance_center_edge - distance_pos_edge) / distance_center_edge;
+}
 
-    // it is same as upside
-    // float2 edgeCenter = GetHexEdgeCenter(cubePos, _HexGridSize, mappedIdx);
-    // float2 mappedPos = ProjectPointOnSegment(worldXZ, hexCenter, edgeCenter);
-    // return distance(mappedPos, hexCenter) / distance(edgeCenter, hexCenter);
+float GetRatioToHexEdge(float3 worldPos, float2 offsetHex, float _HexGridSize){
+    float3 cubePos = OffsetCoordToCube(float3(offsetHex.x, offsetHex.y, 0));
+    float2 worldXZ = float2(worldPos.x, worldPos.z);
+    float2 hexCenter = CubeToWorldXZ(cubePos, _HexGridSize);
+
+    float angleDeg = GetDegrees(worldXZ - hexCenter);
+    float mappedIdx = floor((angleDeg + 30.0) / 60.0);
+
+    int curIdx = fmod(mappedIdx - 1 + 6, 6);    
+    int nextIdx = fmod(mappedIdx + 6, 6);
+    float2 curCorner = GetHexCorner(cubePos, _HexGridSize, curIdx);
+    float2 nextCorner = GetHexCorner(cubePos, _HexGridSize, nextIdx);
+
+    float distance_pos_edge = DistancePointToLine(worldXZ, curCorner, nextCorner);
+    float distance_center_edge = DistancePointToLine(hexCenter, curCorner, nextCorner);
+
+    return (distance_center_edge - distance_pos_edge) / distance_center_edge;
 }
 
 float GetDistToHexCenter(float3 worldPos, float _HexGridSize){

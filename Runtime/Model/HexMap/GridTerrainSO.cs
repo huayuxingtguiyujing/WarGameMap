@@ -11,35 +11,35 @@ namespace LZ.WarGameMap.Runtime
 {
     public class BaseGridTerrain
     {
-        //public static GridTerrainLayer SeaLayer =       new GridTerrainLayer(0, "º£Ñó²ã", "", true);
-        public static GridTerrainLayer BaseLayer =      new GridTerrainLayer(0, "»ù±¾µØÃ²²ã", "", true);
-        public static GridTerrainLayer LandformLayer =  new GridTerrainLayer(1, "µş¼ÓµØÃ²²ã", "", true);
-        public static GridTerrainLayer DecorateLayer =  new GridTerrainLayer(2, "×°ÊÎ²ã", "", true);
-        public static GridTerrainLayer DynamicLayer =   new GridTerrainLayer(3, "¶¯Ì¬²ã", "", true);
+        //public static GridTerrainLayer SeaLayer =       new GridTerrainLayer(0, "ï¿½ï¿½ï¿½ï¿½ï¿½", "", true);
+        public static GridTerrainLayer BaseLayer =      new GridTerrainLayer(0, "ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã²ï¿½ï¿½", "", true);
+        public static GridTerrainLayer LandformLayer =  new GridTerrainLayer(1, "ï¿½ï¿½ï¿½Óµï¿½Ã²ï¿½ï¿½", "", true);
+        public static GridTerrainLayer DecorateLayer =  new GridTerrainLayer(2, "×°ï¿½Î²ï¿½", "", true);
+        public static GridTerrainLayer DynamicLayer =   new GridTerrainLayer(3, "ï¿½ï¿½Ì¬ï¿½ï¿½", "", true);
 
-        public static GridTerrainType ShallowSeaType =  new GridTerrainType(0, "ShallowSea", "Ç³º£", new Color(0.125f, 0.698f, 0.667f, 1.0f), true);
-        public static GridTerrainType DeepSeaType =     new GridTerrainType(0, "DeepSea", "Éîº£", new Color(0, 0.47f, 0.62f, 1.0f), true);
+        public static GridTerrainType ShallowSeaType =  new GridTerrainType(0, "ShallowSea", "Ç³ï¿½ï¿½", new Color(0.125f, 0.698f, 0.667f, 1.0f), true);
+        public static GridTerrainType DeepSeaType =     new GridTerrainType(0, "DeepSea", "ï¿½îº£", new Color(0, 0.47f, 0.62f, 1.0f), true);
         public static GridTerrainType PlainType =       new GridTerrainType(0, "Plain",     "Æ½Ô­",   new Color(0.55f, 0.75f, 0.45f, 1.0f), true);
-        public static GridTerrainType HillType =        new GridTerrainType(0, "Hill",      "ÇğÁê",   new Color(0.40f, 0.60f, 0.30f, 1.0f), true);
-        public static GridTerrainType MountainType =    new GridTerrainType(0, "Mountain",  "É½Âö",   new Color(0.50f, 0.45f, 0.40f, 1.0f), true);
-        public static GridTerrainType PlateauType =     new GridTerrainType(0, "Plateau",   "¸ßÔ­",   new Color(0.70f, 0.60f, 0.35f, 1.0f), true);
-        public static GridTerrainType SnowType =        new GridTerrainType(0, "Snow",      "Ñ©µØ",   new Color(1, 1, 1, 1.0f), true);
+        public static GridTerrainType HillType =        new GridTerrainType(0, "Hill",      "ï¿½ï¿½ï¿½ï¿½",   new Color(0.40f, 0.60f, 0.30f, 1.0f), true);
+        public static GridTerrainType MountainType =    new GridTerrainType(0, "Mountain",  "É½ï¿½ï¿½",   new Color(0.50f, 0.45f, 0.40f, 1.0f), true);
+        public static GridTerrainType PlateauType =     new GridTerrainType(0, "Plateau",   "ï¿½ï¿½Ô­",   new Color(0.70f, 0.60f, 0.35f, 1.0f), true);
+        public static GridTerrainType SnowType =        new GridTerrainType(0, "Snow",      "Ñ©ï¿½ï¿½",   new Color(1, 1, 1, 1.0f), true);
 
-        public static GridTerrainType TropicalType = new GridTerrainType(1, "Tropical", "ÈÈ´ø", new Color(0.90f, 0.75f, 0.30f, 1), true);
-        public static GridTerrainType SubtropicsType = new GridTerrainType(1, "Subtropics", "ÑÇÈÈ´ø", new Color(0.78f, 0.85f, 0.40f, 1), true);
-        public static GridTerrainType TemperateType = new GridTerrainType(1, "Temperate", "ÎÂ´ø", new Color(0.65f, 0.80f, 0.55f, 1), true);
-        public static GridTerrainType CoastType = new GridTerrainType(1, "Coast", "º£°¶", new Color(0.85f, 0.90f, 0.65f, 1), true);
+        public static GridTerrainType TropicalType = new GridTerrainType(1, "Tropical", "ï¿½È´ï¿½", new Color(0.90f, 0.75f, 0.30f, 1), true);
+        public static GridTerrainType SubtropicsType = new GridTerrainType(1, "Subtropics", "ï¿½ï¿½ï¿½È´ï¿½", new Color(0.78f, 0.85f, 0.40f, 1), true);
+        public static GridTerrainType TemperateType = new GridTerrainType(1, "Temperate", "ï¿½Â´ï¿½", new Color(0.65f, 0.80f, 0.55f, 1), true);
+        public static GridTerrainType CoastType = new GridTerrainType(1, "Coast", "ï¿½ï¿½ï¿½ï¿½", new Color(0.85f, 0.90f, 0.65f, 1), true);
         public static GridTerrainType SandType = new GridTerrainType(1, "Sand", "É³Ä®", new Color(0.92f, 0.78f, 0.68f, 1), true);
-        //public static GridTerrainType SandType = new GridTerrainType(1, "Sand", "ºş²´", new Color(0.92f, 0.78f, 0.68f, 1), true);
+        //public static GridTerrainType SandType = new GridTerrainType(1, "Sand", "ï¿½ï¿½ï¿½ï¿½", new Color(0.92f, 0.78f, 0.68f, 1), true);
 
-        public static GridTerrainType WetlandType = new GridTerrainType(2, "Wetland", "ÊªµØ", new Color(0.30f, 0.55f, 0.45f, 1), true);
-        public static GridTerrainType ForestType = new GridTerrainType(2, "Forest", "É­ÁÖ", new Color(0.20f, 0.50f, 0.25f, 1), true);
-        public static GridTerrainType FarmlandType = new GridTerrainType(2, "Farmland", "Å©Ìï", new Color(0.80f, 0.75f, 0.45f, 1), true);
-        public static GridTerrainType TownType = new GridTerrainType(2, "Town", "´åÕò", new Color(0.70f, 0.60f, 0.55f, 1), true);
-        public static GridTerrainType CityType = new GridTerrainType(2, "City", "³ÇÊĞ", new Color(0.55f, 0.55f, 0.65f, 1), true);
+        public static GridTerrainType WetlandType = new GridTerrainType(2, "Wetland", "Êªï¿½ï¿½", new Color(0.30f, 0.55f, 0.45f, 1), true);
+        public static GridTerrainType ForestType = new GridTerrainType(2, "Forest", "É­ï¿½ï¿½", new Color(0.20f, 0.50f, 0.25f, 1), true);
+        public static GridTerrainType FarmlandType = new GridTerrainType(2, "Farmland", "Å©ï¿½ï¿½", new Color(0.80f, 0.75f, 0.45f, 1), true);
+        public static GridTerrainType TownType = new GridTerrainType(2, "Town", "ï¿½ï¿½ï¿½ï¿½", new Color(0.70f, 0.60f, 0.55f, 1), true);
+        public static GridTerrainType CityType = new GridTerrainType(2, "City", "ï¿½ï¿½ï¿½ï¿½", new Color(0.55f, 0.55f, 0.65f, 1), true);
 
-        public static GridTerrainType WastelandType = new GridTerrainType(3, "Wasteland", "·ÏÍÁ", new Color(0.70f, 0.55f, 0.35f, 1), true);
-        public static GridTerrainType FloodingType = new GridTerrainType(3, "Flooding", "ºéÀÔ", new Color(0.15f, 0.50f, 0.75f, 1), true);
+        public static GridTerrainType WastelandType = new GridTerrainType(3, "Wasteland", "ï¿½ï¿½ï¿½ï¿½", new Color(0.70f, 0.55f, 0.35f, 1), true);
+        public static GridTerrainType FloodingType = new GridTerrainType(3, "Flooding", "ï¿½ï¿½ï¿½ï¿½", new Color(0.15f, 0.50f, 0.75f, 1), true);
 
 
         public static bool IsMountain(GridTerrainType type1)
@@ -86,8 +86,8 @@ namespace LZ.WarGameMap.Runtime
     }
 
     // Storage the setting of GridTerrain
-    // Terrain layers : µØĞÎµÄ²ã¼¶
-    // Terrain types : µØĞÎµÄÖÖÀà
+    // Terrain layers : åœ°å½¢çš„å±‚çº§
+    // Terrain types : åœ°å½¢çš„ç§ç±»
     // Grid Terrain : cv like map, hold all grid's terrainData in hex map
     // Size of HexMap : 3000 * 3000, need lazy load
     public class GridTerrainSO : ScriptableObject
@@ -112,13 +112,13 @@ namespace LZ.WarGameMap.Runtime
         }
 
         [Header(" TerrainLayer TerrainType Data ")]
-        [LabelText("µ±Ç°µØĞÎ²ãÊıÄ¿")]
+        [LabelText("å½“å‰åœ°å½¢å±‚æ•°ç›®")]
         public int CurLayerNum;
 
-        [LabelText("µØĞÎ²ã¼¶ÁĞ±í")]
+        [LabelText("åœ°å½¢å±‚çº§åˆ—è¡¨")]
         public List<GridTerrainLayer> GridTerrainLayerList = new List<GridTerrainLayer>();
 
-        [LabelText("µØĞÎÖÖÀàÁĞ±í")]
+        [LabelText("åœ°å½¢ç§ç±»åˆ—è¡¨")]
         public List<GridTerrainType> GridTerrainTypeList = new List<GridTerrainType>();
 
 
@@ -145,24 +145,24 @@ namespace LZ.WarGameMap.Runtime
         // Hex map grid offset coord -> mountain id dict
         Dictionary<Vector2Int, int> GridOffset_MountainID_Dict = new Dictionary<Vector2Int, int>();
 
-        [LabelText("hexµØÍ¼¿í¶È"), ReadOnly]
+        [LabelText("hexåœ°å›¾å®½åº¦"), ReadOnly]
         public int MountainCounter = 1;
 
 
         // Hex Grid Terrain Data
         [Header(" Hex Grid Terrain Data ")]
-        [LabelText("hexµØÍ¼¿í¶È"), ReadOnly]
+        [LabelText("hexåœ°å›¾å®½åº¦"), ReadOnly]
         public int mapWidth;
 
-        [LabelText("hexµØÍ¼¸ß¶È"), ReadOnly]
-        [Tooltip("ÓÉhexsetting¾ö¶¨£¬ÎğÒª¸ü¸Ä")]
+        [LabelText("hexåœ°å›¾é«˜åº¦"), ReadOnly]
+        [Tooltip("ç”±hexsettingå†³å®šï¼Œå‹¿è¦æ›´æ”¹")]
         public int mapHeight;
 
-        [LabelText("µØĞÎ¸ñ-ÀàĞÍ ÁĞ±í")]
+        [LabelText("åœ°å½¢æ ¼-ç±»å‹ åˆ—è¡¨")]
         public List<GridTerrainData> HexmapGridTerDataList;   // TODO : lazy load   // TODO : UNCOMPLETE
 
-        [LabelText("µØĞÎ¸ñ-ÀàĞÍË÷Òı ÁĞ±í")]
-        public List<uint4> HexmapGridTerTypeList = new List<uint4>();           // uint3x3 : type[0] - layer 0, type[1] - layer 1 (»ù±¾µØĞÎ²ã), ÒÔ´ËÀàÍÆ
+        [LabelText("åœ°å½¢æ ¼-ç±»å‹ç´¢å¼• åˆ—è¡¨")]
+        public List<uint4> HexmapGridTerTypeList = new List<uint4>();           // uint4 : type[x][0] - x grid's layer 0, type[x][1] - x grid's  layer 1 (åŸºæœ¬åœ°å½¢å±‚), ä»¥æ­¤ç±»æ¨
 
 
         public int GridCount => HexmapGridTerDataList.Count;
@@ -394,7 +394,7 @@ namespace LZ.WarGameMap.Runtime
                 mountain.SaveMountainGrid();
             }
         }
-        // TODO : ÏÖÔÚµÄÉ½Âö±à¼­ÎŞ·¨±à¼­µ½ Ã¿¸ö¸ñ×ÓµÄ mountainID £¡£¡£¡µ½gridTerrainEditorÖĞ¸Ä
+        // TODO : ç°åœ¨çš„å±±è„‰ç¼–è¾‘æ— æ³•ç¼–è¾‘åˆ° æ¯ä¸ªæ ¼å­çš„ mountainID ï¼ï¼ï¼åˆ°gridTerrainEditorä¸­æ”¹
         public MountainData GetMountainData(int mountainID)
         {
             if (!MountainID_DataDict.ContainsKey(mountainID))
@@ -490,6 +490,28 @@ namespace LZ.WarGameMap.Runtime
                 return MapColorUtil.NotValidColor;
             }
             return GridTerrainTypeList[i].terrainEditColor;
+        }
+
+        // æ ¹æ® terrainEditColor åå‘æŸ¥æ‰¾åœ¨ GridTerrainTypeList ä¸­çš„ index
+        // å‰ç½®æ¡ä»¶ï¼šæ‰€æœ‰ GridTerrainType.terrainEditColor å”¯ä¸€
+        // ç”¨é€”ï¼šä»é¢œçº¹ç†åæŸ¥åœ°å½¢ IDï¼ˆå¦‚ä» GenGridEditSimple å¯¼å‡ºçš„ PNG æ¢å¤ typeIdxï¼‰
+        public byte FindTerrainTypeIdxByColor(Color c)
+        {
+            for (byte i = 0; i < GridTerrainTypeList.Count; i++)
+            {
+                if (ColorApproximately(GridTerrainTypeList[i].terrainEditColor, c))
+                    return i;
+            }
+            return 0;  // fallback: ShallowSea
+        }
+
+        private static bool ColorApproximately(Color a, Color b)
+        {
+            const float epsilon = 0.004f; // 1/255 â‰ˆ 0.0039, åŠ ç‚¹ä½™é‡
+            return Mathf.Abs(a.r - b.r) < epsilon
+                && Mathf.Abs(a.g - b.g) < epsilon
+                && Mathf.Abs(a.b - b.b) < epsilon
+                && Mathf.Abs(a.a - b.a) < epsilon;
         }
 
         public bool GetGridCanCountry(Vector2Int offsetHex)

@@ -54,6 +54,9 @@ namespace LZ.WarGameMap.MapEditor {
         public static string ResourceEditor = "资源编辑";
 
         public static string CityEditor = "城镇编辑";       // TODO : 待建！
+
+        // ArrivalTime 特供 Editor
+        public static string ArrivalTimeEditor = "ArrivalTime编辑";
         
         // 通用工具
         public static string TextureToolEditor = "地形纹理编辑工具";

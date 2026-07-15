@@ -516,11 +516,11 @@ namespace LZ.WarGameMap.MapEditor
         [LabelText("导出位置")]
         public string exportHexMapDataPath = MapStoreEnum.GamePlayGridTerrainTexDataPath;
 
-        // NOTE : 生成之后，手动将所有纹理调成:
+        // NOTE : 生成之后，需要手动将所有纹理调成:
         // Non-Power of 2 : None
         // Read/Write : true
         [FoldoutGroup("格子地形纹理导出")]
-        [Button("生成并保存 格子地形纹理图", ButtonSizes.Medium)]
+        [Button("生成并保存 格子地形纹理图（大地图地形地貌）", ButtonSizes.Medium)]
         private void GenGridEdit()
         {
             int genTexNum = longitudeAndLatitudes.Count;
@@ -602,6 +602,63 @@ namespace LZ.WarGameMap.MapEditor
             }
             stopwatch.Stop();
             Debug.Log($"Gen grid terrain texture num : {genTexNum}, cost : {stopwatch.ElapsedMilliseconds}");
+
+            AssetDatabase.Refresh();
+        }
+
+        [FoldoutGroup("格子地形纹理导出")]
+        [Button("生成并保存 格子地形纹理图（简略版-单文件）", ButtonSizes.Medium)]
+        private void GenGridEditSimple()
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            int mapWidth = gridTerrainSO.mapWidth;
+            int mapHeight = gridTerrainSO.mapHeight;
+
+            string[] layerNameStrs = new string[4];
+            for (int l = 0; l < 4; l++)
+            {
+                layerNameStrs[l] = gridTerrainSO.GridTerrainLayerList[l].layerName;
+            }
+
+            DateTime dateTime = DateTime.Now;
+            string timestamp = dateTime.Ticks.ToString();
+
+            for (int layer = 0; layer < 4; layer++)
+            {
+                Texture2D gridTerrainTex = new Texture2D(mapWidth, mapHeight, TextureFormat.RGBA32, false);
+                Color[] colors = new Color[mapWidth * mapHeight];
+
+                for (int col = 0; col < mapWidth; col++)
+                {
+                    for (int row = 0; row < mapHeight; row++)
+                    {
+                        int idx = col * mapWidth + row;
+                        if (idx >= 0 && idx < gridTerrainSO.HexmapGridTerTypeList.Count)
+                        {
+                            var gridData = gridTerrainSO.HexmapGridTerTypeList[idx];
+                            byte typeIdx = (byte)gridData[layer];
+                            colors[idx] = gridTerrainSO.GetGridTerrainTypeColorByIdx(typeIdx);
+                        }
+                        else
+                        {
+                            colors[idx] = MapColorUtil.NotValidColor;
+                        }
+                    }
+                }
+
+                gridTerrainTex.SetPixels(colors);
+                gridTerrainTex.Apply();
+
+                string texName = string.Format("GridTerrain_{0}_{1}", layerNameStrs[layer], timestamp);
+                TextureUtility.SaveTextureAsAsset(exportHexMapDataPath, texName, gridTerrainTex);
+
+                GameObject.DestroyImmediate(gridTerrainTex);
+            }
+
+            stopwatch.Stop();
+            Debug.Log($"Gen simple grid terrain 4 layers, cost: {stopwatch.ElapsedMilliseconds}ms");
 
             AssetDatabase.Refresh();
         }

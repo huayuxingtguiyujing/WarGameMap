@@ -64,6 +64,8 @@ namespace LZ.WarGameMap.MapEditor
             gridTerrainSO = EditorSceneManager.GridTerrainSO;
             countrySO = EditorSceneManager.CountrySO;
 
+            EditorSceneManager.GetInstance().LoadMapRenderer(mainMaterial, terrainLandformMat, riverMaterial);
+
             base.InitEditor();
         }
 
@@ -81,6 +83,10 @@ namespace LZ.WarGameMap.MapEditor
         [FoldoutGroup("Editor 场景配置")]
         [LabelText("地图主材质")]
         public Material mainMaterial;
+
+        [FoldoutGroup("Editor 场景配置")]
+        [LabelText("地貌材质")]
+        public Material terrainLandformMat;
 
         [FoldoutGroup("Editor 场景配置")]
         [LabelText("河流材质")]
@@ -134,7 +140,7 @@ namespace LZ.WarGameMap.MapEditor
 
             EditorSceneManager.GetInstance().LoadHexScene(hexMaterial);
 
-            EditorSceneManager.GetInstance().LoadMapRenderer(mainMaterial, riverMaterial);
+            EditorSceneManager.GetInstance().LoadMapRenderer(mainMaterial, terrainLandformMat, riverMaterial);
 
             stopwatch.Stop();
             Debug.Log($"init scene manager ter scene successfully! cost {stopwatch.ElapsedMilliseconds} ms");
