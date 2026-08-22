@@ -9,16 +9,22 @@ namespace LZ.WarGameMap.Runtime
     [Serializable]
     public struct RiveStartData
     {
-        [HorizontalGroup("RiveStartData"), LabelText("ºÓÁ÷ÆğµãµØ¿é")]
+        [HorizontalGroup("RiveStartData"), LabelText("èµ·ç‚¹åœ°å—")]
         public Vector2Int rvStartClsID;
 
-        [HorizontalGroup("RiveStartData"), LabelText("ºÓÁ÷ÆğµãÎ»ÖÃ")]
+        [HorizontalGroup("RiveStartData"), LabelText("èµ·ç‚¹åœ°ç†ä½ç½®")]
         public Vector2Int riverStart;   // pixel pos in painted rt
 
         public RiveStartData(Vector2Int rvStartClsID, Vector2Int riverStart)
         {
             this.rvStartClsID = rvStartClsID;
             this.riverStart = riverStart;
+        }
+
+        public bool IsValid()
+        {
+            return rvStartClsID.x >= 0 && rvStartClsID.y >= 0
+                && riverStart.x >= 0 && riverStart.y >= 0;
         }
     }
 
@@ -39,8 +45,7 @@ namespace LZ.WarGameMap.Runtime
 
         public List<Vector2Int> pixels;
 
-        Dictionary<Vector2Int, List<Vector2Int>> pixelDict;
-
+        Dictionary<Vector2Int, List<Vector2Int>> pixelDict = new Dictionary<Vector2Int, List<Vector2Int>>();
 
         public List<Vector2Int> existTerrainClusterIDs;
 
@@ -77,11 +82,11 @@ namespace LZ.WarGameMap.Runtime
             {
                 pixelDict.Add(clusterID, new List<Vector2Int>());
             }
-            // NOTE : ×öÕâ¸öĞŞÕı£¬ÊÇÎªÁËÈÃ dictÀïÃæ´æ´¢µÄ pixel ¶ÔÓ¦µÄÊÇ »æÖÆºÓÁ÷ËùÊ¹ÓÃµÄÎÆÀí
-            // ÎªÁË½ÚÊ¡´æ´¢¿Õ¼ä£¬»æÖÆºÓÁ÷ËùÊ¹ÓÃµÄÎÆÀí»áÓĞÒ»¸öÏà±ÈÓÚ´óµØÍ¼µÄËõ·ÅÖµ
+            // NOTE : åšè¿™ä¸ªä¿®æ­£ï¼Œæ˜¯ä¸ºäº†è®© dicté‡Œé¢å­˜å‚¨çš„ pixel å¯¹åº”çš„æ˜¯ ç»˜åˆ¶æ²³æµæ‰€ä½¿ç”¨çš„çº¹ç†
+            // ä¸ºäº†èŠ‚çœå­˜å‚¨ç©ºé—´ï¼Œç»˜åˆ¶æ²³æµæ‰€ä½¿ç”¨çš„çº¹ç†ä¼šæœ‰ä¸€ä¸ªç›¸æ¯”äºå¤§åœ°å›¾çš„ç¼©æ”¾å€¼
             foreach (Vector2Int pixel in pixels)
             {
-                //Vector2Int clusterID = new Vector2Int(pixel.x / clusterSize, pixel.y / clusterSize);    // ÎªÊ²Ã´ÊÇ·´µÄ£¿£¿£¿
+                //Vector2Int clusterID = new Vector2Int(pixel.x / clusterSize, pixel.y / clusterSize);    // ä¸ºä»€ä¹ˆæ˜¯åçš„ï¼Ÿï¼Ÿï¼Ÿ
                 //Vector2Int inclsPos = new Vector2Int(pixel.y % clusterSize, pixel.x % clusterSize);
                 //Vector2Int rvPixelPos = inclsPos / paintRTSizeScale;
 

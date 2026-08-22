@@ -38,7 +38,7 @@ namespace LZ.WarGameMap.MapEditor
             FindOrCreateSO<CountrySO>(ref countrySO, MapStoreEnum.GamePlayCountryDataPath, $"CountrySO_{hexSet.mapWidth}x{hexSet.mapHeight}.asset");
             countrySO.InitCountrySO(hexSet.mapWidth, hexSet.mapHeight);
 
-            // TODO : ÒÔºó countrySO ºÍ gridTerrainSO µÄ³õÊ¼»¯¶¼Òª·Åµ½±à¼­Æ÷µÄÆäËûµØ·½£¡
+            // TODO : ä»¥å countrySO è·Ÿ gridTerrainSO çš„åˆå§‹åŒ–è¦æ”¾åˆ°ç¼–è¾‘å™¨åˆå§‹åŒ–çš„åœ°æ–¹
             gridTerrainSO = EditorSceneManager.GridTerrainSO;
             gridTerrainSO.UpdateTerSO(hexSet.mapWidth, hexSet.mapHeight);
         }
@@ -63,6 +63,10 @@ namespace LZ.WarGameMap.MapEditor
             CurEditingChildCountryData.Clear();
             // When inited, show root layer's countryData
             ShowChildCountryEvent(BaseCountryDatas.RootLayerIndex, BaseCountryDatas.RootLayerName, BaseCountryDatas.NotValidCountryName, true);
+
+            // CountryEditor ç»˜åˆ¶æ—¶ï¼Œä¼šå…è®¸å¯¹æ‰€æœ‰ cache page è¿›è¡Œæ¶‚åˆ·
+            // TODO : ä½†åç»­å¯èƒ½è¦æ”¹åŠ¨
+            LockBrushCacheIdx(new bool[4] { false, false, false, false });
         }
 
         private List<CountryData> GetCountryDataByParentEvent(int parentLayerLevel)
@@ -115,13 +119,22 @@ namespace LZ.WarGameMap.MapEditor
                 childCountryData = countrySO.GetChildCountryData(curCountryData);
             }
 
-            // Deep copy, Add child countryData
+            // Deep copy, Add child countryData, deduplicate by IndexInLayer
+            var seenIndices = new HashSet<ushort>(childCountryData.Count);
             for (int i = 0; i < childCountryData.Count; i++)
             {
-                CurEditingChildCountryData.Add(new CountryDataWrapper(childCountryData[i], DeleteCountryDataEvent, UpdateLockEvent));
+                var cd = childCountryData[i];
+                if (!seenIndices.Add(cd.IndexInLayer))
+                {
+                    Debug.LogWarning(
+                        $"CountryEditor: çˆ¶åŒºåŸŸ \"{CurCountryDataName}\" çš„ ChildCountry åˆ—è¡¨ä¸­å­˜åœ¨é‡å¤ IndexInLayer={cd.IndexInLayer}ï¼Œ" +
+                        $"å­åŒºåŸŸåç§°=\"{cd.CountryName}\"ï¼Œå·²è‡ªåŠ¨è·³è¿‡é‡å¤é¡¹ã€‚è¯·æ£€æŸ¥ {countrySO.name} çš„æ•°æ®ã€‚");
+                    continue;
+                }
+                CurEditingChildCountryData.Add(new CountryDataWrapper(cd, DeleteCountryDataEvent, UpdateLockEvent));
             }
 
-            // Reset rear filter's CurCountryName as "ÎŞ"
+            // Reset rear filter's CurCountryName as "æ— "
             for(int i = 0; i < CountryLayerFilter.Count; i++)
             {
                 if (CountryLayerFilter[i].LayerLevel > LayerLevel)
@@ -246,7 +259,7 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        // TODO : ĞèÒªĞÔÄÜÓÅ»¯...ÏÖÔÚÓĞµãÂıÁË
+        // TODO : éœ€è¦åç»­ä¼˜åŒ–... é‡Œé¢çš„é€»è¾‘
         protected override void PostBuildHexGridMap() 
         {
             int mapWidth = hexSet.mapWidth;
@@ -303,30 +316,30 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
         
-        #region ÇøÓòÊı¾İ±à¼­
+        #region åŒºåŸŸæ•°æ®ç¼–è¾‘
 
-        [FoldoutGroup("ÇøÓòÊı¾İ±à¼­")]
-        [LabelText("ÇøÓòÊı¾İSO"), ReadOnly]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®ç¼–è¾‘")]
+        [LabelText("åŒºåŸŸæ•°æ®SO"), ReadOnly]
         public CountrySO countrySO;     // SerializedScriptableObject
 
-        [FoldoutGroup("ÇøÓòÊı¾İ±à¼­")]
-        [LabelText("¸ñ×ÓµØĞÎSO"), ReadOnly]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®ç¼–è¾‘")]
+        [LabelText("æ ¼å­åœ°å½¢SO"), ReadOnly]
         public GridTerrainSO gridTerrainSO;
 
         [Serializable]
         public class CountryLayerWrapper
         {
 
-            [HorizontalGroup("CountryLayerWrapper"), LabelText("²ã¼¶ĞòºÅ")]
+            [HorizontalGroup("CountryLayerWrapper"), LabelText("å±‚çº§ç´¢å¼•")]
             public int LayerLevel;
 
-            [HorizontalGroup("CountryLayerWrapper"), LabelText("²ã¼¶Ãû³Æ")]
+            [HorizontalGroup("CountryLayerWrapper"), LabelText("å±‚çº§åç§°")]
             public string LayerName;
 
-            [HorizontalGroup("CountryLayerWrapper"), LabelText("Ñ¡ÖĞÇøÓò")]
+            [HorizontalGroup("CountryLayerWrapper"), LabelText("é€‰æ‹©åŒºåŸŸ")]
             [ValueDropdown("GetLayerCountryDatas")]
             [OnValueChanged("OnCountryLayerFilterChanged")]
-            public string CurCountryName = BaseCountryDatas.NotValidCountryName;    // µ±Ç°ÔÚÕâÒ»²ã¼¶ÖĞ Ñ¡ÖĞµÄÇøÓòÃû³Æ
+            public string CurCountryName = BaseCountryDatas.NotValidCountryName;    // å½“å‰ä¸Šä¸€å±‚çº§ é€‰ä¸­çš„åŒºåŸŸåç§°
 
             private string LastCountryName = BaseCountryDatas.NotValidCountryName;
 
@@ -371,7 +384,7 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             //[HorizontalGroup("CountryLayerWrapper")]
-            //[Button("Õ¹Ê¾×ÓÇøÓò")]
+            //[Button("å±•ç¤ºå­åŒºåŸŸ")]
             public void OnCountryLayerFilterChanged()
             {
                 if (ShowChildCountryCall == null)
@@ -385,19 +398,20 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
-        [FoldoutGroup("ÇøÓòÊı¾İ±à¼­")]
-        [LabelText("¹ıÂËÆ÷")]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®ç¼–è¾‘")]
+        [LabelText("å±‚çº§è¿‡æ»¤å™¨")]
         public List<CountryLayerWrapper> CountryLayerFilter = new List<CountryLayerWrapper>();
 
-        [FoldoutGroup("ÇøÓòÊı¾İ±à¼­")]
-        [LabelText("Ñ¡ÖĞÇøÓòËùÔÚ²ã¼¶"), ReadOnly]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®ç¼–è¾‘")]
+        [LabelText("é€‰ä¸­åŒºåŸŸæ‰€åœ¨å±‚çº§"), ReadOnly]
+        [ShowIf("showAllField")]
         public string CurEditingLayer           = BaseCountryDatas.NotValidLayerName;
         
         private int CurEditingLayerIndex        = BaseCountryDatas.NotValidLayerIndex;
         static int _CurEditingLayerIndex;
 
-        // ¿É¼û : CountrySO - GetCountryNameComplete
-        // »ñÈ¡µ±Ç°µÄÇøÓòÃû³ÆÇ°×º
+        // å¯è§ : CountrySO - GetCountryNameComplete
+        // è·å–å½“å‰åŒºåŸŸåç§°å‰ç¼€
         private string GetCurCountryNameComplete()
         {
             StringBuilder sb = new StringBuilder(16);
@@ -413,8 +427,9 @@ namespace LZ.WarGameMap.MapEditor
             return sb.ToString();
         }
 
-        [FoldoutGroup("ÇøÓòÊı¾İ±à¼­")]
-        [LabelText("Ñ¡ÖĞÇøÓòÃû³Æ"), ReadOnly]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®ç¼–è¾‘")]
+        [LabelText("é€‰ä¸­åŒºåŸŸåç§°"), ReadOnly]
+        [ShowIf("showAllField")]
         public string CurChooseCountryName      = BaseCountryDatas.NotValidCountryName;
 
         HashSet<string> lockEditSet = new HashSet<string>();        // Cur locking country names
@@ -422,18 +437,18 @@ namespace LZ.WarGameMap.MapEditor
         [Serializable]
         public class CountryDataWrapper
         {
-            [HorizontalGroup("CountryData"), LabelText("Ëø¶¨")]
+            [HorizontalGroup("CountryData"), LabelText("é”å®š")]
             [OnValueChanged("UpdateLockEdit")]
             public bool IsLock;
 
             // Field only to show
-            [HorizontalGroup("CountryData"), LabelText("Ô­Ãû³Æ"), ReadOnly]
+            [HorizontalGroup("CountryData"), LabelText("åŸåç§°"), ReadOnly]
             public string OriginCountryName;    // Do not mod it!!!
 
-            [HorizontalGroup("CountryData"), LabelText("Ãû³Æ"), ReadOnly]
+            [HorizontalGroup("CountryData"), LabelText("åç§°"), ReadOnly]
             public string CountryName;
 
-            [HorizontalGroup("CountryData"), LabelText("ÑÕÉ«"), ReadOnly]
+            [HorizontalGroup("CountryData"), LabelText("é¢œè‰²"), ReadOnly]
             public Color CountryColor;
 
             CountryData countryData;
@@ -471,7 +486,7 @@ namespace LZ.WarGameMap.MapEditor
                 SyncWithCountryData();
             }
 
-            [HorizontalGroup("CountryData"), Button("½øĞĞ±à¼­")]
+            [HorizontalGroup("CountryData"), Button("è¯¦ç»†ç¼–è¾‘")]
             private void ChooseCountryDataEdit()
             {
                 Action<CountryData> confirmEdit = ConfirmEditEvent;
@@ -496,7 +511,7 @@ namespace LZ.WarGameMap.MapEditor
                 Debug.Log($"edit over, now CountryData {countryData.CountryName} is valid");
             }
 
-            [HorizontalGroup("CountryData"), Button("É¾³ıÊı¾İ")]
+            [HorizontalGroup("CountryData"), Button("åˆ é™¤åŒºåŸŸ")]
             private void RemoveCountryData()
             {
                 // NOTE : Only though this way, you can del CountryData
@@ -535,13 +550,13 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
-        [FoldoutGroup("ÇøÓòÊı¾İ±à¼­")]
-        [LabelText("µ±Ç°±à¼­ÇøÓòµÄ×ÓÇøÓò")]
-        [Tooltip("Èç¹ûÎ´µã»÷ É¾³ıÊı¾İ Ôò CountryData ²»»á±»ÕæÕıÒÆ³ı")]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®ç¼–è¾‘")]
+        [LabelText("å½“å‰ç¼–è¾‘å±‚çº§çš„åŒºåŸŸæ•°æ®")]
+        [Tooltip("æ–°å»ºæ•°æ® åˆ é™¤æ•°æ® çš„ CountryData éƒ½ä¼šè¢«å®æ—¶ç§»é™¤")]
         public List<CountryDataWrapper> CurEditingChildCountryData = new List<CountryDataWrapper>();
 
-        [FoldoutGroup("ÇøÓòÊı¾İ±à¼­")]
-        [Button("±£´æ×ÓÇøÓò±à¼­½á¹û", ButtonSizes.Medium)]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®ç¼–è¾‘")]
+        [Button("ä¿å­˜å½“å‰åŒºåŸŸæ•°æ®", ButtonSizes.Medium)]
         private void SaveChildCountrySO()
         {
             if (!countrySO.CheckCountryLayerIndex(CurEditingLayerIndex))
@@ -577,7 +592,7 @@ namespace LZ.WarGameMap.MapEditor
                     wrapper.CopyCountryData(originData, DeleteCountryDataEvent, UpdateLockEvent);
                 }
             }
-            // TODO : ĞŞ¸´ÎÊÌâ£¡£¡£¡
+            // TODO : ä¿®æ”¹é—®é¢˜ï¼ï¼
             UpdateCountryNames();
 
             EditorUtility.SetDirty(countrySO);
@@ -586,8 +601,8 @@ namespace LZ.WarGameMap.MapEditor
             UpdateHexTexManager();
         }
 
-        [FoldoutGroup("ÇøÓòÊı¾İ±à¼­")]
-        [Button("Õ¹Ê¾¸ù²ã¼¶×ÓÇøÓò", ButtonSizes.Medium)]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®ç¼–è¾‘")]
+        [Button("å±•ç¤ºæœ€é«˜å±‚çº§ åŒºåŸŸæ•°æ®", ButtonSizes.Medium)]
         private void ShowHighestCountryDatas()
         {
             ShowChildCountryEvent(BaseCountryDatas.RootLayerIndex, BaseCountryDatas.RootLayerName, BaseCountryDatas.NotValidCountryName, true);
@@ -608,28 +623,29 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-        #region ÇøÓòÍ¿Ë¢±à¼­
+        #region åŒºåŸŸæ¶‚åˆ·ç¼–è¾‘
 
-        [FoldoutGroup("ÇøÓòÍ¿Ë¢±à¼­")]
-        [LabelText("ÕıÔÚ²Á³ı")]
+        [FoldoutGroup("åŒºåŸŸæ¶‚åˆ·ç¼–è¾‘")]
+        [LabelText("æ“¦é™¤æ¨¡å¼")]
         [OnValueChanged("OnErasingModeChange")]
-        public bool IsErasingMode = false;      // TODO : ºóĞøÔÚÇĞ»»µ½ ErasingMode Ê±£¬ÒªÍ¬Ê±½« scene µÄ°´Å¥ÇĞ»»³ÉÏğÆ¤²Á
+        public bool IsErasingMode = false;      // TODO : åœ¨çŠ¶æ€åˆ‡æ¢ä¸º ErasingMode æ—¶ï¼Œè¦åŒæ—¶æŠŠ scene çš„æŒ‰é’®åˆ‡æ¢æˆæ“¦é™¤çš®è‚¤
 
         bool IsNotErasing => !IsErasingMode;
 
-        [FoldoutGroup("ÇøÓòÍ¿Ë¢±à¼­")]
-        [LabelText("È«²¿Ëø¶¨")]
+        [FoldoutGroup("åŒºåŸŸæ¶‚åˆ·ç¼–è¾‘")]
+        [LabelText("å…¨éƒ¨é”å®š")]
         [OnValueChanged("OnAllLockChange")]
         public bool IsAllLock = false;
 
-        [FoldoutGroup("ÇøÓòÍ¿Ë¢±à¼­")]
-        [LabelText("µ±Ç°Í¿Ë¢µÄ CountryName"), ShowIf("IsNotErasing")]
+        [FoldoutGroup("åŒºåŸŸæ¶‚åˆ·ç¼–è¾‘")]
+        [LabelText("å½“å‰æ¶‚åˆ·çš„åŒºåŸŸåç§°"), ShowIf("IsNotErasing")]
         [ValueDropdown("GetCurFilterCountryData")]
         [OnValueChanged("OnCurPaintCountryChanged")]
         public string CurCountryName = BaseCountryDatas.NotValidCountryName;
 
-        [FoldoutGroup("ÇøÓòÍ¿Ë¢±à¼­")]
-        [LabelText("µ±Ç°Í¿Ë¢µÄ Country ÑÕÉ«"), ReadOnly]
+        [FoldoutGroup("åŒºåŸŸæ¶‚åˆ·ç¼–è¾‘")]
+        [LabelText("å½“å‰æ¶‚åˆ·çš„åŒºåŸŸé¢œè‰²"), ReadOnly]
+        [ShowIf("showAllField")]
         public Color CurPaintColor = BaseCountryDatas.NotValidCountryColor;
 
         private CountryData CurPaintCountryData = null;
@@ -684,12 +700,14 @@ namespace LZ.WarGameMap.MapEditor
                 Color eraseColor = BaseCountryDatas.NotValidCountryColor;
                 CurPaintColor = eraseColor;
 
-                // NOTE : Ä¿Ç°µÄ²Á³ı»á°ÑËùÓĞ²ã¼¶µÄÇøÓòÊı¾İ¶¼²Á³ı
+                // TODO : ä¹Ÿè®¸æ“¦é™¤æ¨¡å¼åº”è¯¥æ›´æ”¹ï¼Ÿ
+                // NOTE : ç›®å‰çš„æ“¦é™¤æ˜¯å¯¹æ‰€æœ‰å±‚çº§çš„åŒºåŸŸæ•°æ®éƒ½æ“¦é™¤
                 Color[] cacheColors = new Color[4] { eraseColor, eraseColor, eraseColor, eraseColor };
                 SetBrushCacheColor(cacheColors);
             }
             else
             {
+                // éæ“¦é™¤æ¨¡å¼ä¸‹ï¼Œä¹Ÿä¼šè°ƒç”¨å½“å‰ CountryData çš„ CountrySO.GetCountryDataColors çš„é¢œè‰²åŒæ—¶ç»˜åˆ¶ å¤šä¸ªå±‚æ¬¡
                 if (CurPaintCountryData is null)
                 {
                     return;
@@ -715,12 +733,12 @@ namespace LZ.WarGameMap.MapEditor
         }
 
 
-        [FoldoutGroup("ÇøÓòÍ¿Ë¢±à¼­")]
-        [LabelText("±£´æÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("åŒºåŸŸæ¶‚åˆ·ç¼–è¾‘")]
+        [LabelText("ä¿å­˜ä½ç½®"), ReadOnly]
         public string saveCountryTexPath = MapStoreEnum.GamePlayCountryDataPath;
 
-        [FoldoutGroup("ÇøÓòÍ¿Ë¢±à¼­")]
-        [Button("±£´æ»æÖÆ½á¹û", ButtonSizes.Medium)]
+        [FoldoutGroup("åŒºåŸŸæ¶‚åˆ·ç¼–è¾‘")]
+        [Button("ä¿å­˜æ¶‚åˆ·å¹³é¢", ButtonSizes.Medium)]
         private void SavePaintResult()
         {
             InitCountryManager();
@@ -729,12 +747,12 @@ namespace LZ.WarGameMap.MapEditor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             UpdateHexTexManager();
-            Debug.Log($"ÒÑ³É¹¦±£´æ: {countrySO.name}");
+            Debug.Log($"å·²æˆåŠŸä¿å­˜: {countrySO.name}");
         }
 
-        [FoldoutGroup("ÇøÓòÍ¿Ë¢±à¼­")]
-        [Tooltip("µã»÷ºó¿ÉÒÔÈÃÏàÁÚÇøÓòµÄÑÕÉ«±£Ö¤²»Í¬")]
-        [Button("Ò»¼üĞŞ¸´ÇøÓòÑÕÉ«", ButtonSizes.Medium)]
+        [FoldoutGroup("åŒºåŸŸæ¶‚åˆ·ç¼–è¾‘")]
+        [Tooltip("å½“åŒºåŸŸé¢œè‰²å‡ºç°é‡å¤æ—¶ï¼Œå¯ç”¨æ­¤æ–¹æ³•ä¿®å¤é¢œè‰²ä¿è¯ä¸åŒ")]
+        [Button("ä¸€é”®ä¿®å¤åŒºåŸŸé¢œè‰²", ButtonSizes.Medium)]
         private void FixCountryColor()
         {
             if(HexCtor == null)
@@ -748,46 +766,46 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-        #region ÇøÓòÊı¾İµ¼Èëµ¼³ö
+        #region åŒºåŸŸæ•°æ®å¯¼å…¥å¯¼å‡º
 
-        [FoldoutGroup("ÇøÓòÊı¾İµ¼Èëµ¼³ö")]
-        [LabelText("ÇøÓòÊı¾İµ¼Èë/µ¼³öÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®å¯¼å…¥å¯¼å‡º")]
+        [LabelText("åŒºåŸŸæ•°æ®å¯¼å…¥/å¯¼å‡ºä½ç½®"), ReadOnly]
         public string exportCountryDatasFilePath = MapStoreEnum.GamePlayCountryCSVDataPath;
 
-        [FoldoutGroup("ÇøÓòÊı¾İµ¼Èëµ¼³ö")]
-        [LabelText("ÇøÓòÎÆÀíµ¼Èë/µ¼³öÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®å¯¼å…¥å¯¼å‡º")]
+        [LabelText("åŒºåŸŸè´´å›¾å¯¼å…¥/å¯¼å‡ºä½ç½®"), ReadOnly]
         public string exportCountryTexFilePath = MapStoreEnum.GamePlayCountryTexDataPath;
 
-        [FoldoutGroup("ÇøÓòÊı¾İµ¼Èëµ¼³ö")]
-        [LabelText("µ¼ÈëÊ±¸²¸ÇÇøÓòÊı¾İ")]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®å¯¼å…¥å¯¼å‡º")]
+        [LabelText("å¯¼å…¥æ—¶è¦†ç›–åŒºåŸŸæ•°æ®")]
         public bool overrideCountrySOWhenLoad = false;
 
-        [FoldoutGroup("ÇøÓòÊı¾İµ¼Èëµ¼³ö")]
-        [Button("µ¼ÈëÇøÓòÊı¾İexcel±í", ButtonSizes.Medium)]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®å¯¼å…¥å¯¼å‡º")]
+        [Button("å¯¼å…¥åŒºåŸŸæ•°æ®(excel)", ButtonSizes.Medium)]
         private void ImportCountryFile()
         {
             countrySO.LoadCSV(exportCountryDatasFilePath, overrideCountrySOWhenLoad);
             AssetDatabase.Refresh();
         }
 
-        [FoldoutGroup("ÇøÓòÊı¾İµ¼Èëµ¼³ö")]
-        [Button("µ¼³öÇøÓòÊı¾İexcel±í", ButtonSizes.Medium)]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®å¯¼å…¥å¯¼å‡º")]
+        [Button("å¯¼å‡ºåŒºåŸŸæ•°æ®(excel)", ButtonSizes.Medium)]
         private void ExportCountryFile()
         {
             countrySO.SaveCSV(exportCountryDatasFilePath);
             AssetDatabase.Refresh();
         }
 
-        //[FoldoutGroup("ÇøÓòÊı¾İµ¼Èëµ¼³ö")]
-        //[Button("µ¼ÈëÇøÓò·Ö²¼ÎÆÀí", ButtonSizes.Medium)]
+        //[FoldoutGroup("åŒºåŸŸæ•°æ®å¯¼å…¥å¯¼å‡º")]
+        //[Button("å¯¼å…¥åŒºåŸŸè´´å›¾æ–‡ä»¶", ButtonSizes.Medium)]
         //private void ImportCountryTexture()
         //{
-        //    // TODO : ÒªĞÂ½¨Ò»¸öÎÄ¼ş¼Ğ£¬½«Ã¿²ãµÄCountryÊı¾İÓÃÓÚµ¼Èëµ¼³ö
+        //    // TODO : è¦æ–°å»ºä¸€ä¸ªæ–‡ä»¶å¤¹ï¼Œæ¥å¯¹æ¯ä¸ªCountryæ•°æ®æ¥å¯¼å…¥å¯¼å‡º
         //    // exportCountryTexFilePath
         //}
 
-        [FoldoutGroup("ÇøÓòÊı¾İµ¼Èëµ¼³ö")]
-        [Button("µ¼³öÇøÓò·Ö²¼ÎÆÀí", ButtonSizes.Medium)]
+        [FoldoutGroup("åŒºåŸŸæ•°æ®å¯¼å…¥å¯¼å‡º")]
+        [Button("å¯¼å‡ºåŒºåŸŸè´´å›¾æ–‡ä»¶", ButtonSizes.Medium)]
         private void ExportCountryTexture()
         {
             List<Texture2D> countryTexs = ExportTexture();
@@ -837,7 +855,7 @@ namespace LZ.WarGameMap.MapEditor
             {
                 for (int j = 0; j < mapHeight; j++)
                 {
-                    Vector2Int idx = new Vector2Int(i, j);  // TODO : Ë³ĞòÊÇ¶ÔµÄÂğ
+                    Vector2Int idx = new Vector2Int(i, j);  // TODO : é¡ºåºæ˜¯å¯¹çš„ä¹ˆ
                     List<CountryData> countryDatas = countrySO.GetGridCountry(idx);
                     int index = idx.y * mapWidth + idx.x;
 
@@ -859,12 +877,12 @@ namespace LZ.WarGameMap.MapEditor
                         }
                     }
 
-                    // NOTE : ¶ÔÓÚÃ¿¸öµã£¬¼ÆËãËüºÍÁÚ¾ÓµãµÄÇøÓò¹ØÏµ£¬´æ´¢ÔÚ edgeRelationTex ÖĞ
-                    //          edgeRelationTex[i] = (R, G, B, A)
-                    //          R : region ²ã¼¶µÄ±ß½ç¹ØÏµ (1111 1111) Ç°ÁùÎ»±íÊ¾Áù±ßĞÎµÄÁù¸öÁÚ¾ÓÊÇ·ñÊôÓÚ²»Í¬ÇøÓò (1 ÊÇ²»Í¬ÇøÓò) , ºóÁ½Î»´ı¶¨
-                    //          G : province ²ã¼¶µÄ±ß½ç¹ØÏµ
-                    //          B : fecture ²ã¼¶µÄ±ß½ç¹ØÏµ
-                    //          A : subFecture ²ã¼¶µÄ±ß½ç¹ØÏµ
+                    // NOTE : å¯¹äºæ¯ä¸ªç‚¹ï¼Œæ£€æŸ¥å…¶å…«ä¸ªé‚»å±…çš„åŒºåŸŸå…³ç³»ï¼Œå­˜å‚¨åˆ° edgeRelationTex ä¸­
+                    // edgeRelationTex[i] = (R, G, B, A)
+                    // R : region å±‚çº§çš„è¾¹ç•Œå…³ç³» (1111 1111) å‰å››ä½è¡¨ç¤ºå½“å‰æ ¼å­çš„å…«ä¸ªé‚»å±…æ˜¯å¦å¤„äºä¸åŒåŒºåŸŸ (1 æ˜¯ä¸åŒåŒºåŸŸ) , åå››ä½æœªä½¿ç”¨
+                    // G : province å±‚çº§çš„è¾¹ç•Œå…³ç³»
+                    // B : fecture å±‚çº§çš„è¾¹ç•Œå…³ç³»
+                    // A : subFecture å±‚çº§çš„è¾¹ç•Œå…³ç³»
                     byte[] gridRelation = countrySO.GetGridCountryNeighbor(idx);
 
                     edgeRelationColors[index].r = (gridRelation[0] != 0) ? 1 : 0;
@@ -918,7 +936,7 @@ namespace LZ.WarGameMap.MapEditor
                 return false;
             }
 
-            // Ô½½ç
+            // è¶Šç•Œ
             if (offsetHexPos.x < 0 || offsetHexPos.x >= hexSet.mapWidth || offsetHexPos.y < 0 || offsetHexPos.y >= hexSet.mapHeight)
             {
                 return false;
@@ -930,11 +948,16 @@ namespace LZ.WarGameMap.MapEditor
                 return false;
             }
 
+            // å³ä½¿æ˜¯ErasingModeï¼Œä¹Ÿä¸èƒ½ç§»é™¤ å±±è„‰ã€æµ·æ´‹ çš„æ ¼å­åŒºåŸŸå½’å±
+            // è¿™æ„å‘³ç€ï¼Œå¦‚æœ grid åœ°è²Œå‘ç”Ÿäº†æ”¹å˜ï¼Œè€ŒåŒºåŸŸæ•°æ®æ²¡æœ‰è·Ÿç€æ”¹å˜æ—¶
+            // æˆ‘ä»¬åªèƒ½é€šè¿‡ ä¿®æ”¹ä»£ç æ¥å¯¹ grid æ ¼å­çš„åŒºåŸŸè¿›è¡Œä¿®æ”¹
+            // TODO : å°è¯•ä¿®å¤è¿™ä¸ªé—®é¢˜
             // Dont erase CanNotCountry grids
             if (IsErasingMode)
             {
                 return true;
             }
+
             else if (CurPaintCountryData is null)
             {
                 // ErasingMode permit nullble CurPaintCountryData

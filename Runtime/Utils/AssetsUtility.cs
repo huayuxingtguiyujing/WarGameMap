@@ -40,6 +40,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
 
+#if UNITY_EDITOR
         #region Get file infos from folder
 
         public static List<string> GetFileNames(string folderPath, string suffix)
@@ -107,7 +108,8 @@ namespace LZ.WarGameMap.Runtime
 
             return AssetDatabase.LoadAssetAtPath<T>(objPath);
         }
-
         #endregion
+#endif
+
     }
 }

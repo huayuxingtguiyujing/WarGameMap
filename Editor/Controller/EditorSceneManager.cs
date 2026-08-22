@@ -28,7 +28,7 @@ namespace LZ.WarGameMap.MapEditor
             return Instance;
         }
 
-        // ¸÷×Ê²ú SO
+        // å„èµ„äº§ SO
         static GridTerrainSO gridTerrainSO;
         public static GridTerrainSO GridTerrainSO { get { return gridTerrainSO; } }
 
@@ -45,15 +45,28 @@ namespace LZ.WarGameMap.MapEditor
         static HexSettingSO hexSet;
         public static HexSettingSO HexSet { get { return hexSet; } }
 
-        // ¸÷ Controller
+        // å„ Controller
         public static TerrainConstructor TerrainCtor {  get; private set; }
         public static HexmapConstructor HexCtor { get; private set; }
         public static MapRenderConstructor RenderCtor { get; private set; }
 
         public static MapSceneObjs mapScene { get; private set; }
 
+        // ç¼–è¾‘å™¨èµ„æºå¼•ç”¨ï¼Œç”± MapSetEditor ç»Ÿä¸€é…ç½®
+        public static Material TerMaterial { get; private set; }
+        public static GameObject SignObj { get; private set; }
+        public static ComputeShader HexPaintRTShader { get; private set; }
+        public static Material HexBrushMaterial { get; private set; }
 
-        #region ³õÊ¼»¯EditorµÄSceneÄÚÈİ
+        public void SetEditorAssets(Material terMaterial, GameObject signObj, ComputeShader hexPaintRTShader, Material hexBrushMat)
+        {
+            TerMaterial = terMaterial;
+            SignObj = signObj;
+            HexPaintRTShader = hexPaintRTShader;
+            HexBrushMaterial = hexBrushMat;
+        }
+
+        #region åˆå§‹åŒ–Editorçš„Sceneå†…å®¹
 
         static EditorSceneManager() {
             if (!EditorApplication.isPlayingOrWillChangePlaymode && !Application.isPlaying) {
@@ -174,7 +187,7 @@ namespace LZ.WarGameMap.MapEditor
             this.heightDataModels = heightDataModels;
             InitTerScene();
 
-            // TODO : hexSet Ò²Òª´Ó ³Ö¾Ã»¯ÎÄ¼şÀïÃæ¶ÁÈ¡
+            // TODO : hexSet ä¹Ÿè¦ä» æŒä¹…åŒ–æ–‡ä»¶é‡Œé¢è¯»å–
             TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, material, null);
 
             foreach (var binder in clusterMeshDatas)
@@ -206,8 +219,8 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         public void LoadHexScene(Material hexMat) {
-            // TODO : ¼ÓÔØÖ®Ç°µÄ¶ÔHexµÄ±à¼­½á¹û½øÈë Scene ÀïÃæ
-            // TODO : hex ±à¼­½á¹û ·Åµ½Ò»ÕÅ´óÎÆÀíÀïÃæ£¬¿¼ÂÇµ½ È«µØÍ¼µÄ HexGrid Ò»¹² 3000 x 3000£¬ËùÒÔÓ¦¸Ã¿ÉÒÔ·ÅµÃÏÂ
+            // TODO : åŠ è½½ä¹‹å‰çš„å¯¹Hexçš„ç¼–è¾‘ç»“æœè¿›å…¥ Scene é‡Œé¢
+            // TODO : hex ç¼–è¾‘ç»“æœ æ”¾åˆ°ä¸€å¼ å¤§çº¹ç†é‡Œé¢ï¼Œè€ƒè™‘åˆ° å…¨åœ°å›¾çš„ HexGrid ä¸€å…± 3000 x 3000ï¼Œæ‰€ä»¥åº”è¯¥å¯ä»¥æ”¾å¾—ä¸‹
             InitHexScene();
 
             HexCtor.InitHexConsRectangle(hexMat);
@@ -239,7 +252,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
 
-        #region Scene Terrain ³¡¾°¹¹½¨
+        #region Scene Terrain åœºæ™¯æ„å»º
 
         int terFontSize = 10;
 
@@ -308,7 +321,7 @@ namespace LZ.WarGameMap.MapEditor
 
             foreach (var info in terClusterInfoList)
             {
-                string clusterTxt = $"µØ¿é_{info.LL.x}_{info.LL.y}_LOD{info.curLODLevel}";
+                string clusterTxt = $"åœ°å—_{info.LL.x}_{info.LL.y}_LOD{info.curLODLevel}";
                 GizmosUtils.DrawRect(info.leftDown, info.rightUp, GizmosUtils.GetRandomColor(info.LL.x + info.LL.y));
                 GizmosUtils.DrawText(new Vector3(info.center.x, 0, info.center.y), clusterTxt, terFontSize, Color.black);
             }
@@ -331,7 +344,7 @@ namespace LZ.WarGameMap.MapEditor
 
                 // TODO : hex set should also read from the file
 
-                // todo : Õâ²¿·ÖÓĞÎÊÌâ£¡£¡£¡
+                // todo : è¿™éƒ¨åˆ†æœ‰é—®é¢˜ï¼ï¼ï¼
                 int validClusterNum = reader.ReadInt32();
                 for (int i = 0; i < validClusterNum; i++) {
                     TerrainCluster cls = new TerrainCluster();
@@ -340,7 +353,9 @@ namespace LZ.WarGameMap.MapEditor
                     
                     TerrainCtor.ExportClusterByBinary(cls.idxX, cls.idxY, cls.longitude, cls.latitude, reader);
                 }
+
             }
+            TerrainCtor.SetTerrainGened();
 
             Debug.Log($"export {LL} cls, path : {curHandleMeshPath}");
             return LL;
@@ -349,7 +364,7 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-        #region Scene Hex ³¡¾°¹¹½¨
+        #region Scene Hex åœºæ™¯æ„å»º
 
         int hexFontSize = 8;
 
@@ -366,11 +381,11 @@ namespace LZ.WarGameMap.MapEditor
             public ClusterBound(int i, int j, int hexSize, int clusterSize) {
                 this.clusterIdxX = i;
                 this.clusterIdxY = j;
-                // NOTE : Ä¿Ç°µÄ Hex Éú³É·½Ê½ÊÇµÚ¶şĞĞÏò×óÆ«ÒÆ (OffsetHexCoord)
-                // ×ó±ß½ç£ºµÚÒ»ĞĞHex¸ñ×ÓµÄ×ó±ß
-                // ÓÒ±ß½ç£ºµÚÒ»ĞĞHex¸ñ×ÓµÄÓÒ±ß
-                // ÏÂ±ß½ç£ºµÚÒ»ĞĞHex¸ñ×ÓµÄµ×
-                // ÉÏ±ß½ç£º×îÉÏĞĞHex¸ñ×ÓµÄ×óÉÏ½Ç/ÓÒÉÏ½Ç
+                // NOTE : ç›®å‰çš„ Hex ç”Ÿæˆæ–¹å¼æ˜¯ç¬¬äºŒè¡Œå‘å·¦åç§» (OffsetHexCoord)
+                // å·¦è¾¹ç•Œï¼šç¬¬ä¸€è¡ŒHexæ ¼å­çš„å·¦è¾¹
+                // å³è¾¹ç•Œï¼šç¬¬ä¸€è¡ŒHexæ ¼å­çš„å³è¾¹
+                // ä¸‹è¾¹ç•Œï¼šç¬¬ä¸€è¡ŒHexæ ¼å­çš„åº•
+                // ä¸Šè¾¹ç•Œï¼šæœ€ä¸Šè¡ŒHexæ ¼å­çš„å·¦ä¸Šè§’/å³ä¸Šè§’
 
                 float left = i * (Mathf.Sqrt(3) * hexSize * clusterSize);
                 float right = (i + 1) * (Mathf.Sqrt(3) * hexSize * clusterSize);
@@ -401,12 +416,12 @@ namespace LZ.WarGameMap.MapEditor
 
         // TODO : load hex message....
         public void InitHexScene() {
-            // TODO : ÕâÀï·ÅÖÃ Hex Scene µÄ Gizmos Êı¾İ
+            // TODO : è¿™é‡Œæ”¾ç½® Hex Scene çš„ Gizmos æ•°æ®
             clusterIdxBoundDict = new Dictionary<Vector2Int, ClusterBound>();
         }
 
         private void DrawHexMes() {
-            // NOTE : ÓĞÇ±ÔÚ·çÏÕ£¬ÕâÀïĞèÒªÓë HexCons µÄUpdateHex ´¦½øĞĞÍ¬²½
+            // NOTE : æœ‰æ½œåœ¨é£é™©ï¼Œè¿™é‡Œéœ€è¦ä¸ HexCons çš„UpdateHex å¤„è¿›è¡ŒåŒæ­¥
             Vector3 cameraPos = Camera.main.transform.position;
             Vector2Int clsIdx = ClusterSize.GetClusterIdxByPos(cameraPos);
             clusterIdxBoundDict.Clear();
@@ -427,7 +442,7 @@ namespace LZ.WarGameMap.MapEditor
 
             foreach (var info in clusterIdxBoundDict.Values)
             {
-                string clusterTxt = $"Áù±ßĞÎÈº_{info.clusterIdxX}_{info.clusterIdxY}";
+                string clusterTxt = $"å…­è¾¹å½¢ç¾¤_{info.clusterIdxX}_{info.clusterIdxY}";
                 GizmosUtils.DrawRect(info.leftDown, info.rightUp, GizmosUtils.GetRandomColor(info.clusterIdxX + info.clusterIdxY));
                 GizmosUtils.DrawText(new Vector3(info.center.x, 0, info.center.y), clusterTxt, hexFontSize, Color.black);
             }

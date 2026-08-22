@@ -3,6 +3,8 @@ using UnityEngine;
 using UnityEditor;
 using System.IO;
 
+#if UNITY_EDITOR
+
 namespace LZ.WarGameMap.Runtime
 {
     // À´Ô´£ºhttps://zhuanlan.zhihu.com/p/625411409
@@ -420,5 +422,5 @@ namespace LZ.WarGameMap.Runtime
         }
 
     }
-
 }
+#endif

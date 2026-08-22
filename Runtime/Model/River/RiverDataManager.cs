@@ -156,7 +156,7 @@ namespace LZ.WarGameMap.Runtime
                         continue;
                     }
 
-                    // TODO : Ò²ĞíĞèÒª¼ÇÂ¼±ß½ç¶¥µã£¬½øĞĞ±£»¤
+                    // TODO : ä¹Ÿè®¸éœ€è¦è®°å½•è¾¹ç•Œé¡¶ç‚¹ï¼Œè¿›è¡Œä¿æŠ¤
                     float len = BezierCurveHelper.EstimateBezierLength(p0, p1, closestPTangent, closestPoint);
                     float curLen = segmentLen + len;
 
@@ -193,7 +193,14 @@ namespace LZ.WarGameMap.Runtime
                 if (pointDownOffsetDict[pixelIdx] < offsetDown)
                 {
                     pointDownOffsetDict[pixelIdx] = offsetDown;
-                    riverVertsDict[riverID][pixelIdx].UpdateVert(pixelIdx, uv, tangent);
+                    if (riverVertsDict[riverID].ContainsKey(pixelIdx))
+                    {
+                        riverVertsDict[riverID][pixelIdx].UpdateVert(pixelIdx, uv, tangent);
+                    }
+                    else
+                    {
+                        riverVertsDict[riverID].Add(pixelIdx, new RiverVert(pixelIdx, uv, tangent));
+                    }
                 }
             }
             else
@@ -245,9 +252,9 @@ namespace LZ.WarGameMap.Runtime
                 vertIdx++;
             }
 
-            // ¶ÔÓÚÃ¿¸öµã (i, 0, j) 
-            // Èç¹ûÓĞÏÂÃæÁ½µã´æÔÚ£º(i, 0, j) -> (i + 1, 0, j) -> (i + 1, 0, j + 1)
-            // Èç¹ûÓĞÏÂÃæÁ½µã´æÔÚ£º(i, 0, j) -> (i, 0, j + 1) -> (i + 1, 0, j + 1)
+            // å¯¹äºæ¯ä¸ªç‚¹ (i, 0, j) 
+            // å¦‚æœæœ‰ä¸‹é¢ä¸¤ç‚¹å­˜åœ¨ï¼š(i, 0, j) -> (i + 1, 0, j) -> (i + 1, 0, j + 1)
+            // å¦‚æœæœ‰ä¸‹é¢ä¸¤ç‚¹å­˜åœ¨ï¼š(i, 0, j) -> (i, 0, j + 1) -> (i + 1, 0, j + 1)
             HashSet<Vector2Int> hasAddTriangle = new HashSet<Vector2Int>(borderVertNum);
             List<int> triangles = new List<int>(borderVertNum * 3);
             foreach (var riverVert in riverVerts.Values)

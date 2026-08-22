@@ -147,37 +147,37 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-        #region 构建地形-Hex流程
+        #region 构建地形-Hex流程[Deprecated]
 
         // TODO : 下面一整块在后续都会被去除掉！！不再使用高度图来构建 Hex 的地图，可能仅会通过高度图确定某个地区的地形
         // 然后再用新的类cv的流程去构建地图
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [LabelText("当前操作Hex地图对象")]
         //public HexMapSO rawHexMapSO;
         public string temp = "占位符";
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [LabelText("当前Hex地图材质")]
         public Material hexMaterial;
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [LabelText("当前Hex地图纹理")]
         public Texture2D rawHexMapTexture;
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [LabelText("导出位置")]
         public string exportHexMapSOPath = MapStoreEnum.TerrainHexMapPath;
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [LabelText("起始经纬度")]
         public Vector2Int startLongitudeLatitude = new Vector2Int(109, 32);
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [LabelText("当前操作的cluster索引")]
         public Vector2Int curClusterIdx_Hex;
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [Button("生成RawHexMapSO", ButtonSizes.Medium)]
         private void GenerateRawHexMap() {
 
@@ -191,7 +191,7 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [Button("生成RawHexMap纹理", ButtonSizes.Medium)]
         private void GenerateRawHexTexture() {
             //if (rawHexMapSO == null) {
@@ -214,7 +214,7 @@ namespace LZ.WarGameMap.MapEditor
             //Debug.Log($"generate hex texture : {rawHexMapTexture.width}x{rawHexMapTexture.height}");
         }
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [Button("保存RawHexMapSO", ButtonSizes.Medium)]
         private void SaveRawHexMap() {
 
@@ -225,7 +225,7 @@ namespace LZ.WarGameMap.MapEditor
             //Debug.Log($"successfully create Hex Map, path : {RawHexPath}");
         }
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [Button("保存RawHexMap纹理", ButtonSizes.Medium)]
         private void SaveRawHexTexture() {
             if (rawHexMapTexture == null) {
@@ -245,7 +245,7 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        [FoldoutGroup("构建地形-Hex流程")]
+        [FoldoutGroup("构建地形-Hex流程[Deprecated]")]
         [Button("生成Hex版本Terrain", ButtonSizes.Medium)]
         private void GenerateTerrainByHex() {
             if (EditorSceneManager.HexSet == null) {
@@ -279,22 +279,13 @@ namespace LZ.WarGameMap.MapEditor
         // TODO : UNCOMPLETE
         #region 地形网格持久化
 
-
-        [FoldoutGroup("地形网格持久化")]
-        [LabelText("当前操作的地形Mesh数据")]
-        public UnityEngine.Object curHandleTerrainMeshDatas;
-
-        [FoldoutGroup("地形网格持久化")]
-        [LabelText("当前操作的Mesh路径")]
-        public string curHandleMeshPath;
-
-        [FoldoutGroup("地形网格持久化")]
-        [LabelText("导出地形Mesh的路径")]
+        [FoldoutGroup("地形持久化")]
+        [LabelText("地形资产所在路径"), ReadOnly]
         public string exportHandleMeshPath = MapStoreEnum.TerrainMeshSerializedPath;    // TerrainMeshAssetPath
 
 
-        [FoldoutGroup("地形网格持久化")]
-        [Button("导出当前地形为网格", ButtonSizes.Medium)]
+        [FoldoutGroup("地形持久化")]
+        [Button("导出当前地形为资产", ButtonSizes.Medium)]
         private void ExportTerrainAsMesh() {
             if (TerrainCtor == null) {
                 Debug.LogError("terrian ctor is null!");
@@ -316,9 +307,9 @@ namespace LZ.WarGameMap.MapEditor
                         continue;
                     }
 
-                    Vector2Int LL = new Vector2Int(cluster.longitude, cluster.latitude);
+                    //Vector2Int LL = new Vector2Int(cluster.longitude, cluster.latitude);
                     string outputFile = AssetsUtility.CombinedPath(exportHandleMeshPath,
-                        GetMeshDataName(terrainWidth, terrainHeight, LL));
+                        TerrainSettingSO.GetClusterFileName(cluster.longitude, cluster.latitude));
 
                     // NOTE : 用这个方法导出的文件一个cluster有80mb，引以为戒
                     //ExportTerrainAsMesh_Obj(outputFile);
@@ -326,6 +317,9 @@ namespace LZ.WarGameMap.MapEditor
                     exportClusterNum++;
                 }
             }
+
+            TerrainLoader loader = new TerrainLoader();
+            loader.AddTerrainMeshToAB(exportHandleMeshPath);
 
             stopwatch.Stop();
             Debug.Log($"{exportClusterNum} cluster terrain mesh has been exported to: {exportHandleMeshPath}, cost : {stopwatch.ElapsedMilliseconds} ms");
@@ -383,7 +377,7 @@ namespace LZ.WarGameMap.MapEditor
 
         private void ExportTerrainAsMesh_Binary(int i, int j, TerrainCluster cluster, string outputFile) {
 
-            using (FileStream fs = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write))
+            using (FileStream fs = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
             using (BufferedStream bufferedStream = new BufferedStream(fs))
             using (BinaryWriter writer = new BinaryWriter(bufferedStream)) {
                 // NOTE : how to serilize mesh data
@@ -394,6 +388,7 @@ namespace LZ.WarGameMap.MapEditor
                 // write cur terrainSetting to file
                 terSet.GetTerrainSetting().WriteToBinary(writer);
 
+                // NOTE : 当前改为 每个 cluster 对应一个文件，后续建议把这里的限制逻辑去掉
                 // NOTE : 当需要修改每个文件的cls数目时，操作这里
                 //int validClusterNum = TerrainCtor.GetValidClusterNum();
                 int validClusterNum = 1;
@@ -410,27 +405,25 @@ namespace LZ.WarGameMap.MapEditor
             AssetDatabase.Refresh();
         }
 
-        private string GetMeshDataName(int terrainWidth, int terrainHeight, Vector2Int LL) {
-            DateTime dateTime = DateTime.Now;
-            long timeSign = dateTime.Ticks / 1000;
-            return string.Format("ClusterMesh_n{0}_e{1}_MapSize{2}x{3}_{4}", LL.x, LL.y, terrainWidth, terrainHeight, timeSign);
+
+        [FoldoutGroup("地形持久化")]
+        [Button("测试-刷新group", ButtonSizes.Medium)]
+        private void RefreshTerrainLoader()
+        {
+            TerrainLoader loader = new TerrainLoader();
+            loader.AddTerrainMeshToAB(exportHandleMeshPath);
         }
 
 
-        [FoldoutGroup("地形网格持久化")]
-        [Button("导入网格到当前地形", ButtonSizes.Medium)]
+        [FoldoutGroup("地形持久化")]
+        [Button("导入资产到当前地形", ButtonSizes.Medium)]
         private void ImportMeshToTerrain() {
             if (TerrainCtor == null) {
                 Debug.LogError("terrian ctor is null!");
                 return;
             }
 
-            if (curHandleTerrainMeshDatas == null) {
-                Debug.LogError("cur TerrainMeshDatas is null");
-                return;
-            }
-
-            if (curHandleMeshPath == null) {
+            if (exportHandleMeshPath == null) {
                 Debug.LogError("cur TerrainMeshDatas path is null");
                 return;
             }
@@ -438,74 +431,47 @@ namespace LZ.WarGameMap.MapEditor
             Stopwatch stopwatch = new Stopwatch();
             stopwatch.Start();
 
-            ImportMeshToTerrain_Binary(curHandleMeshPath);
+            ImportMeshToTerrain_Binary(exportHandleMeshPath);
 
             stopwatch.Stop();
-            Debug.Log($"mesh data trans to terrain: {curHandleMeshPath}, cost : {stopwatch.ElapsedMilliseconds} ms");
+            Debug.Log($"mesh data ({exportHandleMeshPath}) trans to terrain, cost : {stopwatch.ElapsedMilliseconds} ms");
         }
 
-        private void ImportMeshToTerrain_Binary(string curHandleMeshPath) {
+        private void ImportMeshToTerrain_Binary(string exportHandleMeshPath) {
 
-            using (FileStream fs = new FileStream(curHandleMeshPath, FileMode.Open, FileAccess.Read))
-            using (BufferedStream bufferedStream = new BufferedStream(fs))
-            using (BinaryReader reader = new BinaryReader(bufferedStream)) {
-                // NOTE : 勿删
-                //TerrainSetting trSet = new TerrainSetting();
-                //trSet.ReadFromBinary(reader);
-                //int terrainWidth = trSet.terrainSize.x;
-                //int terrainHeight = trSet.terrainSize.z;
+            if (!Directory.Exists(exportHandleMeshPath)) { 
+                Debug.LogError("目录不存在"); 
+                return; 
+            }
 
-                // TODO : terSet hexSet 最好要从 持久化文件里面读取
-                TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, terMaterial, null);
+            // TODO : terSet hexSet 最好要从 持久化文件里面读取
+            TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, terMaterial, null);
 
-                int validClusterNum = reader.ReadInt32();
-                for (int i = 0; i < validClusterNum; i++) {
-                    TerrainCluster cls = new TerrainCluster();
-                    cls.ReadFromBinary(reader);
+            foreach (string file in Directory.GetFiles(exportHandleMeshPath, TerrainSettingSO.GetClusterFileSuffixName())) {
 
-                    TerrainCtor.ExportClusterByBinary(cls.idxX, cls.idxY, cls.longitude, cls.latitude, reader);
+                using (FileStream fs = new FileStream(file, FileMode.Open, FileAccess.Read))
+                using (BufferedStream bufferedStream = new BufferedStream(fs))
+                using (BinaryReader reader = new BinaryReader(bufferedStream)) {
+                    // NOTE : 勿删
+                    // TODO : 这是为了兼容导出逻辑，实际上这个trSet 就不应该写入，后面再想想怎么改
+                    TerrainSetting trSet = new TerrainSetting();
+                    trSet.ReadFromBinary(reader);
+                    //int terrainWidth = trSet.terrainSize.x;
+                    //int terrainHeight = trSet.terrainSize.z;
+
+                    // TODO : 后面会换成单cluster 对应一个文件
+                    int validClusterNum = reader.ReadInt32();
+                    for (int i = 0; i < validClusterNum; i++) {
+
+
+                        TerrainCluster cls = new TerrainCluster();
+                        cls.ReadFromBinary(reader);
+                        TerrainCtor.ExportClusterByBinary(cls.idxX, cls.idxY, cls.longitude, cls.latitude, reader);
+                        TerrainCtor.SetTerrainGened();
+                    }
                 }
             }
             AssetDatabase.Refresh();
-        }
-
-
-        [FoldoutGroup("地形网格持久化")]
-        [Button("读取地形网格", ButtonSizes.Medium)]
-        private void ReadMeshDataPath() {
-
-            // read terrain mesh datas, get the path
-            string meshPath = EditorUtility.OpenFilePanel("Import Terrain Mesh Data", "", "");
-            if (meshPath == "") {
-                Debug.LogError("you do not get the file");
-                return;
-            }
-
-            curHandleMeshPath = AssetsUtility.TransToAssetPath(meshPath);
-            curHandleTerrainMeshDatas = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(curHandleMeshPath);
-            if (curHandleTerrainMeshDatas == null) {
-                Debug.LogError(string.Format("can not load terrain mesh data from this path: {0}", curHandleMeshPath));
-                return;
-            }
-
-        }
-
-        [FoldoutGroup("地形网格持久化")]
-        [Button("保存地形网格", ButtonSizes.Medium)]
-        private void SaveCurMeshData() {
-            // TODO : 也许不用做这个 ？
-            // save cur handle TerrainMeshDatas
-            if (curHandleTerrainMeshDatas == null) {
-                Debug.LogError("cur TerrainMeshDatas is null");
-                return;
-            }
-
-            if (curHandleMeshPath == null) {
-                Debug.LogError("cur TerrainMeshDatas path is null");
-                return;
-            }
-
-
         }
 
         #endregion

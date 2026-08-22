@@ -212,16 +212,22 @@ namespace LZ.WarGameMap.Runtime
             {
                 for (int row = 0; row < mapHeight; row++)
                 {
+                    int dstIdx = col * mapWidth + row;   // 输出位置：始终原始行列
+
                     // 0°（当前）
                     // int idx = col * mapWidth + row;
+                    int idx = row * mapWidth + col;
                     // 90° 顺时针：col 变 row，row 变 (mapWidth - 1 - col)
                     // int idx = row * mapHeight + (mapWidth - 1 - col);
-                    // // 注意：旋转后宽高互换，行数变 mapWidth，列数变 mapHeight
-                    // // 180°：col 和 row 都反向
+                    // 注意：旋转后宽高互换，行数变 mapWidth，列数变 mapHeight
+                    // 180°：col 和 row 都反向
                     // int idx = (mapWidth - 1 - col) * mapWidth + (mapHeight - 1 - row);
-                    // // 270° 顺时针：col 变 (mapHeight - 1 - row)，row 变 col
-                    int idx = (mapHeight - 1 - row) * mapHeight + col;
+                    // 270° 顺时针：col 变 (mapHeight - 1 - row)，row 变 col
+                    // int idx = (mapHeight - 1 - row) * mapHeight + col;
+                    // int idx = (mapWidth - 1 - col) * mapWidth + row;  // 水平翻转
+
                     uint terrainTypeID = (uint)(idx < typeList.Count ? typeList[idx][0] : 0);
+
                     if (terrainTypeID == 0)
                     {
                         cnt1 ++;
@@ -241,7 +247,7 @@ namespace LZ.WarGameMap.Runtime
                     {
                         cnt5++;
                     }
-                    data[idx] = terrainTypeID;
+                    data[dstIdx] = terrainTypeID;
                 }
             }
             Debug.Log($" idx0 : {cnt1},  idx1 : {cnt2},  idx2 : {cnt3},  idx3 : {cnt4},  idx4 : {cnt5}, ");

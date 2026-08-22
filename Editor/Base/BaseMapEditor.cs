@@ -1,4 +1,4 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using Sirenix.OdinInspector;
 using UnityEditor;
 using LZ.WarGameMap.Runtime;
@@ -11,25 +11,30 @@ namespace LZ.WarGameMap.MapEditor {
 
         protected bool notInitScene = true;
 
-        protected EditorSceneManager sceneManager;    // ¼´ static instance
+        protected EditorSceneManager sceneManager;    // é”Ÿæ–¤æ‹· static instance
 
-        [FoldoutGroup("ÅäÖÃscene", -9)]
+        [FoldoutGroup("é…ç½®scene", -9)]
         [GUIColor(1f, 0f, 0f)]
         [ShowIf("notInitScene")]
-        [LabelText("¾¯¸æ: "), ReadOnly]
-        public string warningNotInit = "Ã»ÓĞ³õÊ¼»¯Editor, Çëµã»÷°´Å¥³õÊ¼»¯!";
+        [LabelText("è­¦å‘Š:"), ReadOnly]
+        public string warningNotInit = "æ²¡æœ‰åˆå§‹åŒ–Editor, è¯·ç‚¹å‡»æŒ‰é’®åˆå§‹åŒ–!";
 
-        [FoldoutGroup("ÅäÖÃscene", -9)]
-        [LabelText("Ëø¶¨SceneView")]
-        [Tooltip("½öÔÚËø¶¨ºó£¬²Å¿ÉÒÔ½øĞĞ»æÖÆ²Ù×÷")]
+        [FoldoutGroup("é…ç½®scene", -9)]
+        [LabelText("å±•ç¤ºç¼–è¾‘å™¨éšè—å­—æ®µ")]
+        [Tooltip("å±•ç¤ºå­—æ®µä»¥å¸®åŠ©debugï¼Œä¸æ¨èæ‰“å¼€")]
+        public bool showAllField = false;
+
+        [FoldoutGroup("é…ç½®scene", -9)]
+        [LabelText("é”å®šSceneView")]
+        [Tooltip("å¯ç”¨åï¼Œæ‰å¯ä»¥è¿›è¡Œç»˜åˆ¶æ“ä½œ")]
         [OnValueChanged("OnLockSceneViewValueChanged")]
         public bool lockSceneView = true;
 
         protected bool enableBtnEvent = false;
 
-        [FoldoutGroup("ÅäÖÃscene", -9)]
-        [LabelText("½ÓÊÕ¼üÅÌÊäÈë")]
-        [Tooltip("½öÎªtrueÊ±£¬½ÓÊÕ¼üÅÌÊäÈë")]
+        [FoldoutGroup("é…ç½®scene", -9)]
+        [LabelText("å…è®¸é”®ç›˜è¾“å…¥")]
+        [Tooltip("ä¸ºtrueæ—¶ï¼Œå¯ç”¨å¿«æ·é”®æ“ä½œ")]
         [OnValueChanged("OnLockSceneViewValueChanged")]
         public bool enableKeyCode = true;
 
@@ -45,8 +50,8 @@ namespace LZ.WarGameMap.MapEditor {
         }
 
 
-        [FoldoutGroup("ÅäÖÃscene", -9)]
-        [Button("³õÊ¼»¯µØĞÎÅäÖÃ", ButtonSizes.Medium)]
+        [FoldoutGroup("é…ç½®scene", -9)]
+        [Button("åˆå§‹åŒ–ç¼–è¾‘å™¨", ButtonSizes.Medium)]
         protected virtual void InitEditor()
         {
             notInitScene = false;
@@ -147,7 +152,7 @@ namespace LZ.WarGameMap.MapEditor {
                         OnKeyCodeF();
                         break;
 
-                    // Êı×Ö¼ü 0~9
+                    // æ•°å­—é”® 0~9
                     case KeyCode.Alpha0:
                         OnKeyCodeAlphaNum(0);
                         break;
@@ -230,14 +235,14 @@ namespace LZ.WarGameMap.MapEditor {
 
         protected Vector3 GetMousePosToScene(Event e) {
             SceneView sceneView = SceneView.currentDrawingSceneView;
-            //µ±Ç°ÆÁÄ»×ø±ê,×óÉÏ½Ç(0,0)ÓÒÏÂ½Ç(camera.pixelWidth,camera.pixelHeight)
+            //å½“å‰å±å¹•åæ ‡,å·¦ä¸Šè§’(0,0)å³ä¸‹è§’(camera.pixelWidth,camera.pixelHeight)
             Vector2 mousePos = e.mousePosition;
-            //retina ÆÁÄ»ĞèÒªÀ­ÉìÖµ
+            //retina å±å¹•éœ€è¦ä¹˜ç³»æ•°
             float mult = 1;
 #if UNITY_5_4_OR_NEWER
             mult = EditorGUIUtility.pixelsPerPoint;
 #endif
-            //×ª»»³ÉÉãÏñ»ú¿É½ÓÊÜµÄÆÁÄ»×ø±ê,×óÏÂ½ÇÊÇ(0,0,0);ÓÒÉÏ½ÇÊÇ(camera.pixelWidth,camera.pixelHeight,0)
+            //è½¬æ¢æˆæ‘„åƒæœºå¯æ¥å—çš„å±å¹•åæ ‡,å·¦ä¸‹è§’æ˜¯(0,0,0);å³ä¸Šè§’æ˜¯(camera.pixelWidth,camera.pixelHeight,0)
             mousePos.y = sceneView.camera.pixelHeight - mousePos.y * mult;
             mousePos.x *= mult;
             Vector3 fakePoint = mousePos;
@@ -246,7 +251,7 @@ namespace LZ.WarGameMap.MapEditor {
             return point;
         }
 
-        // TODO : ²âÊÔËü
+        // TODO : é‡å‘½å
         protected Vector3 GetMousePosIny0(Event e)
         {
             return GetMousePosIny0(e.mousePosition);
@@ -254,10 +259,10 @@ namespace LZ.WarGameMap.MapEditor {
 
         protected Vector3 GetMousePosIny0(Vector3 cur)
         {
-            // GUI×ø±ê×ªÉäÏß
+            // GUIåæ ‡è½¬æ¢æˆå°„çº¿
             Ray ray = HandleUtility.GUIPointToWorldRay(cur);
 
-            // y=0 Æ½Ãæ
+            // y=0 å¹³é¢
             Plane plane = new Plane(Vector3.up, Vector3.zero);
 
             if (plane.Raycast(ray, out float enter))
@@ -265,7 +270,7 @@ namespace LZ.WarGameMap.MapEditor {
                 return ray.GetPoint(enter);
             }
 
-            return Vector3.zero; // Ã»×²µ½Æ½Ãæ£¨¼¸ºõ²»»á£©
+            return Vector3.zero; // æ²¡æœ‰ç¢°æ’åˆ°å¹³é¢ï¼ˆå¯èƒ½è§†è§’å¹³è¡Œï¼‰
         }
     }
 }

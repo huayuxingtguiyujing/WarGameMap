@@ -1,4 +1,4 @@
-using LZ.WarGameMap.Runtime;
+ï»¿using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.Enums;
 using LZ.WarGameMap.Runtime.Model;
 using Sirenix.OdinInspector;
@@ -15,24 +15,24 @@ namespace LZ.WarGameMap.MapEditor
         public override string EditorName => MapEditorEnum.MapSetEditor;
 
 
-        [FoldoutGroup("ÅäÖÃscene")]
-        [LabelText("µØÍ¼RuntimeÅäÖÃ")]
+        [FoldoutGroup("é…ç½®scene")]
+        [LabelText("åœ°å›¾Runtimeé…ç½®")]
         public MapRuntimeSetting mapSet;
 
-        [FoldoutGroup("ÅäÖÃscene")]
-        [LabelText("µØĞÎÅäÖÃ")]
-        public TerrainSettingSO terSet;     // ×Ô¾õ²»ÒªÔÚÍâ²¿¶ÔÕâ¸ö¶«Î÷½øĞĞĞŞ¸Ä
+        [FoldoutGroup("é…ç½®scene")]
+        [LabelText("åœ°å½¢é…ç½®")]
+        public TerrainSettingSO terSet;     // è‡ªè§‰ä¸è¦åœ¨å¤–éƒ¨å¯¹è¿™ä¸ªä¸œè¥¿è¿›è¡Œä¿®æ”¹
 
-        [FoldoutGroup("ÅäÖÃscene")]
-        [LabelText("µØÍ¼HexÅäÖÃ")]
+        [FoldoutGroup("é…ç½®scene")]
+        [LabelText("åœ°å›¾Hexé…ç½®")]
         public HexSettingSO hexSet;
 
-        [FoldoutGroup("ÅäÖÃscene")]
-        [LabelText("¸ñ×ÓµØĞÎÊı¾İ")]
+        [FoldoutGroup("é…ç½®scene")]
+        [LabelText("æ ¼å­åœ°å½¢æ•°æ®")]
         public GridTerrainSO gridTerrainSO;
 
-        [FoldoutGroup("ÅäÖÃscene")]
-        [LabelText("ÇøÓòÊı¾İ")]
+        [FoldoutGroup("é…ç½®scene")]
+        [LabelText("åŒºåŸŸæ•°æ®")]
         public CountrySO countrySO;
 
         protected override void InitEditor() {
@@ -70,50 +70,64 @@ namespace LZ.WarGameMap.MapEditor
         }
 
 
-        #region Terrain Scene/Êı¾İ
+        #region Terrain Scene/æ•°æ®
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("TerrainÉú³É·½Ê½")]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("Terrainç”Ÿæˆæ–¹å¼")]
         public TerMeshGenMethod GenMethod;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
         [LabelText("Terrain Material")]
         public List<HeightDataModel> heightDataModels;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("µØÍ¼Ö÷²ÄÖÊ")]
+        // TODOï¼š æè´¨åº”è¯¥åŠ¨æ€åŠ è½½ï¼Œåç»­è¦æ”¹
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("åœ°å›¾ä¸»æè´¨")]
         public Material mainMaterial;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("µØÃ²²ÄÖÊ")]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("åœ°è²Œæè´¨")]
         public Material terrainLandformMat;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("ºÓÁ÷²ÄÖÊ")]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("æ²³æµæè´¨")]
         public Material riverMaterial;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("ter²ÄÖÊ-ÓÃÓÚ±à¼­")]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("teræè´¨-ç”¨äºç¼–è¾‘")]
+        [Tooltip("åœ°å½¢èµ„äº§ä½¿ç”¨çš„æè´¨ï¼Œç¼–è¾‘æ—¶æ€")]
         public Material terMaterial;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("hex²ÄÖÊ-ÓÃÓÚ±à¼­")]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("hexæè´¨-ç”¨äºç¼–è¾‘")]
+        [Tooltip("hexmap èµ„äº§ä½¿ç”¨çš„æè´¨ï¼Œç¼–è¾‘æ—¶æ€")]
         public Material hexMaterial;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("Terrain Mesh Êı¾İ")]    // serialized file data
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("è´å¡å°”èŠ‚ç‚¹Prefab")]
+        [Tooltip("ç”¨äºæä¾›æ ‡è®° prefabï¼Œå¯ä¾›éœ€è¦çš„åœ°æ–¹è°ƒç”¨")]
+        public GameObject signObj;
+
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("Hexæ¶‚åˆ·CS")]
+        [Tooltip("ç”¨äºå¿«é€Ÿæ¶‚åˆ· hex gridï¼Œè¯·è§")]
+        public ComputeShader paintRTShader;
+
+
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("Terrain Mesh æ•°æ®")]    // serialized file data
         public TerrainMeshDataBinder terAssetBinder;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("Terrain Binder ÎÄ¼ş¼ĞÂ·¾¶")]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("Terrain Binder æ–‡ä»¶å¤¹è·¯å¾„")]
         public string terBinderPath = MapStoreEnum.WarGameMapEditObjPath;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [LabelText("Terrain Mesh ÎÄ¼ş¼ĞÂ·¾¶")]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [LabelText("Terrain Mesh æ–‡ä»¶å¤¹è·¯å¾„")]
         public string clsMeshDataPath = MapStoreEnum.TerrainMeshSerializedPath;
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [Button("Ò»¼üµ¼ÈëËùÓĞ Terrain Mesh Êı¾İ", ButtonSizes.Medium)]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [Button("ä¸€é”®å¯¼å…¥æ‰€æœ‰ Terrain Mesh æ•°æ®", ButtonSizes.Medium)]
         private void ImportClusterMeshDatas() {
             FindOrCreateSO(ref terAssetBinder, terBinderPath, "TerrainMeshDataBinder.asset");
 
@@ -123,14 +137,8 @@ namespace LZ.WarGameMap.MapEditor
             terAssetBinder.LoadAsset(filePaths);
         }
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [Button("Çå¿Õ Ter Scene", ButtonSizes.Medium)]
-        private void ClearTerScene() {
-            EditorSceneManager.GetInstance().ClearTerScene();
-        }
-
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [Button("³õÊ¼»¯ Ter Scene", ButtonSizes.Medium)]   // so that you can view the terrain cluster in scene
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [Button("åˆå§‹åŒ– åœ°å½¢åœºæ™¯", ButtonSizes.Medium)]   // so that you can view the terrain cluster in scene
         private void InitSceneManagerTer() {
 
             System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
@@ -142,33 +150,40 @@ namespace LZ.WarGameMap.MapEditor
 
             EditorSceneManager.GetInstance().LoadMapRenderer(mainMaterial, terrainLandformMat, riverMaterial);
 
+            EditorSceneManager.GetInstance().SetEditorAssets(terMaterial, signObj, paintRTShader, hexMaterial);
+
             stopwatch.Stop();
             Debug.Log($"init scene manager ter scene successfully! cost {stopwatch.ElapsedMilliseconds} ms");
         }
 
-
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [Button("Çå¿Õ Hex Scene", ButtonSizes.Medium)]
-        private void ClearHexScene() {
-            EditorSceneManager.GetInstance().ClearHexScene();
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [Button("æ¸…ç©º åœ°å½¢åœºæ™¯", ButtonSizes.Medium)]
+        private void ClearTerScene() {
+            EditorSceneManager.GetInstance().ClearTerScene();
         }
 
-        [FoldoutGroup("Editor ³¡¾°ÅäÖÃ")]
-        [Button("³õÊ¼»¯ Hex Scene", ButtonSizes.Medium)]
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [Button("åˆå§‹åŒ– Hex åœºæ™¯", ButtonSizes.Medium)]
         private void InitSceneManagerHex() {
 
+        }
+
+        [FoldoutGroup("Editor åœºæ™¯é…ç½®")]
+        [Button("æ¸…ç©º Hex åœºæ™¯", ButtonSizes.Medium)]
+        private void ClearHexScene() {
+            EditorSceneManager.GetInstance().ClearHexScene();
         }
 
         #endregion
 
         
-        #region äÖÈ¾ÉèÖÃ
+        #region æ¸²æŸ“è®¾ç½®
 
-        [FoldoutGroup("äÖÈ¾ ÉèÖÃ")]
+        [FoldoutGroup("æ¸²æŸ“ è®¾ç½®")]
         [Button("test", ButtonSizes.Medium)]
         private void SetRenderTest()
         {
-            // TODO : ÒªÔÚÕâÀï¼¯ÖĞµØ¹ÜÀí Render ×Ê²ú
+            // TODO : è¦åœ¨è¿™é‡Œé›†ä¸­åœ°ç®¡ç† Render èµ„äº§
         }
 
         #endregion

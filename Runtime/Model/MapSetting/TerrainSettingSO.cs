@@ -113,6 +113,34 @@ namespace LZ.WarGameMap.Runtime {
             );
         }
 
+        #region Terrain Cluster File Name
+        public static string GetClusterFileSuffixName()
+        {
+            return "*_terrain_cluster.bytes";
+        }
+
+        // 使用此 方法，获取持久化的 地块 cluster bytes 名称
+        public static string GetClusterFileName(long longitude, long latitude)
+        {
+            return $"{longitude}_{latitude}_terrain_cluster.bytes";
+        }
+
+        // 从 cluster bytes 文件名 <longitude>_<latitude>_terrain_cluster.bytes 解析出经纬度
+        public static bool TryParseClusterFileName(string fileName, out long longitude, out long latitude)
+        {
+            longitude = 0; latitude = 0;
+            string name = Path.GetFileNameWithoutExtension(fileName);
+            if (!name.EndsWith("_terrain_cluster")){
+                return false;
+            }
+            string core = name.Substring(0, name.Length - "_terrain_cluster".Length);
+            string[] parts = core.Split('_');
+            if (parts.Length != 2){
+                return false;
+            }
+            return long.TryParse(parts[0], out longitude) && long.TryParse(parts[1], out latitude);
+        }
+        #endregion
     }
 
     [Serializable]

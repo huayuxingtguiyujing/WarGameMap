@@ -2,7 +2,6 @@ using Sirenix.OdinInspector;
 using System;
 using UnityEditor;
 using UnityEngine;
-using static UnityEditor.Experimental.GraphView.GraphView;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -43,6 +42,7 @@ namespace LZ.WarGameMap.Runtime
             this.IsBaseLayer = IsBaseLayer;
         }
 
+#if UNITY_EDITOR
         public static GridTerrainLayer Deserialized(SerializedProperty obj)
         {
             int order = obj.FindPropertyRelative("layerOrder").intValue;
@@ -51,6 +51,7 @@ namespace LZ.WarGameMap.Runtime
             bool isBase = obj.FindPropertyRelative("IsBaseLayer").boolValue;
             return new GridTerrainLayer(order, name, desc, isBase);
         }
+#endif
 
         public GridTerrainLayer CopyObject()
         {
@@ -95,6 +96,7 @@ namespace LZ.WarGameMap.Runtime
             this.IsBaseType = IsBaseLayer;
         }
 
+#if UNITY_EDITOR
         public static GridTerrainType Deserialized(SerializedProperty obj)
         {
             int layer = obj.FindPropertyRelative("terrainTypeLayer").intValue;
@@ -105,6 +107,7 @@ namespace LZ.WarGameMap.Runtime
             var type = new GridTerrainType(layer, name, chineseName, color, isBaseLayer);
             return type;
         }
+#endif
 
         public GridTerrainType CopyObject()
         {

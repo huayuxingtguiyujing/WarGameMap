@@ -55,5 +55,36 @@ float3 ApplyHexOutline(float3 worldPos, float3 originalAlbedo)
     return lerp(originalAlbedo, _HexGridEdgeColor.rgb, mask);
 }
 
-        
+
+// ===== 六边形格子高亮 =====
+float  _HighlightHexCoordX;
+float  _HighlightHexCoordY;
+float4 _HighlightColor;
+float  _HighlightEnabled;
+float  _HighlightEdgeRatio;
+float  _HighlightEdgeStartLerp;
+
+// 高亮描边函数：加法混合叠加到 originalAlbedo
+// 灰色边框（ApplyHexOutline）在之后调用，会自然覆盖在高亮之上
+float3 ApplyHexHighlight(float3 worldPos, float3 originalAlbedo)
+{
+    // 当前片元所属的 offset hex 坐标
+    float2 offsetHex = WorldToOffset(worldPos, _HexGridSize).xy;
+    int2 targetHex = int2(round(_HighlightHexCoordX), round(_HighlightHexCoordY));
+
+    // 不在目标格子内，直接返回
+    if (any((int2)offsetHex != targetHex))
+    {
+        return originalAlbedo;
+    }
+
+    // 计算边缘 mask（使用独立参数，不复用 HexGridEdge 的参数）
+    float t = GetRatioToHexEdge(worldPos, _HexGridSize);
+    t = clamp(0, 1 - _HighlightEdgeRatio, t);
+    float mask = smoothstep(_HighlightEdgeStartLerp, 1.0, t);
+
+    // 加法混合
+    return originalAlbedo + _HighlightColor.rgb * mask;
+}
+
 #endif

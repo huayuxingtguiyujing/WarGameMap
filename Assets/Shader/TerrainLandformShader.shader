@@ -19,6 +19,24 @@ Shader "WarGameMap/Terrain/TerrainLandform"
         _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0.0, 0.5)) = 0.075
         _HexGridEdgeStartLerp("Hex Grid Edge Start Lerp", Range(0.5, 0.95)) = 0.75
         _HexGridEdgeColor("Hex Grid Edge Color", Color) = (0.3, 0.3, 0.3, 1)
+
+        [Header(Hex Grid Highlight Choose Grid Logic)]
+        _HighlightHexCoordX("Highlight Hex Coord X", Float) = -1
+        _HighlightHexCoordY("Highlight Hex Coord Y", Float) = -1
+        _HighlightColor("Highlight Color", Color) = (1, 0.85, 0.2, 1)   // 高亮的颜色
+        _HighlightEnabled("Highlight Enabled", Float) = 1   // 为1是开启
+        _HighlightEdgeRatio("Highlight Edge Ratio", Range(0.0, 0.5)) = 0.04 // 推荐0.04
+        _HighlightEdgeStartLerp("Highlight Edge Start Lerp", Range(0.5, 0.95)) = 0.8    // 推荐 0.8
+    
+        
+        [Header(Region Divide)]
+        _RegionDivideEnabled("Region Divide Enabled", Float) = 1
+        _RegionBorderWidth("Region Border Width", Range(0.01, 0.3)) = 0.08
+        _RegionBorderSmooth("Region Border Smooth", Range(0.01, 0.2)) = 0.04
+        _RegionBorderColor("Region Border Color", Color) = (1, 1, 1, 1)
+        _RegionBlendStrength("Region Blend Strength", Range(0, 1)) = 0.55
+        [NoScaleOffset] _RegionTexture("Region Texture", 2D) = "black" {}
+        
     }
 
     SubShader
@@ -51,6 +69,7 @@ Shader "WarGameMap/Terrain/TerrainLandform"
 
             #include "Utils/TerrainBlend.hlsl"
             #include "Utils/HexOutline.hlsl"
+            #include "Hexmap/CountryLibrary.hlsl"
 
             struct Attributes
             {
@@ -182,7 +201,6 @@ Shader "WarGameMap/Terrain/TerrainLandform"
                 // if (selfID == 18) return half4(0.7, 0.7, 0.1, 1.0); // 黄
                 // if (selfID == 19) return half4(0.4, 0.2, 0.1, 1.0); // 深棕
 
-
                 // ===== 优化：三个 hex ID 相同时跳过邻居采样 =====
                 if (nbrID0 == selfID && nbrID1 == selfID)
                 {
@@ -223,13 +241,22 @@ Shader "WarGameMap/Terrain/TerrainLandform"
                              + mat1.metallic   * blendW1;
                 }
                 finalNormalTS = float3(0, 1, 0);
-
-                // ===== 六边形格子边框叠加（三角形混合之后）=====
                 
-                // finalAlbedo = ApplyHexOutline(i.worldPos, finalAlbedo, selfID);
+                // 区域划分效果（EU4/CK3 风格政治地图）
+                if (_RegionDivideEnabled > 0.5) {
+                    finalAlbedo = ApplyRegionDivide(i.worldPos, finalAlbedo, offsetHex, _HexGridSize);
+                }
+
+                // 六边形格子边框叠加（在地貌混合之后）
                 if (!ShouldExcludeHexOutline(selfID)) {
                     finalAlbedo = ApplyHexOutline(i.worldPos, finalAlbedo);
                 }
+
+                // 六边形格子高亮（灰色边框会自然覆盖在高亮之上）
+                if (_HighlightEnabled > 0.5) {
+                    finalAlbedo = ApplyHexHighlight(i.worldPos, finalAlbedo);
+                }
+
 
                 // 用一个很轻的 ID 色调把材质拉开一点，便于快速辨认不同地貌。
                 finalAlbedo *= lerp(1.0.xxx, GetDebugIdColor(selfID), saturate(_TerrainTintStrength * 0.12));

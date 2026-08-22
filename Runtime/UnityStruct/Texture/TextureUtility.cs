@@ -25,6 +25,7 @@ namespace LZ.WarGameMap.Runtime
 
         public TextureUtility() { }
 
+#if UNITY_EDITOR
         #region create/destroy/save/load texture
 
         private Texture2D CreateTexture2D(int width, int height, TextureFormat format = TextureFormat.RGBA32) {
@@ -237,6 +238,8 @@ namespace LZ.WarGameMap.Runtime
 
             Debug.Log("generate texture altas, then you can generate the indexTex and blenderTex");
         }
+
+#endif
 
         public static List<Color> GetRTColorList(RenderTexture rt)
         {

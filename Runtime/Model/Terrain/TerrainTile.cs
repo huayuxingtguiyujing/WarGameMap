@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
-using static UnityEditor.PlayerSettings;
 
 namespace LZ.WarGameMap.Runtime
 {
@@ -48,7 +47,10 @@ namespace LZ.WarGameMap.Runtime
 
         #region Init tile data
 
-        public void InitTileMeshData(int idxX, int idxY, int longitude, int latitude, Vector3 startPoint, MeshFilter meshFilter, MeshRenderer renderer, int[] lODLevels) {
+        public void InitTileMeshData(int idxX, int idxY, int longitude, int latitude, Vector3 startPoint, MeshFilter meshFilter, MeshRenderer renderer, int[] lODLevels, TerrainSettingSO terSet) {
+
+            this.clusterSize = terSet.clusterSize;
+            this.tileSize = terSet.tileSize;
             this.clusterStartPoint = startPoint;
             this.meshFilter = meshFilter;
             this.renderer = renderer;
@@ -61,8 +63,24 @@ namespace LZ.WarGameMap.Runtime
 
             curLODLevel = -1;       // init as -1
 
+            int vertexNumFix = 1;
+
             LODLevels = lODLevels;
             LODMeshes = new TerrainMeshData[lODLevels.Length];
+            for(int i = 0; i < LODMeshes.Length; i ++)
+            {
+                // some mid data caculate
+                int gridNumPerLine = tileSize / vertexNumFix;   // vertexNumFix
+                int gridSize = tileSize / gridNumPerLine;
+                int vertexPerLine = tileSize / vertexNumFix + 1;
+
+                int gridNumPerLineFixed = gridNumPerLine + 2;
+                int vertexPerLineFixed = vertexPerLine + 2;
+
+                LODMeshes[i] = new TerrainMeshData();
+                LODMeshes[i].InitMeshData(tileIdxX, tileIdxY, i, gridNumPerLine, gridNumPerLineFixed, vertexPerLine, vertexPerLineFixed);
+                vertexNumFix *= 2;
+            }
         }
 
         public void Dispose() {
@@ -90,11 +108,11 @@ namespace LZ.WarGameMap.Runtime
             tileCenterPos = startPoint + new Vector3(tileSize / 2, 0, tileSize / 2);
 
             // v : vertex, g : grid
-            //v¡ª¡ª¡ª-v
+            //vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-v
             //| g | g |
-            //|¡ª¡ª¡ª¡ª
+            //|ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             //| g | g |
-            //v¡ª¡ª¡ª-v
+            //vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-v
             // LOD4(max) :  gridSize : 256, vertexPerLine : 257, vertexPerLineFixed : 259, gridSize : 1
             int gridNumPerLine = tileSize / vertexNumFix;
             int gridSize = tileSize / gridNumPerLine;
@@ -123,7 +141,7 @@ namespace LZ.WarGameMap.Runtime
                     bool isVertOutOfMesh = (i == 0) || (i == vertexPerLineFixed - 1) || (j == 0) || (j == vertexPerLineFixed - 1);
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
-                    // NOTE : ÕâÀïµÄ´úÂë²»ÄÜÉ¾£¡Ç§Íò²»ÄÜÉ¾°¡
+                    // NOTE : ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ë²»ï¿½ï¿½É¾ï¿½ï¿½Ç§ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½
                     float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint) * 500;
                     //float height = heightDataManager.SampleFromHexMap(vert);
                     //float height = 0;
@@ -153,7 +171,7 @@ namespace LZ.WarGameMap.Runtime
                         yield return null;
                     }
 
-                    // i, j ÊÇµ±Ç°±éÀúµ½µÄ grid µÄ index
+                    // i, j ï¿½Çµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ grid ï¿½ï¿½ index
                     int cur_w = curGridIdx % gridNumPerLineFixed;
                     int cur_h = curGridIdx / gridNumPerLineFixed;
                     int next_w = cur_w + 1;
@@ -196,11 +214,11 @@ namespace LZ.WarGameMap.Runtime
             tileCenterPos = startPoint + new Vector3(tileSize / 2, 0, tileSize / 2);
 
             // v : vertex, g : grid
-            //v¡ª¡ª¡ª-v
+            //vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-v
             //| g | g |
-            //|¡ª¡ª¡ª¡ª
+            //|ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             //| g | g |
-            //v¡ª¡ª¡ª-v
+            //vï¿½ï¿½ï¿½ï¿½ï¿½ï¿½-v
             // LOD4(max) :  gridSize : 256, vertexPerLine : 257, vertexPerLineFixed : 259, gridSize : 1
             int gridNumPerLine = tileSize / vertexNumFix;
             int gridSize = tileSize / gridNumPerLine;
@@ -225,7 +243,7 @@ namespace LZ.WarGameMap.Runtime
                     bool isVertOutOfMesh = (i == 0) || (i == vertexPerLineFixed - 1) || (j == 0) || (j == vertexPerLineFixed - 1);
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
-                    // NOTE : ÕâÀïµÄ´úÂë²»ÄÜÉ¾£¡Ç§Íò²»ÄÜÉ¾°¡
+                    // NOTE : ï¿½ï¿½ï¿½ï¿½Ä´ï¿½ï¿½ë²»ï¿½ï¿½É¾ï¿½ï¿½Ç§ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½
                     //float height = SampleFromHeightData(terrainClusterSize, vert);
                     //float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
                     //float height = heightDataManager.SampleFromHexMap(vert);
@@ -246,14 +264,14 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            // TODO : ÓÐÎÊÌâ£¡£¡£¡£¡
+            // TODO : ï¿½ï¿½ï¿½ï¿½ï¿½â£¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             // LOD4(max) :  gridSize : 256, vertexPerLine : 257, vertexPerLineFixed : 259, gridSize : 1
-            // ÐèÒª¼ÆËãÒ»±é
+            // ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½
             int curGridIdx = 0;
             for (int i = 0; i < gridNumPerLineFixed; i++) {
                 for (int j = 0; j < gridNumPerLineFixed; j++) {
 
-                    // i, j ÊÇµ±Ç°±éÀúµ½µÄ grid µÄ index
+                    // i, j ï¿½Çµï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ grid ï¿½ï¿½ index
                     int cur_w = curGridIdx % gridNumPerLineFixed;
                     int cur_h = curGridIdx / gridNumPerLineFixed;
                     int next_w = cur_w + 1;
@@ -289,13 +307,13 @@ namespace LZ.WarGameMap.Runtime
 
         public void ApplyRiverEffect(HeightDataManager heightDataManager, RiverDataManager riverDataManager)
         {
-            //for (int i = 0; i < LODMeshes.Length; i ++)
-            //{
+            // for (int i = 0; i < LODMeshes.Length; i ++)
+            // {
             //  if (LODMeshes[i] == null)
             //  {
                 LODMeshes[LODMeshes.Length - 1].ApplyRiverEffect(heightDataManager, riverDataManager);
             //  }
-            //}
+            // }
         }
 
         public void BuildOriginMeshWrapper()
@@ -322,7 +340,7 @@ namespace LZ.WarGameMap.Runtime
 
         public void RecaculateNormal_Mesh()
         {
-            // NOTE : ½¨ÒéµØ¿éÊ¹ÓÃ normal ÌùÍ¼£¬×Ô¶¯Éú³ÉµÄnormal ±ß½çÀÏÊÇÓÐÎÊÌâ...ºÜ²»ÊÊÓÃÓÚ¼õÃæºóµÄµØ±í 
+            // NOTE : ï¿½ï¿½ï¿½ï¿½Ø¿ï¿½Ê¹ï¿½ï¿½ normal ï¿½ï¿½Í¼ï¿½ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½Éµï¿½normal ï¿½ß½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½...ï¿½Ü²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½ÄµØ±ï¿½ 
             for (int i = 0; i < LODMeshes.Length; i++)
             {
                 if (LODMeshes[i] != null)
@@ -420,6 +438,7 @@ namespace LZ.WarGameMap.Runtime
             if(switchMethod == LODSwitchMethod.Height) {
                 return LODMeshes[curLODLevel].GetMesh_LODHeight();
             } else if(switchMethod == LODSwitchMethod.Distance) {
+                // NOTE : Deprecate,we will only use height to ctrl
                 return LODMeshes[curLODLevel].GetMesh_LODDistance(tileIdxX, tileIdxY, fixDirection);
             }
             return null;
@@ -443,6 +462,11 @@ namespace LZ.WarGameMap.Runtime
 
         public string GetTileInfo() {
             return $"{tileIdxX},{tileIdxY},{longitude},{latitude},{curLODLevel},{clusterStartPoint.ToStringFixed()}";
+        }
+
+        // è®¡ç®— WriteToBinary ä¼šå†™å‡ºçš„å­—èŠ‚æ•°ï¼ˆä¸Ž WriteToBinaryã€ReadFromBinary åŒæ­¥ç»´æŠ¤ï¼‰
+        public int GetBinarySize() {
+            return 5 * sizeof(int) + 3 * sizeof(float);
         }
 
         public void WriteToBinary(BinaryWriter writer) {

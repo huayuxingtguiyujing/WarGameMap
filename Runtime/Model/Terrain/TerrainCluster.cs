@@ -80,7 +80,7 @@ namespace LZ.WarGameMap.Runtime
                     GameObject tileGo = CreateTerrainTile(i, j, mat);
                     MeshFilter meshFilter = tileGo.GetComponent<MeshFilter>();
                     MeshRenderer meshRenderer = tileGo.GetComponent<MeshRenderer>();
-                    tileList[i, j].InitTileMeshData(i, j, longitude, latitude, clusterStartPoint, meshFilter, meshRenderer, lodLevels);
+                    tileList[i, j].InitTileMeshData(i, j, longitude, latitude, clusterStartPoint, meshFilter, meshRenderer, lodLevels, terSet);
                 }
             }
 
@@ -222,6 +222,7 @@ namespace LZ.WarGameMap.Runtime
                     BuildOriginMesh(i, j);
                 }
             }
+            IsLoaded = true;
         }
 
         public void BuildOriginMesh(int tileX, int tileY)

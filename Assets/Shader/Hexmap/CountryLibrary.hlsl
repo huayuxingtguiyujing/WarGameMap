@@ -4,8 +4,8 @@
 #include "../Utils/HexLibrary.hlsl"
 
 // 用于生成区域划分效果
-int _HexmapWidth;
-int _HexmapHeight;
+// int _HexmapWidth;
+// int _HexmapHeight;
 
 sampler2D _CountryGridRelationTexture;
 // Texture2D<uint4> _CountryGridRelationTexture;
@@ -200,6 +200,88 @@ float4 GetCountryColor(float3 worldPos, float3 terrainColor, int flag, float _He
             return LerpCountryAndTerrainColor(terrainColor, gridSubPrefectureColor);
     }
     return float4(0,0,0,1);
+}
+
+// ===== 区域划分 SDF 效果 (EU4/CK3 风格政治地图) =====
+float  _RegionDivideEnabled;
+float  _RegionBorderWidth;
+float  _RegionBorderSmooth;
+float4 _RegionBorderColor;
+float  _RegionBlendStrength;
+
+// 判断颜色是否是无归属颜色（NotValidCountryColor = (0.25, 0.25, 0.25)）
+bool IsNotValidCountryColor(float3 c)
+{
+    return all(abs(c - float3(0.25, 0.25, 0.25)) < 0.01);
+}
+
+// 采样某个 offset hex 坐标的 Region 颜色
+float3 SampleRegionColorAtOffset(float2 offsetHex)
+{
+    float2 uv = (offsetHex + 0.5) * _RegionTexture_TexelSize.xy;
+    return tex2Dlod(_RegionTexture, float4(uv, 0, 0)).rgb;
+}
+
+// NOTE : TODO : 区域划分还是没有实现，当前效果不尽如人意，难搞！
+
+// ApplyRegionDivide : EU4/CK3 风格区域划分着色
+// 输入: worldPos (世界坐标), terrainColor (地形混合后的颜色), offsetHex (当前格子 offset 坐标)
+// 输出: 混合区域色后的颜色
+//
+// NOTE (优化预留): 当前通过实时采样邻居格子的 _RegionTexture 颜色来判断边界方向，
+// 每次调用需最多 6 次额外纹理采样。后续可将 6 方向边界信息编码到
+// _CountryGridRelationTexture.r 的 6 个 bit 中，以消除邻居采样开销。
+float3 ApplyRegionDivide(float3 worldPos, float3 terrainColor, float2 offsetHex, float _HexGridSize)
+{
+    if (_RegionDivideEnabled < 0.5)
+        return terrainColor;
+
+    // 1. 采样当前格子的区域颜色
+    float3 selfRegionColor = SampleRegionColorAtOffset(offsetHex);
+
+    // TODO : 下面的 SDF 表现是错误的！下次再搞吧
+
+    // // 2. 无归属格子（山脉/海洋）不绘制区域色，直接返回地形色
+    // if (IsNotValidCountryColor(selfRegionColor))
+    //     return terrainColor;
+
+    // // 3. 确定片元所在的三角扇区方向
+    // int areaDir = GetOffsetHexArea(worldPos, offsetHex, _HexGridSize);
+
+    // // 4. 采样该方向邻居的区域颜色，判断是否为边界方向
+    // float2 neighborOffset = GetOffsetHexNeighbor(offsetHex, areaDir, _HexGridSize);
+    // float3 neighborRegionColor = SampleRegionColorAtOffset(neighborOffset);
+
+    // // 5. 判断该方向是否有区域边界
+    // //    (邻居有归属 && 邻居颜色 != 自己颜色) → 边界方向
+    // bool isBoundaryDir = !IsNotValidCountryColor(neighborRegionColor) &&
+    //                      any(abs(neighborRegionColor - selfRegionColor) > 0.01);
+
+    // // 6. 计算片元到六边形边缘的距离比 (0=中心, 1=边缘)
+    // float edgeRatio = GetRatioToHexEdge(worldPos, offsetHex, _HexGridSize);
+
+    // 7. SDF 边界效果计算
+    // float borderMask = 0.0;
+    // if (isBoundaryDir)
+    // {
+    //     // 该方向是边界：用 smoothstep 产生从边缘向内的羽化过渡
+    //     // edgeRatio 越大越靠近边缘 → borderMask 在边缘附近为 1，向内衰减为 0
+    //     borderMask = 1.0 - smoothstep(1.0 - _RegionBorderWidth - _RegionBorderSmooth,
+    //                                    1.0 - _RegionBorderWidth,
+    //                                    edgeRatio);
+    // }
+
+    // 8. 区域内部颜色混合：区域色 lerp 地形色
+    //    靠近边界时偏向边界高亮色，内部偏向区域本色
+    float3 regionInteriorColor = lerp(terrainColor, selfRegionColor, _RegionBlendStrength);
+
+    // 9. 边界线高亮：白色/亮色描边
+    // float3 borderHighlight = lerp(regionInteriorColor, _RegionBorderColor.rgb, borderMask);
+
+    // 10. 最终结果 = 加法叠加到地形色上（半透明叠加策略 B）
+    //    注意：这里的叠加发生在 regionInteriorColor 已经混入区域色的基础上，
+    //    所以最终输出是：内部=区域色+地形底纹，边界=亮白描边
+    return regionInteriorColor;
 }
 
 #endif

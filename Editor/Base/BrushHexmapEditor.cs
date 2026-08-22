@@ -9,9 +9,9 @@ using UnityEngine.Assertions;
 
 namespace LZ.WarGameMap.MapEditor
 {
-    // Hexmap ±à¼­Æ÷»ùÀà£¬Ìá¹©¹¦ÄÜ :
-    // (1) Ö§³Ö¶Ô scene ½øĞĞ brush£¬»á³ÊÏÖÒ»ÕÅÎÆÀí
-    // (2) Ö§³ÖÔÚ scene ÖĞ²é¿´µØÍ¼ terrain/hexgrids ĞÅÏ¢µÄ£¬¼Ì³Ğ¸ÃÀà
+    // Hexmap ç¼–è¾‘å™¨åŸºç±»ï¼Œæä¾›åŠŸèƒ½ :
+    // (1) æ”¯æŒå¯¹ scene ä¸­çš„ brushè¿›è¡Œç»˜åˆ¶å’Œæ“¦é™¤
+    // (2) æ”¯æŒåœ¨ scene ä¸­æŸ¥çœ‹åœ°å›¾ terrain/hexgrids ä¿¡æ¯çš„æ¨¡å¼(ç»§æ‰¿çˆ¶ç±»)
     public abstract class BrushHexmapEditor : BaseMapEditor
     {
         protected HexSettingSO hexSet;
@@ -41,19 +41,22 @@ namespace LZ.WarGameMap.MapEditor
             hexSet = EditorSceneManager.HexSet;
             //FindOrCreateSO<HexSettingSO>(ref hexSet, MapStoreEnum.WarGameMapSettingPath, "HexSetting_Default.asset");
 
+            paintRTShader = EditorSceneManager.HexPaintRTShader;
+            hexBrushMat = EditorSceneManager.HexBrushMaterial;
+
             //FindOrCreateSO<GridTerrainSO>(ref gridTerrainSO, MapStoreEnum.GamePlayGridTerrainDataPath, "GridTerrainSO_Default.asset");
             //gridTerrainSO.UpdateTerSO(hexSet.mapWidth, hexSet.mapHeight);
         }
 
 
-        #region Í¿Ë¢Hexmap¸ñ×Ó
+        #region æ¶‚åˆ·HexmapåŠŸèƒ½
 
         protected struct BrushHexmapSetting
         {
-            public bool enableBrush;           // ÔÊĞíÍ¿Ë¢
-            public bool enableKeyCode;        // ÔÊĞíÊ¹ÓÃ¿ì½İ¼ü    // TODO : use it
-            public bool useTexCache;          // ¿ªÆô HexmapDataTexManager µÄ»º´æ
-            public int texCacheNum;               // »º´æÒ³Êı
+            public bool enableBrush;           // å¯ç”¨æ¶‚åˆ·
+            public bool enableKeyCode;        // å¯ç”¨ä½¿ç”¨å¿«æ·é”®    // TODO : use it
+            public bool useTexCache;          // å¼€å¯ HexmapDataTexManager çš„ç¼“å­˜
+            public int texCacheNum;               // ç¼“å­˜é¡µæ•°
 
             public BrushHexmapSetting(bool enableBrush, bool enableKeyCode, bool useTexCache, int texCacheNum)
             {
@@ -74,26 +77,32 @@ namespace LZ.WarGameMap.MapEditor
         protected abstract BrushHexmapSetting GetBrushSetting();
 
 
-        [FoldoutGroup("Í¿Ë¢Hexmap¸ñ×Ó", -8)]
-        [LabelText("ÔÊĞíÍ¿Ë¢Hex")]
+        [FoldoutGroup("æ¶‚åˆ·HexmapåŠŸèƒ½", -8)]
+        [LabelText("å¯ç”¨æ¶‚åˆ·Hex")]
         [OnValueChanged("EnableBrushValueChanged")]
         public bool enableBrush;
 
-        [FoldoutGroup("Í¿Ë¢Hexmap¸ñ×Ó")]
-        [LabelText("HexÍ¿Ë¢·¶Î§")]
+        [FoldoutGroup("æ¶‚åˆ·HexmapåŠŸèƒ½")]
+        [LabelText("Hexæ¶‚åˆ·èŒƒå›´")]
         [Range(-1, 100)]
         public int brushScope;
 
-        [FoldoutGroup("Í¿Ë¢Hexmap¸ñ×Ó")]
-        [LabelText("HexÍ¿Ë¢CS")]
+        [FoldoutGroup("æ¶‚åˆ·HexmapåŠŸèƒ½")]
+        [LabelText("Hexæ¶‚åˆ·CS")]
+        [ShowIf("showAllField")]
+        [ReadOnly]
         public ComputeShader paintRTShader;         // Use "Utils/PaintRTPixels.compute"
 
-        [FoldoutGroup("Í¿Ë¢Hexmap¸ñ×Ó")]
-        [LabelText("HexÍ¿Ë¢Mat")]
+        [FoldoutGroup("æ¶‚åˆ·HexmapåŠŸèƒ½")]
+        [LabelText("Hexæ¶‚åˆ·Mat")]
+        [ShowIf("showAllField")]
+        [ReadOnly]
         public Material hexBrushMat;                // Use "WarGameMap/Terrain/ShowTex/HexGridShader"
 
-        [FoldoutGroup("Í¿Ë¢Hexmap¸ñ×Ó")]
-        [LabelText("HexÍ¿Ë¢ÑÕÉ«")]
+        [FoldoutGroup("æ¶‚åˆ·HexmapåŠŸèƒ½")]
+        [LabelText("Hexæ¶‚åˆ·é¢œè‰²")]
+        [Tooltip("Hexæ¶‚åˆ·é¢œè‰²ï¼Œå®ƒåº”å½“è¢«ä»£ç è®¾ç½®ï¼Œä¸æ¨èç›´æ¥æ›´æ”¹")]
+        [ShowIf("showAllField")]  // 
         public Color brushColor;
 
         protected List<Color> brushCachePageColorList = new List<Color>();
@@ -104,13 +113,13 @@ namespace LZ.WarGameMap.MapEditor
         {
             if (enableBrush)
             {
-                // TODO : Ã¿´ÎÇĞ»»µÄÊ±ºò ÊÇ²»ÊÇÓ¦¸Ã¹Ò¸öÉ¶»Øµ÷£¿
+                // TODO : æ¯æ¬¡åˆ‡æ¢æ¨¡å¼æ—¶ æ˜¯ä¸æ˜¯åº”è¯¥æŒ‚ä¸ªå•¥å›è°ƒ
             }
         }
 
-        [FoldoutGroup("Í¿Ë¢Hexmap¸ñ×Ó")]
-        [Button("³õÊ¼»¯HexµØÍ¼¸ñ", ButtonSizes.Medium)]
-        [Tooltip("µã»÷³õÊ¼»¯ºó£¬»áÔÚsceneviewÖĞÉú³É¹©Í¿Ë¢µÄÁù±ßĞÎ¸ñ×ÓµØÍ¼£¬¸ñ×ÓµØÍ¼¼´GamePlayµÄµØÍ¼")]
+        [FoldoutGroup("æ¶‚åˆ·HexmapåŠŸèƒ½")]
+        [Button("åˆå§‹åŒ–Hexç½‘æ ¼å›¾", ButtonSizes.Medium)]
+        [Tooltip("ç‚¹å‡»åˆå§‹åŒ–åï¼Œä¼šåœ¨sceneviewä¸­ç”Ÿæˆå¯æ¶‚åˆ·çš„å…­è¾¹å½¢ç½‘æ ¼åœ°å›¾ï¼Œè¯¥åœ°å›¾æ˜¯GamePlayçš„åœ°å›¾")]
         private void BuildHexGridMap()
         {
             if(hexmapDataTexManager == null)
@@ -121,7 +130,7 @@ namespace LZ.WarGameMap.MapEditor
 
             BrushHexmapSetting brushSetting = GetBrushSetting();
 
-            // TODO : Èç¹ûÊÇ 3000*3000 ¹æ¸ñµÄµØÍ¼£¬MeshÊı¾İ»áµ½800MB£¬Òª¶¯Ì¬¼ÓÔØ£¿
+            // TODO : å¦‚æœåš 3000*3000 è¿™ä¹ˆå¤§çš„åœ°å›¾ï¼ŒMeshæ•°æ®ä¼šåˆ°800MBï¼Œéœ€è¦åŠ¨æ€åŠ è½½ï¼›
             HexCtor.InitHexConsRectangle_Once(hexBrushMat);
             
             hexmapDataTexManager.InitHexmapDataTexture(hexSet.mapWidth, hexSet.mapHeight, 1, Vector3.zero, 
@@ -146,8 +155,8 @@ namespace LZ.WarGameMap.MapEditor
             Debug.Log($"build the hex grid map, width : {hexSet.mapWidth}, height : {hexSet.mapHeight}");
         }
 
-        [FoldoutGroup("Í¿Ë¢Hexmap¸ñ×Ó")]
-        [Button("Çå¿ÕHexµØÍ¼¸ñ", ButtonSizes.Medium)]
+        [FoldoutGroup("æ¶‚åˆ·HexmapåŠŸèƒ½")]
+        [Button("æ¸…é™¤Hexç½‘æ ¼å›¾", ButtonSizes.Medium)]
         private void ClearHexGridMap()
         {
             if(HexCtor != null)
@@ -167,7 +176,7 @@ namespace LZ.WarGameMap.MapEditor
             this.brushColor = brushColor;
         }
 
-        // Èç¹û¿ªÆôÁË HexmapDataTexManager µÄ UseCache£¬ĞèÒªµ÷ÓÃ±¾º¯ÊıÒÔÉèÖÃ²»Í¬ CachePage µÄ Color
+        // å½“å‰ä½¿ç”¨ HexmapDataTexManager çš„ UseCacheåŠŸèƒ½ï¼Œéœ€è¦è®¾ç½®ç¼“å­˜é¢œè‰²åˆ°ä¸åŒ CachePage çš„ Color
         protected void SetBrushCacheColor(Color[] brushCacheColor)
         {
             BrushHexmapSetting brushHexmapSetting = GetBrushSetting();
@@ -188,7 +197,7 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        // µ÷ÓÃ¸Ãº¯Êı Ëø¶¨ Cache ²ã¼¶£¬Í¿Ë¢Ê±²»»áÓ°Ïìµ½±»Ëø¶¨µÄ Cache ²ã¼¶
+        // è°ƒç”¨è¯¥å‡½æ•° é”å®š Cache å±‚çº§ï¼Œåœ¨æ¶‚åˆ·æ—¶ä¸ä¼šå½±å“åˆ°å…¶ä»– Cache å±‚çº§
         protected void LockBrushCacheIdx(bool[] lockIdxs)
         {
             BrushHexmapSetting brushHexmapSetting = GetBrushSetting();
@@ -290,7 +299,7 @@ namespace LZ.WarGameMap.MapEditor
             }
             //Debug.Log($"now enable paint grid num : {offsetHexList.Count}");
 
-            // TODO : Ìá¸ßĞÔÄÜ£¬ÊÊÅä²»Í¬µÄÍ¿Ë¢·¶Î§
+            // TODO : æ‰©å±•åŠŸèƒ½ï¼ŒåŒºåˆ†ä¸åŒçš„æ¶‚åˆ·èŒƒå›´
             //hexmapDataTexManager.PaintHexDataTexture_RectScope(offsetHexPos.TransToXZ(), brushScope, brushColor);
             hexmapDataTexManager.PaintHexDataTexture_Scope(offsetHexList, brushColor, brushCachePageColorList, lockBrushCacheList);
             PaintHexRTEvent(offsetHexList);
@@ -325,7 +334,7 @@ namespace LZ.WarGameMap.MapEditor
         public override void Enable()
         {
             base.Enable();
-            // TODO : ¶ÁÈ¡ brush setting£¬µ÷ÕûÍ¿Ë¢ÅäÖÃ
+            // TODO : è·å– brush settingï¼Œæ›´æ–°æ¶‚åˆ·çŠ¶æ€
         }
 
         public override void Disable() 

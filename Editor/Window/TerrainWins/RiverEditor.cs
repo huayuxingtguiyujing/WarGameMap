@@ -1,4 +1,4 @@
-using LZ.WarGameMap.Runtime;
+ï»¿using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.Enums;
 using Sirenix.OdinInspector;
 using System;
@@ -63,6 +63,9 @@ namespace LZ.WarGameMap.MapEditor
             base.InitEditor();
             InitMapSetting();
 
+            paintRTMat = EditorSceneManager.TerMaterial;
+            signObj = EditorSceneManager.SignObj;
+
             InitRvTransforms();
 
             // init mapRiverData, it will always bind with cur TerrainSettingSO and HexSettingSO
@@ -114,8 +117,8 @@ namespace LZ.WarGameMap.MapEditor
             RiverBezierParentTrans.parent = RiverDataParentTrans;
         }
 
-        //[FoldoutGroup("ºÓÁ÷Êı¾İ")]
-        //[Button("¼ÓÔØºÓÁ÷Êı¾İ", ButtonSizes.Medium)]
+        //[FoldoutGroup("æ²³æµæ•°æ®")]
+        //[Button("åŠ è½½æ²³æµæ•°æ®", ButtonSizes.Medium)]
         private void LoadAllRiver()
         {
             Debug.Log("load river will override all editing data!");
@@ -143,21 +146,21 @@ namespace LZ.WarGameMap.MapEditor
         static RenderTexturePool RTPool;
 
 
-        #region ºÓÁ÷±à¼­£¨ĞÂ£©
+        #region æ²³æµç¼–è¾‘ï¼ˆæ–°ï¼‰
 
         [Serializable]
         public class PaintRiverRTData : IDisposable
         {
 
-            [HorizontalGroup("PaintRiverRTData"), LabelText("RTÎïÌå"), ReadOnly]
+            [HorizontalGroup("PaintRiverRTData"), LabelText("RTç‰©ä½“"), ReadOnly]
             public GameObject paintRTObj;
 
             MeshRenderer renderer;
 
-            [HorizontalGroup("PaintRiverRTData"), LabelText("RT×Ê²ú"), ReadOnly]
+            [HorizontalGroup("PaintRiverRTData"), LabelText("RTèµ„äº§"), ReadOnly]
             public RenderTexture renderTexture;
 
-            [HorizontalGroup("PaintRiverRTData"), LabelText("RTĞòºÅ"), ReadOnly]
+            [HorizontalGroup("PaintRiverRTData"), LabelText("RTåºå·"), ReadOnly]
             public Vector2Int rtClusterIdx;
 
             public PaintRiverRTData(GameObject paintRTObj, MeshRenderer renderer, RenderTexture renderTexture, Vector2Int rtClusterIdx)
@@ -221,17 +224,19 @@ namespace LZ.WarGameMap.MapEditor
             Erase
         }
 
-        [FoldoutGroup("ºÓÁ÷±à¼­")]
-        [LabelText("»æÖÆ·¶Î§")]
+        [FoldoutGroup("æ²³æµç¼–è¾‘")]
+        [ShowIf("showAllField")]
+        [LabelText("ç»˜åˆ¶èŒƒå›´")]
+        [ReadOnly]
         [Range(0, 50)]
         public ushort paintScope = 0;
 
-        [FoldoutGroup("ºÓÁ÷±à¼­")]
-        [LabelText("»æÖÆÄ£Ê½")]
+        [FoldoutGroup("æ²³æµç¼–è¾‘")]
+        [LabelText("ç»˜åˆ¶æ¨¡å¼")]
         [OnValueChanged("OnPaintModeChanged")]
         public PaintMode paintMode = PaintMode.Paint;
 
-        Color paintRiverColor = RiverPaintColor.riverColor;       // ²»ÒªÇáÒ×µØ¸ÄÕâÍæÒâ°¡£¡£¡£¡»áÓ°Ïì»æÖÆÅĞ¶¨µÄ£¡£¡£¡
+        Color paintRiverColor = RiverPaintColor.riverColor;       // ä¸è¦è½»æ˜“åœ°æ”¹è¿™ç©æ„å•Šï¼ï¼ï¼ä¼šå½±å“ç»˜åˆ¶åˆ¤å®šçš„ï¼ï¼ï¼
 
         Color bgColor = RiverPaintColor.noRvColor;
 
@@ -244,7 +249,7 @@ namespace LZ.WarGameMap.MapEditor
                     paintRiverColor = RiverPaintColor.rvStartColor;
                     break;
                 case PaintMode.Paint:
-                    paintScope = 0;
+                    paintScope = 4;
                     paintRiverColor = RiverPaintColor.riverColor;
                     break;
                 case PaintMode.Erase:
@@ -255,31 +260,35 @@ namespace LZ.WarGameMap.MapEditor
         }
 
 
-        [FoldoutGroup("ºÓÁ÷±à¼­")]
-        [LabelText("µ±Ç°±à¼­ ºÓÁ÷ID"), ReadOnly]
+        [FoldoutGroup("æ²³æµç¼–è¾‘")]
+        [ShowIf("showAllField")]
+        [LabelText("å½“å‰ç¼–è¾‘ æ²³æµID"), ReadOnly]
         public ushort curEditRiverID = 9999;
 
-        // TODO : Ö±½Ó´Ó Editor Scene Manager Àï»ñÈ¡
-        [FoldoutGroup("ºÓÁ÷±à¼­")]
-        [LabelText("»æÖÆ-RT ²ÄÖÊ")]
+        // TODO : ç›´æ¥ä» Editor Scene Manager é‡Œè·å–
+        [FoldoutGroup("æ²³æµç¼–è¾‘")]
+        [ShowIf("showAllField")]
+        [LabelText("ç»˜åˆ¶-RT æè´¨")]
         public Material paintRTMat;
 
-        // TODO : Ö±½Ó´Ó Editor Scene Manager Àï»ñÈ¡
-        [FoldoutGroup("ºÓÁ÷±à¼­")]
-        [LabelText("±´Èû¶û½Úµã")]
-        [Tooltip("ÆäÊµËæ±ãÀ­¸öÇò£¬×÷Îªprefab ¾ÍĞĞ")]
+        // TODO : ç›´æ¥ä» Editor Scene Manager é‡Œè·å–
+        [FoldoutGroup("æ²³æµç¼–è¾‘")]
+        [ShowIf("showAllField")]
+        [LabelText("è´å¡å°”èŠ‚ç‚¹")]
+        [Tooltip("å…¶å®éšä¾¿æ‹‰ä¸ªçƒï¼Œä½œä¸ºprefab å°±è¡Œ")]
         public GameObject signObj;
 
-        [FoldoutGroup("ºÓÁ÷±à¼­")]
-        [LabelText("ºÓÁ÷±à¼­µØ¿é Idx ×óÏÂ½Ç")]
+        [FoldoutGroup("æ²³æµç¼–è¾‘")]
+        [LabelText("æ²³æµç¼–è¾‘åœ°å— Idx å·¦ä¸‹è§’")]
         public Vector2Int riverEditStartIdx;
 
-        [FoldoutGroup("ºÓÁ÷±à¼­")]
-        [LabelText("ºÓÁ÷±à¼­µØ¿é Idx ÓÒÉÏ½Ç")]
+        [FoldoutGroup("æ²³æµç¼–è¾‘")]
+        [LabelText("æ²³æµç¼–è¾‘åœ°å— Idx å³ä¸Šè§’")]
         public Vector2Int riverEditEndIdx;
 
-        [FoldoutGroup("ºÓÁ÷±à¼­")]
-        [LabelText("ºÓÁ÷±à¼­µØ¿é RT ÊµÀı")]
+        [FoldoutGroup("æ²³æµç¼–è¾‘")]
+        [ShowIf("showAllField")]
+        [LabelText("æ²³æµç¼–è¾‘åœ°å— RT å®ä¾‹"), ReadOnly]
         public List<PaintRiverRTData> paintRTDatas = new List<PaintRiverRTData>();
 
         Dictionary<Vector2Int, PaintRiverRTData> paintRTDatasDict = new Dictionary<Vector2Int, PaintRiverRTData>();
@@ -288,8 +297,8 @@ namespace LZ.WarGameMap.MapEditor
         BezierCurveEditor curBezierCurveEditor;
 
 
-        [FoldoutGroup("ºÓÁ÷±à¼­", 0)]
-        [Button("Éú³É±à¼­µØ¿é", ButtonSizes.Medium)]
+        [FoldoutGroup("æ²³æµç¼–è¾‘", 0)]
+        [Button("ç”Ÿæˆç¼–è¾‘åœ°å—", ButtonSizes.Medium)]
         private void GenRiverEditCluster()
         {
             if (riverEditEndIdx.y < riverEditStartIdx.y || riverEditEndIdx.x < riverEditStartIdx.x)
@@ -315,8 +324,8 @@ namespace LZ.WarGameMap.MapEditor
 
         private void CreatePaintRiverRTData_ClusterIdxs(List<Vector2Int> clusterIdxs)
         {
-            // NOTE : Ô­±¾µÄ¼Æ»® paint-river-texture ÊÇ clusterSize µÄ 1/4
-            // NOTE : Ä¿Ç° showTexSize Óë clusterSize ´óĞ¡Ò»ÖÂ£¬ËùÒÔ terSet.paintRTSizeScale ×Ö¶Î¿ÉÒÔÒÆ³ı
+            // NOTE : åŸæœ¬çš„è®¡åˆ’ paint-river-texture æ˜¯ clusterSize çš„ 1/4
+            // NOTE : ç›®å‰ showTexSize ä¸ clusterSize å¤§å°ä¸€è‡´ï¼Œæ‰€ä»¥ terSet.paintRTSizeScale å­—æ®µå¯ä»¥ç§»é™¤
             int clusterSize = terSet.clusterSize;
             int showTexSize = clusterSize / terSet.paintRTSizeScale;
 
@@ -331,23 +340,24 @@ namespace LZ.WarGameMap.MapEditor
             };
             Texture2D tmp = new Texture2D(showTexSize, showTexSize, TextureFormat.RGBA32, false);
 
-            // Éú³ÉËùÓĞµØ¿éµÄ Paint-RT£¬±£Ö¤ ËùÓĞ riverdata µÄÊı¾İÒ»²¢±»¼ÓÔØÉÏÈ¥
+            // ç”Ÿæˆæ‰€æœ‰åœ°å—çš„ Paint-RTï¼Œä¿è¯ æ‰€æœ‰ riverdata çš„æ•°æ®ä¸€å¹¶è¢«åŠ è½½ä¸Šå»
             mapRiverData.UpdateMapRiverData();
             foreach (var clusterIdx in clusterIdxs)
             {
-                // »ñÈ¡µ½ÔÚ¸ÃµØ¿é´æÔÚµÄËùÓĞ RiverData
+                // è·å–åˆ°åœ¨è¯¥åœ°å—å­˜åœ¨çš„æ‰€æœ‰ RiverData
                 List<RiverData> riverDatasInCls = mapRiverData.GetClsExistRiverData(clusterIdx);
                 if (riverDatasInCls == null)
                 {
                     riverDatasInCls = new List<RiverData>();
                 }
 
-                // »ñÈ¡µ½ËùÓĞ RiverData µÄºÓÁ÷¸ñ×Ó£¨pixel£©Êı¾İ
+                // è·å–åˆ°æ‰€æœ‰ RiverData çš„æ²³æµæ ¼å­ï¼ˆpixelï¼‰æ•°æ®
                 List<Vector2Int> paintedPixel = new List<Vector2Int>(clusterSize * 5);
                 for (int i = 0; i < riverDatasInCls.Count; i++)
                 {
                     RiverData riverData = riverDatasInCls[i];
                     ushort riverID = riverData.riverID;
+                    riverData.UpdateClusterPixelDict(clusterSize, terSet.paintRTSizeScale);
                     List<Vector2Int> pixelInRiver = riverData.GetPaintedClsPixles(clusterIdx);
                     foreach (var pixel in pixelInRiver)
                     {
@@ -433,8 +443,8 @@ namespace LZ.WarGameMap.MapEditor
         }
 
 
-        [FoldoutGroup("ºÓÁ÷±à¼­", 0)]
-        [Button("Çå¿Õ±à¼­Êı¾İ", ButtonSizes.Medium)]
+        [FoldoutGroup("æ²³æµç¼–è¾‘", 0)]
+        [Button("æ¸…ç©ºç¼–è¾‘åœ°å—", ButtonSizes.Medium)]
         private void ResetEditingRiverData() {
             if (paintRTDatas != null) {
                 paintRTDatas.Clear();
@@ -482,8 +492,8 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         [Obsolete]
-        //[FoldoutGroup("ºÓÁ÷±à¼­", 0)]
-        //[Button("Í¬²½ÇúÏß³¡¾°½Úµãµ½ÇúÏß", ButtonSizes.Medium)]
+        //[FoldoutGroup("æ²³æµç¼–è¾‘", 0)]
+        //[Button("åŒæ­¥æ›²çº¿åœºæ™¯èŠ‚ç‚¹åˆ°æ›²çº¿", ButtonSizes.Medium)]
         private void SyncToBezierCurve()
         {
             if(curBezierCurveEditor == null)
@@ -497,27 +507,31 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-        #region ºÓÁ÷Êı¾İ
+        #region æ²³æµæ•°æ®
 
         [Serializable]
         [InlineProperty]
         public class EditingRiverData : IDisposable 
         {
-            [HorizontalGroup("PaintRiverRTData"), LabelText("ºÓÁ÷ID")]
+            [HorizontalGroup("PaintRiverRTData"), LabelText("æ²³æµID")]
             public ushort riverID;
 
-            [HorizontalGroup("PaintRiverRTData"), LabelText("ºÓÁ÷Ãû³Æ")]
+            [HorizontalGroup("PaintRiverRTData"), LabelText("æ²³æµåç§°")]
             public string riverName;
 
-            [HorizontalGroup("PaintRiverRTData"), LabelText("ºÓÁ÷obj"), ReadOnly]
+            [HideInInspector]
+            [HorizontalGroup("PaintRiverRTData"), LabelText("æ²³æµobj"), ReadOnly]
             public GameObject riverDataObj;
 
-            // TODO : Òş²ØÕâ¸ö×Ö¶Î
-            [LabelText("ºÓÁ÷Æğµã")]
+            // TODO : éšè—è¿™ä¸ªå­—æ®µ
+            [LabelText("æ²³æµèµ·ç‚¹")]
+            [InfoBox("æœªæ­£ç¡®è®¾ç½®èµ·ç‚¹ï¼è¯·é€‰ä¸­æ²³æµï¼Œåˆ‡æ¢ç»˜åˆ¶æ¨¡å¼ä¸º SetStart å¹¶ç‚¹å‡»åœ°å—æ¥è®¾ç½®", InfoMessageType.Error, visibleIfMemberName: "IsRiverStartInvalid")]
             public RiveStartData riverStart = MapRiverData.UnvalidRvStart;
 
-            [Obsolete]
-            [LabelText("ºÓÁ÷´æÔÚµÄµØ¿é")]
+            private bool IsRiverStartInvalid => !riverStart.IsValid();
+
+            [ReadOnly]
+            [LabelText("æ²³æµå­˜åœ¨çš„åœ°å—")]
             public List<Vector2Int> existTerrainClusterIDs;
 
             Action<ushort, EditingRiverData> ChooseRiverEvent;
@@ -552,38 +566,38 @@ namespace LZ.WarGameMap.MapEditor
             public void InitEditingRiverData(Action<ushort, EditingRiverData> chooseEvent, Action<ushort, EditingRiverData> editStartEvent,
                  Action<ushort, EditingRiverData> genCurveEvent, Action<ushort, EditingRiverData> saveEvent, Action<ushort, EditingRiverData> deleteEvent) {
                 this.ChooseRiverEvent = chooseEvent;
-                this.EditStartEvent = editStartEvent;
+                // this.EditStartEvent = editStartEvent;
                 this.GenCurveEvent = genCurveEvent;
                 this.SaveRiverEvent = saveEvent;
                 this.DeleteRiverEvent = deleteEvent;
             }
 
-            [HorizontalGroup("RiverBtns"), Button("Ñ¡ÖĞºÓÁ÷")]
+            [HorizontalGroup("RiverBtns"), Button("é€‰ä¸­æ²³æµ")]
             private void ChooseRiver() {
                 ChooseRiverEvent.Invoke(riverID, this);
             }
 
-            [HorizontalGroup("RiverBtns"), Button("±à¼­Æğµã£¨ÔİÊ±Ã»ÓÃ£©")]
-            private void EditStart() {
-                EditStartEvent.Invoke(riverID, this);
-            }
+            // [HorizontalGroup("RiverBtns"), Button("ç¼–è¾‘èµ·ç‚¹ï¼ˆæš‚æ—¶æ²¡ç”¨ï¼‰")]
+            // private void EditStart() {
+            //     EditStartEvent.Invoke(riverID, this);
+            // }
 
-            // NOTE : ¿ªÊ¼ÎÒÏëÊ¹ÓÃ ±´Èû¶ûÇúÏß ÄâÕæºÓÁ÷ µÄÖÆ×÷Á÷£¬µ«ÊÇ·¢ÏÖÁËÒ»¸öÎÊÌâ
-            // µ±ºÓÁ÷ÓĞ¶à¶Î·ÖÖ§µÄÊ±ºò£¬±´Èû¶ûÇúÏßÒ²ĞèÒª·Ö¶Î£¬ÕâÑùµÄ±à¼­¶ÔÓÚºÓÁ÷ÃÜ¼¯µÄÇé¿ö·Ç³£Âé·³
-            // ËùÒÔ£¬ÎªÌáĞÑºóÀ´Õß£ºÈôÄãÈ·±£ºÓÁ÷²»·Ö¶Î£¬¿ÉÒÔÉú³É±´Èû¶ûÇúÏß-±£´æºÓÁ÷
-            // ÈôÄã¾õµÃÕâÌ×ÖÆ×÷Á÷Âé·³£¬ÇëÖ±½ÓÊ¹ÓÃ±£´æÎÆÀí
-            [HorizontalGroup("RiverBtns"), Button("Éú³ÉºÓÁ÷ÇúÏß")]
+            // NOTE : å¼€å§‹æˆ‘æƒ³ä½¿ç”¨ è´å¡å°”æ›²çº¿ æ‹ŸçœŸæ²³æµ çš„åˆ¶ä½œæµï¼Œä½†æ˜¯å‘ç°äº†ä¸€ä¸ªé—®é¢˜
+            // å½“æ²³æµæœ‰å¤šæ®µåˆ†æ”¯çš„æ—¶å€™ï¼Œè´å¡å°”æ›²çº¿ä¹Ÿéœ€è¦åˆ†æ®µï¼Œè¿™æ ·çš„ç¼–è¾‘å¯¹äºæ²³æµå¯†é›†çš„æƒ…å†µéå¸¸éº»çƒ¦
+            // æ‰€ä»¥ï¼Œä¸ºæé†’åæ¥è€…ï¼šè‹¥ä½ ç¡®ä¿æ²³æµä¸åˆ†æ®µï¼Œå¯ä»¥ç”Ÿæˆè´å¡å°”æ›²çº¿-ä¿å­˜æ²³æµ
+            // è‹¥ä½ è§‰å¾—è¿™å¥—åˆ¶ä½œæµéº»çƒ¦ï¼Œè¯·ç›´æ¥ä½¿ç”¨ä¿å­˜çº¹ç†
+            [HorizontalGroup("RiverBtns"), Button("ç”Ÿæˆæ²³æµæ›²çº¿")]
             private void GenerateCurve()
             {
                 GenCurveEvent.Invoke(riverID, this);
             }
 
-            [HorizontalGroup("RiverBtns"), Button("±£´æºÓÁ÷ÇúÏß/ÎÆÀí")]
+            [HorizontalGroup("RiverBtns"), Button("ä¿å­˜æ²³æµæ›²çº¿/çº¹ç†")]
             private void SaveRiver() {
                 SaveRiverEvent.Invoke(riverID, this);
             }
 
-            [HorizontalGroup("RiverBtns"), Button("É¾³ıºÓÁ÷")]
+            [HorizontalGroup("RiverBtns"), Button("åˆ é™¤æ²³æµ")]
             private void DeleteRiver() {
                 DeleteRiverEvent.Invoke(riverID, this);
             }
@@ -600,20 +614,20 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        [FoldoutGroup("ºÓÁ÷Êı¾İ")]
-        [LabelText("³Ö¾Ã»¯ºÓÁ÷ÈİÆ÷")]
+        [FoldoutGroup("æ²³æµæ•°æ®")]
+        [LabelText("æ²³æµæ•°æ®")]
         public MapRiverData mapRiverData;
 
-        [Space(10), FoldoutGroup("ºÓÁ÷Êı¾İ")]
-        [LabelText("µ±Ç°±à¼­µÄºÓÁ÷")]
-        [Tooltip("½ö´æÔÚÓÚEditorÖĞµÄÊı¾İ£¬Èç¹û²»±£´æÔò»áÔÚ¹Ø±ÕÊ±Ïú»Ù")]
+        [Space(10), FoldoutGroup("æ²³æµæ•°æ®")]
+        [LabelText("å½“å‰ç¼–è¾‘çš„æ²³æµ")]
+        [Tooltip("ä»…å­˜åœ¨äºEditorä¸­çš„æ•°æ®ï¼Œå¦‚æœä¸ä¿å­˜åˆ™ä¼šåœ¨å…³é—­æ—¶é”€æ¯")]
         public List<EditingRiverData> editRiverDatas;
 
         Dictionary<ushort, EditingRiverData> editRiverDataDict;
 
 
-        [FoldoutGroup("ºÓÁ÷Êı¾İ", 0)]
-        [Button("Ìí¼ÓºÓÁ÷Êı¾İ", ButtonSizes.Medium)]
+        [FoldoutGroup("æ²³æµæ•°æ®", 0)]
+        [Button("æ·»åŠ æ²³æµæ•°æ®", ButtonSizes.Medium)]
         private void AddNewRiver() {
             ushort riverID = mapRiverData.GetRiverID();
             GameObject riverObj = CreateRiverObj(riverID);
@@ -633,8 +647,9 @@ namespace LZ.WarGameMap.MapEditor
 
 
         private void ChooseRiverEvent(ushort riverID, EditingRiverData riverData) {
-            // ¾¯¸æ£ºÈç¹ûÄãÃ»ÓĞ±£´æ¾ÍÑ¡ÔñÁËÁíÒ»ÌõºÓÁ÷±à¼­Êı¾İ£¬ÄÇÃ´Ö®Ç°µÄ±à¼­»áÊ§Ğ§
+            // è­¦å‘Šï¼šå¦‚æœä½ æ²¡æœ‰ä¿å­˜å°±é€‰æ‹©äº†å¦ä¸€æ¡æ²³æµç¼–è¾‘æ•°æ®ï¼Œé‚£ä¹ˆä¹‹å‰çš„ç¼–è¾‘ä¼šå¤±æ•ˆ
             ResetEditingRiverData();
+            GenRiverEditCluster();
 
             if (paintRTDatas == null) {
                 paintRTDatas = new List<PaintRiverRTData>();
@@ -646,24 +661,23 @@ namespace LZ.WarGameMap.MapEditor
             // If this river is choosed, load all the exist cluster ID's Texture
             curEditRiverID = riverData.riverID;
 
-            // TODO : ÆÁ±ÎÏÂÃæµÄÂß¼­£¬ChooseRiverEvent ½öÉèÖÃµ±Ç°Ñ¡ÖĞÊı¾İ£¬²»²Ù×÷ cluster-RT
-
+            // NOTE : ä¸è¦éšè— å…¶ä»–åœ°å—ï¼Œå…¨éƒ¨å±•ç¤ºå°±å¥½
             // We will hide other cluster fristly
-            int clusterNum = riverData.existTerrainClusterIDs.Count;
-            HashSet<Vector2Int> shouldShowCluster = new HashSet<Vector2Int>();
-            for (int i = 0; i < clusterNum; i++) 
-            {
-                shouldShowCluster.Add(riverData.existTerrainClusterIDs[i]);
-            }
-            int paintRTCount = paintRTDatas.Count;
-            for (int i = paintRTCount - 1; i >= 0; i--) 
-            {
-                if (!shouldShowCluster.Contains(paintRTDatas[i].rtClusterIdx)) 
-                {
-                    paintRTDatas[i].Dispose();
-                    paintRTDatas.RemoveAt(i);
-                }
-            }
+            //int clusterNum = riverData.existTerrainClusterIDs.Count;
+            // HashSet<Vector2Int> shouldShowCluster = new HashSet<Vector2Int>();
+            // for (int i = 0; i < clusterNum; i++) 
+            // {
+            //     shouldShowCluster.Add(riverData.existTerrainClusterIDs[i]);
+            // }
+            // int paintRTCount = paintRTDatas.Count;
+            // for (int i = paintRTCount - 1; i >= 0; i--) 
+            // {
+            //     if (!shouldShowCluster.Contains(paintRTDatas[i].rtClusterIdx)) 
+            //     {
+            //         paintRTDatas[i].Dispose();
+            //         paintRTDatas.RemoveAt(i);
+            //     }
+            // }
 
             // Set the paint-river-texture as 1/4 of clusterSize
             int clusterSize = terSet.clusterSize;
@@ -685,6 +699,22 @@ namespace LZ.WarGameMap.MapEditor
                 runtimingRvData.UpdateClusterPixelDict(terSet.clusterSize, terSet.paintRTSizeScale);
             }
             int hasPaintedPixelNum = 0;
+
+            // å…ˆåˆ›å»ºçº¯ç™½çº¹ç†ç”¨äº Reset
+            Texture2D whiteTex = new Texture2D(showTexSize, showTexSize, TextureFormat.RGBA32, false);
+            Color[] whiteColors = new Color[showTexSize * showTexSize];
+            Array.Fill(whiteColors, Color.white);
+            whiteTex.SetPixels(whiteColors);
+            whiteTex.Apply();
+
+            // é€‰ä¸­ä¸€ä¸ªæ²³æµæ—¶ä¼š æ´—æ‰å…¶ä»–æ²³æµçš„å½±å“
+            foreach (var rvRTDatas in paintRTDatasDict)
+            {
+                rvRTDatas.Value.ResetRTData(whiteTex);
+            }
+
+            // TODO : éœ€è¦æ”¹åŠ¨-ä¼˜åŒ–ï¼Œå› ä¸ºæ–°çš„riverdataå¿…ä¸ä¼šå­˜åœ¨ existTerrainClusterIDs å­—æ®µï¼Œè¿™æ ·å°±æ²¡æ³•åˆ·æ–°ç¼–è¾‘æ•°æ®äº†ï¼ˆå¾—æ€è€ƒåŠæ³•
+            int clusterNum = riverData.existTerrainClusterIDs.Count;
             for (int i = 0; i < clusterNum; i++) 
             {
                 // get the pixel that has been painted. they existed in mapRiverData-RiverData, not EditingRiverData
@@ -721,10 +751,11 @@ namespace LZ.WarGameMap.MapEditor
                 colors.Dispose();
                 paintedPixelsSets.Dispose();
 
-                // if cluster exist we do not need create a new RTData
+                // if cluster exist we still create a new RTData
                 Vector2Int clusterIdx = riverData.existTerrainClusterIDs[i];
                 if (paintRTDatasDict.ContainsKey(clusterIdx)) 
                 {
+                    paintRTDatasDict[clusterIdx].ResetRTData(whiteTex);
                     paintRTDatasDict[clusterIdx].ResetRTData(tmp);
                 } 
                 else 
@@ -736,6 +767,7 @@ namespace LZ.WarGameMap.MapEditor
             }
             Debug.Log($"choose river id : {riverID}, expected add {hasPaintedPixelNum} painted pixels, saved this RvData {hasSavedThisRvData}");
             GameObject.DestroyImmediate(tmp);
+            GameObject.DestroyImmediate(whiteTex);
 
             // TODO : you should set the rt's position!!
             foreach (var pair in paintRTDatasDict) {
@@ -751,8 +783,8 @@ namespace LZ.WarGameMap.MapEditor
         [Obsolete]
         private void EditStartEvent(ushort riverID, EditingRiverData riverData) 
         {
-            // TODO : Õâ¸ö¹¦ÄÜÒª½«ÇĞ»» BrushColorÉèÖÃ Îª Start µÄÑÕÉ«
-            // È»ºó°ÑÍ¿Ë¢·¶Î§ÉèÖÃÎª0£¨Ö»×¼Ë¢Ò»¸ñ£¬£¨ÆğµãÖ»ÄÜÓĞÒ»¸ö£©£©
+            // TODO : è¿™ä¸ªåŠŸèƒ½è¦å°†åˆ‡æ¢ BrushColorè®¾ç½® ä¸º Start çš„é¢œè‰²
+            // ç„¶åæŠŠæ¶‚åˆ·èŒƒå›´è®¾ç½®ä¸º0ï¼ˆåªå‡†åˆ·ä¸€æ ¼ï¼Œï¼ˆèµ·ç‚¹åªèƒ½æœ‰ä¸€ä¸ªï¼‰ï¼‰
         }
 
 
@@ -764,9 +796,15 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
+            if (!riverData.riverStart.IsValid())
+            {
+                Debug.LogError("æ²³æµèµ·ç‚¹æœªè®¾ç½®ï¼è¯·å…ˆåˆ‡æ¢ç»˜åˆ¶æ¨¡å¼ä¸º SetStartï¼Œåœ¨åœºæ™¯ä¸­ç‚¹å‡»è®¾ç½®èµ·ç‚¹");
+                return;
+            }
+
             List<Vector2Int> brushedPixelPoss = GetBrushedPixels();
 
-            // TODO : ĞèÒªÑéÖ¤ ±´Èû¶ûÇúÏß µÄÄâºÏ³Ì¶È
+            // TODO : éœ€è¦éªŒè¯ è´å¡å°”æ›²çº¿ çš„æ‹Ÿåˆç¨‹åº¦
             //BezierCurve bezierCurve = BezierCurve.GenCurve(brushedPixelPoss, riverData.riverStart, terSet);
             BezierCurve bezierCurve = BezierCurve.FitCurve(brushedPixelPoss, riverData.riverStart, terSet);
             curBezierCurveEditor = CreateBezierEditor(bezierCurve);
@@ -830,12 +868,12 @@ namespace LZ.WarGameMap.MapEditor
         {
             GameObject go = new GameObject("curEditor");
             BezierCurveEditor bezierCurveEditor = go.AddComponent<BezierCurveEditor>();
-            bezierCurveEditor.InitCurveEditer(bezierCurve, terSet.paintRTSizeScale / 2);
+            bezierCurveEditor.InitCurveEditer(bezierCurve, terSet.paintRTSizeScale);
             go.transform.SetParent(RiverBezierParentTrans);
             return bezierCurveEditor;
         }
 
-
+        // ä¿å­˜æ²³æµæ•°æ®çš„é€»è¾‘
         private void SaveCurveEvent(ushort riverID, EditingRiverData riverData) 
         {
             if(curEditRiverID != riverID) {
@@ -851,7 +889,17 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             List<Vector2Int> brushedPixels = GetBrushedPixels();
-            RiverData saveRiverData = new RiverData(riverData.riverID, riverData.riverName, curBezierCurveEditor.Curve, brushedPixels, riverData.existTerrainClusterIDs);
+
+            // ä» brushedPixels è‡ªåŠ¨æ¨ç®—æ²³æµå­˜åœ¨çš„åœ°å— cluster ID
+            HashSet<Vector2Int> autoClusterIDs = new HashSet<Vector2Int>();
+            foreach (var pixel in brushedPixels)
+            {
+                Vector2Int clusterID = new Vector2Int(pixel.x / terSet.clusterSize, pixel.y / terSet.clusterSize);
+                autoClusterIDs.Add(clusterID);
+            }
+
+            // çœŸæ­£ä¿å­˜æ²³æµæ•°æ®
+            RiverData saveRiverData = new RiverData(riverData.riverID, riverData.riverName, curBezierCurveEditor.Curve, brushedPixels, new List<Vector2Int>(autoClusterIDs));
             saveRiverData.riverStart = riverData.riverStart;
             mapRiverData.AddRiverData(saveRiverData);
 
@@ -870,34 +918,34 @@ namespace LZ.WarGameMap.MapEditor
                     break;
                 }
             }
-
+            Debug.Log("æœ¬æ“ä½œä»…åˆ é™¤Editorä¸‹çš„æ²³æµï¼Œå¦‚éœ€å½»åº•åˆ é™¤è¯·åˆ°MapDataä¸­æ‰‹åŠ¨åˆ ");
             ResetEditingRiverData();
         }
 
-        // TODO : ÒªË¢ĞÂ scene
-        [FoldoutGroup("ºÓÁ÷Êı¾İ")]
-        [Button("±£´æºÓÁ÷Êı¾İ£¨ÔİÊ±Ã»ÓÃ£©", ButtonSizes.Medium)]
-        private void SaveAllRiver() {
-            // TODO : save all to mapRiverData
-            // TODO : ÒªÔÚÕâ¸ö·½·¨ÀïÃæÈ¥Éú³É±´Èû¶ûÇúÏßÂğ£¿
-            foreach (var riverData in editRiverDatas)
-            {
-                //SaveRiverEvent(riverData.)
-            }
-        }
+        // // TODO : è¦åˆ·æ–° scene
+        // [FoldoutGroup("æ²³æµæ•°æ®")]
+        // [Button("ä¿å­˜æ²³æµæ•°æ®ï¼ˆæš‚æ—¶æ²¡ç”¨ï¼‰", ButtonSizes.Medium)]
+        // private void SaveAllRiver() {
+        //     // TODO : save all to mapRiverData
+        //     // TODO : è¦åœ¨è¿™ä¸ªæ–¹æ³•é‡Œé¢å»ç”Ÿæˆè´å¡å°”æ›²çº¿å—ï¼Ÿ
+        //     foreach (var riverData in editRiverDatas)
+        //     {
+        //         //SaveRiverEvent(riverData.)
+        //     }
+        // }
 
         #endregion
 
 
-        #region ºÓÁ÷ÎÆÀí
+        #region æ²³æµçº¹ç†
 
-        [FoldoutGroup("ºÓÁ÷ÎÆÀí")]
-        [Button("±£´æºÓÁ÷Êı¾İ", ButtonSizes.Medium), ReadOnly]
+        [FoldoutGroup("æ²³æµçº¹ç†")]
+        [Button("ä¿å­˜æ²³æµæ•°æ®", ButtonSizes.Medium), ReadOnly]
         public string riverTexturePath = MapStoreEnum.RiverTexDataPath;
 
-        [FoldoutGroup("ºÓÁ÷ÎÆÀí")]
-        [Button("µ¼³öºÓÁ÷Êı¾İÎªÎÆÀí", ButtonSizes.Medium)]
-        [Tooltip("¸ù¾İÑ¡ÔñµÄRiverWorkFlow¾ö¶¨ÈçºÎµ¼³ö")]
+        [FoldoutGroup("æ²³æµçº¹ç†")]
+        [Button("å¯¼å‡ºæ²³æµæ•°æ®ä¸ºçº¹ç†", ButtonSizes.Medium)]
+        [Tooltip("æ ¹æ®é€‰æ‹©çš„RiverWorkFlowå†³å®šå¦‚ä½•å¯¼å‡º")]
         public void GenRiverTexture()
         {
             //int texSize = terSet.clusterSize * terSet.terrainSize.x / terSet.paintRTSizeScale;

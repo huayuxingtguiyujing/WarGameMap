@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
+
     [Serializable]
     public class TerrainMeshDataBinder : ScriptableObject
     {
@@ -24,6 +25,7 @@ namespace LZ.WarGameMap.Runtime
         // 当前使用的 Terrain Mesh 数据
         public List<MeshAssetBinder> MeshBinderList;
 
+#if UNITY_EDITOR
         public void LoadAsset(string[] filePaths) {
             MeshBinderList = new List<MeshAssetBinder>();
 
@@ -38,7 +40,6 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-#if UNITY_EDITOR
         //private void OnValidate() {   // too costlt no need
         //    foreach (var binder in MeshBinderList)
         //    {

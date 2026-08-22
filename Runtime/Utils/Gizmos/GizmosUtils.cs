@@ -1,9 +1,9 @@
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace LZ.WarGameMap.MapEditor
 {
+#if UNITY_EDITOR
     public static class GizmosUtils
     {
 
@@ -100,6 +100,6 @@ namespace LZ.WarGameMap.MapEditor
             int idx = Random.Range(0, colors.Length);
             return colors[idx];
         }
-
     }
+#endif
 }

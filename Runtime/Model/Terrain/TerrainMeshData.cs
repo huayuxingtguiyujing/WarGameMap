@@ -16,6 +16,12 @@ namespace LZ.WarGameMap.Runtime
         public int tileIdxY { get; private set; }
         public int curLODLevel { get; private set; }
 
+        public void SetTileIdentity(int tileIdxX, int tileIdxY, int curLODLevel) {
+            this.tileIdxX = tileIdxX;
+            this.tileIdxY = tileIdxY;
+            this.curLODLevel = curLODLevel;
+        }
+
         List<Vector3> vertexs = new List<Vector3>();
         List<Vector3> outofMeshVertexs = new List<Vector3>();
         List<Vector3> normals = new List<Vector3>();
@@ -32,6 +38,7 @@ namespace LZ.WarGameMap.Runtime
 
         List<int> edgeVertIdxs;                             // storage the vertex indice on egde
 
+        // NOTE : this data only needed in construction
         private int triangleIndex = 0;
         private int outOfMeshTriangleIndex = 0;
         private int vertexPerLine;
@@ -111,7 +118,7 @@ namespace LZ.WarGameMap.Runtime
             //Array.Copy(other.colors, colors, colors.Length);
             //Buffer.BlockCopy(other.colors, 0, colors, 0, colors.Length * sizeOfColor);
 
-            vertexIndiceMap = new int[vertexPerLineFixed, vertexPerLineFixed];              // 2Î¬
+            vertexIndiceMap = new int[vertexPerLineFixed, vertexPerLineFixed];              // äºŒç»´
             Buffer.BlockCopy(other.vertexIndiceMap, 0, vertexIndiceMap, 0, vertexIndiceMap.Length * sizeof(int));
 
             triangles = new List<int>(other.triangles);
@@ -407,7 +414,7 @@ namespace LZ.WarGameMap.Runtime
         }
 
         private Vector3 SurfaceNormalFromIndices(int indexA, int indexB, int indexC) {
-            // ËãÈı¸öµã¹¹³ÉµÄÈı½ÇĞÍµÄ²æ³Ë
+            // ä¸‰ä¸ªé¡¶ç‚¹æ„æˆé¢çš„æ³•çº¿å‘é‡
             Vector3 pointA = (indexA < 0) ? outofMeshVertexs[-indexA - 1] : vertexs[indexA];
             Vector3 pointB = (indexB < 0) ? outofMeshVertexs[-indexB - 1] : vertexs[indexB];
             Vector3 pointC = (indexC < 0) ? outofMeshVertexs[-indexC - 1] : vertexs[indexC];
@@ -424,7 +431,7 @@ namespace LZ.WarGameMap.Runtime
                 return Vector3.zero;
             }
 
-            Vector3 pointA = (indexA < 0) ? outofMeshVertexs[-indexA - 1] : mesh.vertices[indexA];  // £¡£¡£¡
+            Vector3 pointA = (indexA < 0) ? outofMeshVertexs[-indexA - 1] : mesh.vertices[indexA];  // é¡¶ç‚¹
             Vector3 pointB = (indexB < 0) ? outofMeshVertexs[-indexB - 1] : mesh.vertices[indexB];
             Vector3 pointC = (indexC < 0) ? outofMeshVertexs[-indexC - 1] : mesh.vertices[indexC];
 
@@ -450,7 +457,7 @@ namespace LZ.WarGameMap.Runtime
             {
                 Vector3 point = vertexs[i];
                 riverDataManager.SampleRiverRatio(point, out bool IsEffectByRiver, out float offsetDown, out Vector2Int bindWorldPos);
-                // TODO : °ó¶¨²»ºÃ¸ãÍÛ
+                // TODO : ç»‘å®šé€»è¾‘å¾…å®Œå–„
                 if (IsEffectByRiver)
                 {
                     //float bindTargetHeight = vertexs[bindTargetIdxInVert].y;
@@ -469,6 +476,9 @@ namespace LZ.WarGameMap.Runtime
                     outofMeshVertexs[i] = new Vector3(point.x, point.y - offsetDown, point.z);
                 }
             }
+
+            // TODO : è¿™é‡Œå¯èƒ½æœ‰å‘
+            meshWrapper.SetVertex(vertexs);
         }
 
         public void BuildOriginMesh()
@@ -565,6 +575,7 @@ namespace LZ.WarGameMap.Runtime
             return meshWrapper.GetMesh();
         }
 
+        [Obsolete]
         public Mesh GetMesh_LODDistance(int tileIdxX, int tileIdxY, int fixDirection) {
             Mesh mesh = new Mesh();
             mesh.name = string.Format("TerrainMesh_LOD{0}_Idx{1}_{2}", curLODLevel, tileIdxX, tileIdxY);
@@ -577,7 +588,7 @@ namespace LZ.WarGameMap.Runtime
             bool fixTop = ((fixDirection >> 2) & 1) == 1;
             bool fixBottom = ((fixDirection >> 3) & 1) == 1;
             if (fixLeft) {
-                // NOTE : Õâ¿é´úÂëºÍÍâ²ã TileMeshData.SetMeshData ´æÔÚñîºÏ£¬ºÜÖØµÄñîºÏ
+                // NOTE : ä¸ TileMeshData.SetMeshData ä¸­çš„æ•°æ®é‡å 
                 FixLODEdgeSeam(true, 0, 1);
             }
             if (fixRight) {
@@ -602,6 +613,7 @@ namespace LZ.WarGameMap.Runtime
             return mesh;
         }
 
+        [Obsolete("too complex!")]
         private void FixLODEdgeSeam(bool isVertical, int outIdx, int inIdx) {
             for (int i = 2; i < vertexPerLine + 1; i += 2) {
                 // TODO : change it, do not set to average, stick to neighbor vert;
@@ -661,27 +673,27 @@ namespace LZ.WarGameMap.Runtime
             for (int i = 0; i < len; i++) {
                 Vector3 vertexPosition = vertexs[i];
                 colors[i] = GetColorByHeight(vertexPosition.y);
-                // ²ÉÑùÖÜÎ§ËÄ¸öµãÀ´Éú³É£¿
+                // æ ¹æ®å‘¨å›´çš„é«˜åº¦ç”Ÿæˆ
             }
         }
 
         private Color GetColorByHeight(float height) {
-            Color lowLandColor = new Color(0.13f, 0.54f, 0.13f); // ÉîÂÌÉ«£¬µÍµØ
-            Color midLandColor = new Color(0.61f, 0.80f, 0.19f); // Ç³ÂÌÉ«£¬ÖĞµØ
-            Color highLandColor = new Color(0.85f, 0.65f, 0.13f); // ×Ø»ÆÉ«£¬¸ßµØ
-            Color mountainColor = new Color(0.50f, 0.50f, 0.50f); // »ÒÉ«£¬É½µØ
-            Color snowColor = new Color(1.00f, 1.00f, 1.00f); // °×É«£¬Ñ©µØ
+            Color lowLandColor = new Color(0.13f, 0.54f, 0.13f); // æ·±ç»¿è‰²ï¼ˆä½åœ°ï¼‰
+            Color midLandColor = new Color(0.61f, 0.80f, 0.19f); // æµ…ç»¿è‰²ï¼ˆä¸­åœ°ï¼‰
+            Color highLandColor = new Color(0.85f, 0.65f, 0.13f); // åœŸé»„è‰²ï¼ˆé«˜åœ°ï¼‰
+            Color mountainColor = new Color(0.50f, 0.50f, 0.50f); // ç°è‰²ï¼ˆå±±åœ°ï¼‰
+            Color snowColor = new Color(1.00f, 1.00f, 1.00f); // ç™½è‰²ï¼ˆé›ªåœ°ï¼‰
 
             if (height < 10f)
-                return lowLandColor; // µÍµØ
+                return lowLandColor; // ä½åœ°
             else if (height < 15f)
-                return midLandColor; // ÖĞµØ
+                return midLandColor; // ä¸­åœ°
             else if (height < 23f)
-                return highLandColor; // ¸ßµØ
+                return highLandColor; // é«˜åœ°
             else if (height < 30f)
-                return mountainColor; // É½µØ
+                return mountainColor; // å±±åœ°
             else
-                return snowColor; // Ñ©µØ
+                return snowColor; // é›ªåœ°
         }
 
         #endregion
@@ -691,7 +703,7 @@ namespace LZ.WarGameMap.Runtime
 
         // obsolete
         public void SerializeTerrainMesh(StreamWriter writer) {
-            //int totalLength = ;   // TODO : ²âÊÔÒ»ÏÂ¼ÓÉÏÕâ¸ö¶«Î÷ºóÄÜÓÅ»¯¶àÉÙÊ±¼ä£¿
+            //int totalLength = ;   // TODO : ä¼˜åŒ–åºåˆ—åŒ–æ ¼å¼ï¼Œå‡å°‘åŠ è½½æ—¶é—´
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.AppendLine($"mesh:{curLODLevel}");
 
@@ -735,6 +747,38 @@ namespace LZ.WarGameMap.Runtime
             writer.WriteLine(stringBuilder.ToString());
         }
 
+        public int GetBinarySize() {
+            int size = 0;
+
+            size += 4;                                  // vertexs.Count (int)
+            size += vertexs.Count * 3 * 4;              // æ¯ä¸ª Vector3 = 3 Ã— float
+
+            size += 4;                                  // outofMeshVertexs.Count
+            size += outofMeshVertexs.Count * 3 * 4;
+
+            size += 4;                                  // normals.Count
+            size += normals.Count * 3 * 4;              // æ¯ä¸ª Vector3 = 3 Ã— float
+
+            size += 4;                                  // uvs.Count
+            size += uvs.Count * 2 * 4;                  // æ¯ä¸ª Vector2 = 2 Ã— float
+
+            size += 4;                                  // vertexIndiceMap.GetLength(0)
+            size += 4;                                  // vertexIndiceMap.GetLength(1)
+            int w = vertexIndiceMap.GetLength(0);
+            int h = vertexIndiceMap.GetLength(1);
+            size += w * h * 3 * 4;                      // æ¯å…ƒç´ å†™ i(int) + j(int) + value(int)
+
+            size += 4;                                  // triangles.Count
+            size += triangles.Count * 4;                // æ¯ä¸ª int
+
+            size += 4;                                  // outOfMeshTriangles.Length
+            size += outOfMeshTriangles.Length * 4;      // æ¯ä¸ª int
+
+            return size;
+        }
+
+        // NOTE : å…³äºnormalï¼Œä¸ºä»€ä¹ˆä¸å­˜normalï¼Œå› ä¸ºåŠ¨æ€è®¡ç®—å‡ºçš„normalè¡¨ç°æ•ˆæœå¤ªå·®äº†
+        // ç›´æ¥ç”¨ normal è´´å›¾è¦†ç›–ä¸Šåœ°å½¢ï¼Œè¿™æ‰æ˜¯æœ€å¥½çš„
         public void WriteToBinary(BinaryWriter writer) {
             //Vector3[] vertexs = new Vector3[1];
             //Vector3[] outofMeshVertexs = new Vector3[1];
@@ -750,9 +794,11 @@ namespace LZ.WarGameMap.Runtime
             for (int i = 0; i < outofMeshVertexs.Count; i++) {
                 writer.Write(outofMeshVertexs[i].x); writer.Write(outofMeshVertexs[i].y); writer.Write(outofMeshVertexs[i].z);
             }
-            //for (int i = 0; i < normals.Length; i++) {
-            //    writer.Write(normals[i].x); writer.Write(normals[i].y); writer.Write(normals[i].z);
-            //}
+            writer.Write(normals.Count);
+            for (int i = 0; i < normals.Count; i++)
+            {
+                writer.Write(normals[i].x); writer.Write(normals[i].y); writer.Write(normals[i].z);
+            }
             writer.Write(uvs.Count);
             for (int i = 0; i < uvs.Count; i++) {
                 writer.Write(uvs[i].x); writer.Write(uvs[i].y);
@@ -806,9 +852,17 @@ namespace LZ.WarGameMap.Runtime
                 outofMeshVertexs[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
             }
 
+            int normalLen = reader.ReadInt32();
+            normals = new List<Vector3>(normalLen);
+            normals.FillInList(normalLen);
+            for (int i = 0; i < normals.Count; i++)
+            {
+                normals[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            }
+
             int uvsLen = reader.ReadInt32();
             uvs = new List<Vector2>(uvsLen);
-            vertexs.FillInList(vertLen);
+            uvs.FillInList(uvsLen);
             for (int i = 0; i < uvs.Count; i++) {
                 uvs[i] = new Vector2(reader.ReadSingle(), reader.ReadSingle());
             }
@@ -829,6 +883,7 @@ namespace LZ.WarGameMap.Runtime
             //int[] outOfMeshTriangles = new int[1];
             int trianglesLen = reader.ReadInt32();
             triangles = new List<int>(trianglesLen);
+            triangles.FillInList(trianglesLen);
             for (int i = 0; i < triangles.Count; i += 3) {
                 triangles[i] = reader.ReadInt32(); triangles[i + 1] = reader.ReadInt32(); triangles[i + 2] = reader.ReadInt32();
             }
@@ -845,7 +900,7 @@ namespace LZ.WarGameMap.Runtime
 
         #region Paint In Editor
 
-        // TODO : ÑéÖ¤
+        // TODO : å¾…éªŒè¯
         public List<Vector3> GetPointsInScope(Vector3 pos, float scope)
         {
             Vector2 posXZ = new Vector2(pos.x, pos.z);
@@ -863,7 +918,7 @@ namespace LZ.WarGameMap.Runtime
             return pointList;
         }
 
-        // TODO : ÑéÖ¤
+        // TODO : å¾…éªŒè¯
         public void UpdatePaintPoints(List<Vector3> newPoints, List<Vector2Int> pointInTileIdx)
         {
             for (int i = 0; i < pointInTileIdx.Count; i++)

@@ -601,6 +601,7 @@ namespace LZ.WarGameMap.Runtime.Model
             }
         }
 
+#if UNITY_EDITOR
         #region import and export CSV / Texture
 
         public void SaveCSV(string saveDir)
@@ -727,6 +728,8 @@ namespace LZ.WarGameMap.Runtime.Model
 
 
         #endregion
+
+#endif
 
     }
 

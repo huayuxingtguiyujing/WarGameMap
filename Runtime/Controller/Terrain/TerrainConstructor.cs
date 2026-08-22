@@ -1,4 +1,5 @@
 using LZ.WarGameCommon;
+using LZ.WarGameMap.Runtime.Enums;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,8 +11,6 @@ using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
-    using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
-    using static UnityEditor.PlayerSettings;
     using GetSimplifierCall = Func<int, int, int, int, int, TerrainSimplifier>;
 
     // TODO : 思考是否还有划分两种生成方式的必要性
@@ -300,22 +299,73 @@ namespace LZ.WarGameMap.Runtime
 
         #region 序列化/反序列化 terrain mesh 数据
 
-        // TODO : 要大改了
+#if UNITY_EDITOR
+        // Editor 状态下推荐用这个方法 加载mesh数据
         public void ExportClusterByBinary(int idxX, int idxY, int longitude, int latitude, BinaryReader reader) {
             if (!clusterList[idxX, idxY].IsInited) {
                 GameObject clusterGo = CreateTerrainCluster(idxX, idxY);
-                //clusterList[idxX, idxY].InitTerrainCluster_Static(idxX, idxY, longitude, latitude, terSet, heightDataManager, clusterGo, null, true);
+                clusterList[idxX, idxY].InitTerrainCluster_Static(idxX, idxY, longitude, latitude, terSet, clusterGo, terMaterial);
             }
             //clusterList[idxX, idxY].SetTerrainCluster(reader);
 
             TDList<TerrainTile> tiles = clusterList[idxX, idxY].TileList;
+
+            int tileCount = reader.ReadInt32();
+            if (tileCount != tiles.Count)
+            {
+                Debug.LogError("存储的地形bin数据内的tile count 与实际tile count 不相等！");
+                return;
+            }
+
+            List<int> tileSizeList = new List<int>(tileCount);
+            foreach (var tile in tiles) {
+                int tileSize = reader.ReadInt32();
+                tileSizeList.Add(tileSize);
+            }
+            // TODO : tileSizeList 后续可以去支持多线程读取操作，现在先不做
+
             foreach (var tile in tiles) {
                 tile.ReadFromBinary(reader);
                 TerrainMeshData[] meshDatas = tile.GetLODMeshes();
+                int lodLevel = 0;
                 foreach (var terrainMesh in meshDatas) {
-                    terrainMesh.ReadFromBinary(reader);
+                    try {
+                        terrainMesh.ReadFromBinary(reader);
+                    } catch (System.IO.EndOfStreamException) {
+                        Debug.LogError($"cluster({longitude},{latitude}) 数据不足, 缺失 LOD{lodLevel}");
+                        break;
+                    }
+                    lodLevel ++;
                 }
             }
+
+            ExportOverAndBuildMesh(idxX, idxY, longitude, latitude);
+        }
+#endif
+
+        // Runtime 状态下用这个 利用 bin 文件获取到 cluster 的方法，上面的是旧版的；
+        public async void ExportClusterByBinary(int longitude, int latitude)
+        {
+            Vector2Int startLL = terSet.startLL;
+            int idxX = longitude - startLL.x;
+            int idxY = latitude - startLL.y;
+
+            TerrainCluster cluster = clusterList[idxX, idxY];
+            if (!cluster.IsInited)
+            {
+                CreateTerrainCluster(idxX, idxY);
+            }
+
+            TerrainLoader loader = new TerrainLoader();
+            await loader.LoadClusterAsync(longitude, latitude, cluster);
+
+            ExportOverAndBuildMesh(idxX, idxY, longitude, latitude);
+        }
+
+        private void ExportOverAndBuildMesh(int idxX, int idxY, int longitude, int latitude)
+        {
+            BuildOriginMeshWrapper(idxX, idxY);
+            BuildOriginMesh(idxX, idxY);
         }
 
         public void ImportClusterToBinary(int i, int j, BinaryWriter writer) {
@@ -324,6 +374,19 @@ namespace LZ.WarGameMap.Runtime
             }
 
             TDList<TerrainTile> tiles = clusterList[i, j].TileList;
+
+            writer.Write(tiles.Count);
+            // 预先写入 tile 以及所有 meshdata 的数据量大小
+            // NOTE : 要使用该功能必须有全 LOD 的资产
+            foreach (var tile in tiles) {
+                int size = tile.GetBinarySize();
+                TerrainMeshData[] meshDatas = tile.GetLODMeshes();
+                foreach (var terrainMesh in meshDatas) {
+                    size += terrainMesh.GetBinarySize();
+                }
+                writer.Write(size);
+            }
+
             foreach (var tile in tiles) {
                 // write tile setting to file
                 tile.WriteToBinary(writer);

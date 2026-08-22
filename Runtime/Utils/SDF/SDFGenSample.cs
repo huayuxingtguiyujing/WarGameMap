@@ -8,6 +8,8 @@ using UnityEngine;
 using static LZ.WarGameMap.Runtime.FastNoiseLite;
 using Debug = UnityEngine.Debug;
 
+#if UNITY_EDITOR
+
 namespace NewAssembly
 {
     public enum SDFPixelType
@@ -661,3 +663,4 @@ namespace NewAssembly
     }
 
 }
+#endif

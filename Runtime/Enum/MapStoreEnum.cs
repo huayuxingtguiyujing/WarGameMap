@@ -18,6 +18,10 @@ namespace LZ.WarGameMap.Runtime.Enums {
 
         public const string TerrainMeshAssetPath = "Assets/WarGameMap/Terrain/TerrainMeshs";
 
+        // terrain mesh µÄ ab °ü
+        public const string TerrainMeshAssetGroupName = "TerrainClusterDatas";
+        public const string TerrainMeshAssetABPath = "Assets/WarGameMap/Terrain/TerrainMeshABs";
+
         public const string TerrainTexArrayPath = "Assets/WarGameMap/Terrain/Texture/Terrain";
 
         public const string TerrainTexOutputPath = "Assets/WarGameMap/Terrain/Texture/Output";

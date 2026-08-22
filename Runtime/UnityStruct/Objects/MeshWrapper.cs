@@ -82,16 +82,17 @@ namespace LZ.WarGameMap.Runtime
             }
 
             mesh.vertices = vertexs.ToArray();
-            if (normals != null)
+            if (normals != null && colors.Count > 0)
             {
                 mesh.normals = normals.ToArray();
             }
             mesh.triangles = triangles.ToArray();
             mesh.uv = uvs.ToArray();
-            if (colors != null)
-            {
-                mesh.colors = colors.ToArray();
-            }
+            // NOTE : do not use colors, we will not use it, we use material
+            //if (colors != null && colors.Count > 0)
+            //{
+            //    //mesh.colors = colors.ToArray();
+            //}
 
             mesh.RecalculateBounds();
             //mesh.RecalculateNormals();
@@ -114,10 +115,10 @@ namespace LZ.WarGameMap.Runtime
 #if UNITY_EDITOR
             UnityEngine.Object.DestroyImmediate(mesh);
 #else
-            UnityEngine.Object.Destroy(tileMesh);
+            UnityEngine.Object.Destroy(mesh);
 #endif
         }
-    
+
 
     }
 }

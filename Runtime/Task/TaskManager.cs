@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Events;
 
 namespace LZ.WarGameMap.Runtime
 {
+
+#if UNITY_EDITOR
     [InitializeOnLoad]
+#endif
     public class TaskManager : BaseManager
     {
         private static TaskManager _instance;
