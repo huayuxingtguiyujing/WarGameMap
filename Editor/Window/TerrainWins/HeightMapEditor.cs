@@ -1,3 +1,4 @@
+using BitMiracle.LibTiff.Classic;
 using LZ.WarGameCommon;
 using LZ.WarGameMap.Runtime;
 using LZ.WarGameMap.Runtime.Enums;
@@ -20,8 +21,8 @@ namespace LZ.WarGameMap.MapEditor
 
     public enum HeightMapWorkFlow
     {
-        TIF,            // TIF¹¤×÷Á÷£º          Ê¹ÓÃµØÀíĞÅÏ¢ÍøÕ¾ÏÂÔØµÄTIFÎÄ¼ş£¬Éú³É HeightDataModel£¬ÓÃÓÚµØĞÎÉú³É
-        GridTerrain     // GridTerrain¹¤×÷Á÷£º  ÀàËÆÎÄÃ÷µÄÁù±ßĞÎ¸ñ×ÓµØÍ¼£¬±à¼­¸ñ×ÓµØĞÎ£¬¸ñ×ÓµØĞÎµ¼³öÎÆÀí£¬ÓÃÓÚÉú³É HeightDataModel
+        TIF,            // TIFå·¥ä½œæµï¼š          ä½¿ç”¨åœ°ç†ä¿¡æ¯ç½‘ç«™ä¸‹è½½çš„TIFæ–‡ä»¶ï¼Œç”Ÿæˆ HeightDataModelï¼Œç”¨äºåœ°å½¢ç”Ÿæˆ
+        GridTerrain     // GridTerrainå·¥ä½œæµï¼š  ç±»ä¼¼æ–‡æ˜çš„å…­è¾¹å½¢æ ¼å­åœ°å›¾ï¼Œç¼–è¾‘æ ¼å­åœ°å½¢ï¼Œæ ¼å­åœ°å½¢å¯¼å‡ºçº¹ç†ï¼Œç”¨äºç”Ÿæˆ HeightDataModel
     }
 
     public struct SerializedHeightMapInfo
@@ -88,12 +89,12 @@ namespace LZ.WarGameMap.MapEditor
 
     public class HeightMapEditor : BaseMapEditor {
 
-        // TODO : ºóĞøÒª´Ó EditorSceneManager ÖĞ»ñÈ¡
+        // TODO : åç»­è¦ä» EditorSceneManager ä¸­è·å–
         protected HexSettingSO hexSet;
 
         protected TerrainSettingSO terSet;
 
-        // TODO : ºóĞøÒª´Ó EditorSceneManager ÖĞ»ñÈ¡
+        // TODO : åç»­è¦ä» EditorSceneManager ä¸­è·å–
         protected GridTerrainSO gridTerrainSO;
 
         public override string EditorName => MapEditorEnum.HeightMapEditor;
@@ -116,75 +117,75 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         //
-        // ----¶ş½øÖÆÎÄ¼ş¸ñÊ½----
-        // int ÎÄ¼şÊıÁ¿ £¨4B£©
-        // int µ¥¸öclusterµÄ³ß´ç £¨4B£©
-        // ¶ÔÓÚÃ¿¸öµØ¿éÎÄ¼ş£º
-        //      int µØ¿éx×ø±ê
-        //      int µØ¿éy×ø±ê
-        //      float[clusterSize, clusterSize] ¸ß¶ÈÍ¼Êı¾İ
+        // ----äºŒè¿›åˆ¶æ–‡ä»¶æ ¼å¼----
+        // int æ–‡ä»¶æ•°é‡ ï¼ˆ4Bï¼‰
+        // int å•ä¸ªclusterçš„å°ºå¯¸ ï¼ˆ4Bï¼‰
+        // å¯¹äºæ¯ä¸ªåœ°å—æ–‡ä»¶ï¼š
+        //      int åœ°å—xåæ ‡
+        //      int åœ°å—yåæ ‡
+        //      float[clusterSize, clusterSize] é«˜åº¦å›¾æ•°æ®
         //
-        // ----¶ÔÓÚµØ¿é¾­Î³¶ÈµÄ½âÊÍ----
-        // ÔÚ scene ÊÓÍ¼ÖĞ
-        // x ÎªºáÖá£¬Îª¾­¶È longitutde
-        // y Îª×İÖá£¬ÎªÎ¬¶È latitude
-        // µ«ÊÇÔÚ¼ÆËãÆ«ÒÆÊ±£¬Èç¹ûÊ¹ÓÃ¼òµ¥µÄ longitudeAndLatitude * terrainSize
-        // È´»áµ¼ÖÂ´íÎóµÄ½á¹û
-        // ÀıÈç longitudeAndLatitude = (0, 1)
-        // ÄÇÃ´ offset ÖµÎª (0, 512)£¬ÔÚ×ø±êÖĞµÄ¼ÆËãÊÇ´íÎóµÄ£¬ÕıÈ·µÄÓ¦¸ÃÊÇ (512, 0)
-        // ËùÒÔÃ¿´Î»ñÈ¡¾­Î³¶È¼ÆËã offset Ê±£¬¶¼ĞèÒª×¢ÒâÊÇ·ñ·´×ª 
+        // ----å¯¹äºåœ°å—ç»çº¬åº¦çš„è§£é‡Š----
+        // åœ¨ scene è§†å›¾ä¸­
+        // x ä¸ºæ¨ªè½´ï¼Œä¸ºç»åº¦ longitutde
+        // y ä¸ºçºµè½´ï¼Œä¸ºç»´åº¦ latitude
+        // ä½†æ˜¯åœ¨è®¡ç®—åç§»æ—¶ï¼Œå¦‚æœä½¿ç”¨ç®€å•çš„ longitudeAndLatitude * terrainSize
+        // å´ä¼šå¯¼è‡´é”™è¯¯çš„ç»“æœ
+        // ä¾‹å¦‚ longitudeAndLatitude = (0, 1)
+        // é‚£ä¹ˆ offset å€¼ä¸º (0, 512)ï¼Œåœ¨åæ ‡ä¸­çš„è®¡ç®—æ˜¯é”™è¯¯çš„ï¼Œæ­£ç¡®çš„åº”è¯¥æ˜¯ (512, 0)
+        // æ‰€ä»¥æ¯æ¬¡è·å–ç»çº¬åº¦è®¡ç®— offset æ—¶ï¼Œéƒ½éœ€è¦æ³¨æ„æ˜¯å¦åè½¬ 
         //
 
-        #region ¸ß¶ÈÍ¼ ×ª ¶ş½øÖÆÎÄ¼ş
+        #region é«˜åº¦å›¾ è½¬ äºŒè¿›åˆ¶æ–‡ä»¶
 
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("µ±Ç°¹¤×÷Á÷")]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("å½“å‰å·¥ä½œæµ")]
         public HeightMapWorkFlow WorkFlow = HeightMapWorkFlow.GridTerrain;
 
         bool IsInTIFWorkFlow => (WorkFlow == HeightMapWorkFlow.TIF);
         bool IsInGridTerrainWorkFlow => (WorkFlow == HeightMapWorkFlow.GridTerrain);
 
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("×ª»¯ºó¸ß¶ÈÍ¼·Ö±æÂÊ")]
-        public int compressResultSize = 64;
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("è½¬åŒ–åé«˜åº¦å›¾åˆ†è¾¨ç‡")]
+        public int compressResultSize = 256;
 
         //[ShowIf("IsInTIFWorkFlow")]
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("µ¼ÈëÊ±·­×ª"), ReadOnly]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("å¯¼å…¥æ—¶ç¿»è½¬"), ReadOnly]
         public bool flipVertically = true;
 
         [ShowIf("IsInTIFWorkFlow")]
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("Ã¿´ÎĞòÁĞ»¯µÄTIFÎÄ¼şÊıÄ¿"), ReadOnly]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("æ¯æ¬¡åºåˆ—åŒ–çš„TIFæ–‡ä»¶æ•°ç›®"), ReadOnly]
         public int batchTIFTileNum = 15;
 
         [ShowIf("IsInTIFWorkFlow")]
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("TIFµ¼ÈëÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("TIFå¯¼å…¥ä½ç½®"), ReadOnly]
         public string tifInputPath = MapStoreEnum.HeightMapInputPath;
 
         [ShowIf("IsInGridTerrainWorkFlow")]
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("Ã¿´ÎĞòÁĞ»¯µÄGridTerrainÎÆÀíÊıÄ¿"), ReadOnly]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("æ¯æ¬¡åºåˆ—åŒ–çš„GridTerrainçº¹ç†æ•°ç›®"), ReadOnly]
         public int batchGridTerrainTileNum = 15;
 
         [ShowIf("IsInGridTerrainWorkFlow")]
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("×ª»¯µÄGridTerrainTex"), ReadOnly]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("è½¬åŒ–çš„GridTerrainTex"), ReadOnly]
         public List<Texture2D> gridTerrainTexs = new List<Texture2D>();
 
         [ShowIf("IsInGridTerrainWorkFlow")]
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("GridTerrainTexµ¼ÈëÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("GridTerrainTexå¯¼å…¥ä½ç½®"), ReadOnly]
         public string gridTerrainTexInputPath = MapStoreEnum.GamePlayGridTerrainTexDataPath;
 
         // You can go to {heightMapOutputPath} to delete output files
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [LabelText("µ¼³öÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [LabelText("å¯¼å‡ºä½ç½®"), ReadOnly]
         public string heightMapOutputPath = MapStoreEnum.HeightMapOutputPath;
 
-        [FoldoutGroup("¸ß¶ÈÍ¼×ª¶ş½øÖÆÎÄ¼ş")]
-        [Button("Éú³É¶ş½øÖÆÎÄ¼ş", ButtonSizes.Medium)]
+        [FoldoutGroup("é«˜åº¦å›¾è½¬äºŒè¿›åˆ¶æ–‡ä»¶")]
+        [Button("ç”ŸæˆäºŒè¿›åˆ¶æ–‡ä»¶", ButtonSizes.Medium)]
         private void GenSerializeFiles() {
             
             Stopwatch stopwatch = new Stopwatch();
@@ -282,63 +283,88 @@ namespace LZ.WarGameMap.MapEditor
                 return;
             }
 
-            int srcWidth = heights.GetLength(1);
-            int dstHeight = heights.GetLength(0);
+            // é¢ç§¯å¹³å‡ä¸‹é‡‡æ ·ï¼šæ¶ˆé™¤åŒçº¿æ€§ç‚¹é‡‡æ ·å¯¼è‡´çš„æ··å 
+            float[] compressed = AreaAverageDownsample(heights, compressResultSize, -32768f);
+            for (int i = 0; i < compressed.Length; i++) {
+                writer.Write(compressed[i]);
+            }
+        }
 
-            // Resample the size of height map
-            for (int i = 0; i < compressResultSize; i++) {
-                for (int j = 0; j < compressResultSize; j++) {
+        /// <summary>
+        /// é¢ç§¯å¹³å‡ä¸‹é‡‡æ ·ï¼šæ”¯æ’‘åŸŸ = scale Ã— scaleï¼Œæ»¡è¶³é‡‡æ ·å®šç†ï¼Œæ¶ˆé™¤æ··å ã€‚
+        /// </summary>
+        /// <param name="src">æºé«˜ç¨‹ï¼Œç´¢å¼• [x, y]</param>
+        /// <param name="dstSize">ç›®æ ‡è¾¹é•¿</param>
+        /// <param name="noDataValue">NODATA æ ‡è®°å€¼ï¼Œä¼šè¢«è·³è¿‡</param>
+        private static float[] AreaAverageDownsample(TDList<float> src, int dstSize, float noDataValue)
+        {
+            int srcW = src.GetLength(1);
+            int srcH = src.GetLength(0);
+            float[] dst = new float[dstSize * dstSize];
+            float scaleX = (float)srcW / dstSize;
+            float scaleY = (float)srcH / dstSize;
 
-                    float sx = i * (float)(srcWidth - 1) / compressResultSize;
-                    float sy = j * (float)(dstHeight - 1) / compressResultSize;
+            for (int dy = 0; dy < dstSize; dy++) {
+                int y0 = (int)(dy * scaleY);
+                int y1 = Mathf.Max(y0 + 1, (int)((dy + 1) * scaleY));
 
-                    int x0 = Mathf.FloorToInt(sx);
-                    int x1 = Mathf.Min(x0 + 1, srcWidth - 1);
-                    int y0 = Mathf.FloorToInt(sy);
-                    int y1 = Mathf.Min(y0 + 1, dstHeight - 1);
+                for (int dx = 0; dx < dstSize; dx++) {
+                    int x0 = (int)(dx * scaleX);
+                    int x1 = Mathf.Max(x0 + 1, (int)((dx + 1) * scaleX));
 
-                    float q00 = heights[x0, y0];
-                    float q01 = heights[x0, y1];
-                    float q10 = heights[x1, y0];
-                    float q11 = heights[x1, y1];
-
-                    float rx0 = Mathf.Lerp(q00, q10, sx - x0);
-                    float rx1 = Mathf.Lerp(q01, q11, sx - x0);
-
-                    // caculate the height by the data given
-                    float h = Mathf.Lerp(rx0, rx1, sy - y0);
-                    float fixed_h = Mathf.Clamp(h, 0, 50);        // ²»½¨ÒéÔÚÕâÀïĞŞ¸ÄÔ­Êı¾İ
-                    //compressedHeights[i, j] = fixed_h;
-
-                    writer.Write(fixed_h);
+                    double sum = 0;
+                    int count = 0;
+                    for (int y = y0; y < y1 && y < srcH; y++) {
+                        for (int x = x0; x < x1 && x < srcW; x++) {
+                            float v = src[x, y];
+                            if (v <= noDataValue) continue;
+                            sum += v;
+                            count++;
+                        }
+                    }
+                    dst[dy * dstSize + dx] = count > 0 ? (float)(sum / count) : 0f;
                 }
             }
-
-            //Return compressedHeights;
+            return dst;
         }
 
         private TDList<float> ReadTifData(string path) {
-            System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(path);
-            int width = bitmap.Width;
-            int height = bitmap.Height;
+            TDList<float> heights = null;
 
-            TDList<float> heights = new TDList<float>(width, height);
-
-            //float[,] heights = new float[width, height];
-            for (int x = 0; x < height; x++) {
-                for (int y = 0; y < width; y++) {
-                    int destY = flipVertically ? width - 1 - y : y;
-                    int destX = flipVertically ? height - 1 - x : x;
-                    System.Drawing.Color pixelColor = bitmap.GetPixel(y, destX);
-
-                    // GrapScale = 0.299 * R + 0.587 * G + 0.114 * B
-                    float grayscale = 0.299f * pixelColor.R + 0.587f * pixelColor.G + 0.114f * pixelColor.B;
-                    heights[x, y] = grayscale / 255.0f;
+            using (Tiff image = Tiff.Open(path, "r")) {
+                if (image == null) {
+                    Debug.LogError($"æ— æ³•æ‰“å¼€ TIF æ–‡ä»¶: {path}");
+                    return new TDList<float>();
                 }
+
+                int width = image.GetField(TiffTag.IMAGEWIDTH)[0].ToInt();
+                int height = image.GetField(TiffTag.IMAGELENGTH)[0].ToInt();
+
+                heights = new TDList<float>(width, height);
+
+                // 16-bit é«˜ç¨‹ï¼Œé€è¡Œè¯»å–åŸå§‹å­—èŠ‚å†è½¬ shortï¼ˆå°ç«¯åºï¼‰
+                byte[] buffer = new byte[image.ScanlineSize()];
+                for (int row = 0; row < height; row++) {
+                    image.ReadScanline(buffer, row);
+                    for (int col = 0; col < width; col++) {
+                        ushort pixelValue = (ushort)(buffer[col * 2] | (buffer[col * 2 + 1] << 8));
+
+                        // è¿˜åŸç¬¦å·ï¼ˆSRTM int16ï¼‰ï¼ŒNODATA = -32768 ç½® 0
+                        short signedValue = unchecked((short)pixelValue);
+                        float h = (signedValue == -32768) ? 0f : signedValue;
+
+                        // ç¿»è½¬å¤„ç†ï¼ˆflipVertically æ—¶è¡Œåˆ—é•œåƒï¼‰
+                        if (flipVertically) {
+                            heights[width - 1 - col, height - 1 - row] = h;
+                        } else {
+                            heights[col, row] = h;
+                        }
+                    }
+                }
+
+                Debug.Log(string.Format("read tif file over! length:{0}, width:{1}, height:{2}", heights.Count, width, height));
             }
 
-            Debug.Log(string.Format("read tif file over! length:{0}, width:{1}, height:{2}", heights.Count, width, height));
-            bitmap.Dispose();
             return heights;
         }
 
@@ -349,7 +375,7 @@ namespace LZ.WarGameMap.MapEditor
 
         FastNoiseLite CurInteruptNoiseLite;
 
-        // TODO : ºóĞøÒª¶ÔÉ½ÂöÍâµÄµØĞÎÒ²¼ÓÈë height £¨ÀıÈçÇğÁê¡¢Æ½Ô­ÉõÖÁÒ²¿ÉÒÔ£©
+        // TODO : åç»­è¦å¯¹å±±è„‰å¤–çš„åœ°å½¢ä¹ŸåŠ å…¥ height ï¼ˆä¾‹å¦‚ä¸˜é™µã€å¹³åŸç”šè‡³ä¹Ÿå¯ä»¥ï¼‰
         private TDList<float> ReadGridTerrainTex(string path, SerializedHeightMapInfo heightMapInfo)
         {
             Texture2D gridTerrainTex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
@@ -376,7 +402,7 @@ namespace LZ.WarGameMap.MapEditor
                         height = 1; // Plain
                     }
 
-                    // ĞèÒª½øĞĞÖĞĞÄĞı×ª
+                    // éœ€è¦è¿›è¡Œä¸­å¿ƒæ—‹è½¬
                     if (flipVertically)
                     {
                         heights[j, i] = height;
@@ -398,7 +424,7 @@ namespace LZ.WarGameMap.MapEditor
             Hexagon hex = HexHelper.PixelToAxialHex(pos, hexSet.hexGridSize, true);
             Vector2Int offsetHex = HexHelper.AxialToOffset(hex);
 
-            // TODO : ÓÃÏÂ·½µÄÂß¼­£¬ÎªÇğÁêµÈµØĞÎÒ²Éú³ÉÆğ·ü
+            // TODO : ç”¨ä¸‹æ–¹çš„é€»è¾‘ï¼Œä¸ºä¸˜é™µç­‰åœ°å½¢ä¹Ÿç”Ÿæˆèµ·ä¼
             //byte idx = gridTerrainSO.GetGridTerrainDataIdx(offsetHex);
             //Color color = gridTerrainSO.GetGridTerrainTypeColorByIdx(idx);
 
@@ -447,16 +473,16 @@ namespace LZ.WarGameMap.MapEditor
             //    Debug.Log(111);
             //}
 
-            Color color = gridTerrainTexColors[texPos.y * fixedTerSize + texPos.x];    // TODO : »áÔ½½ç£¬ÏëÏë°ì·¨... ÈÃÊä³öµÄtexture¶îÍâ²ÉÑùÖÜÎ§µÄ²¿·Öµã...
+            Color color = gridTerrainTexColors[texPos.y * fixedTerSize + texPos.x];    // TODO : ä¼šè¶Šç•Œï¼Œæƒ³æƒ³åŠæ³•... è®©è¾“å‡ºçš„textureé¢å¤–é‡‡æ ·å‘¨å›´çš„éƒ¨åˆ†ç‚¹...
 
-            // Get true position in this cluster £¨DONT DEL£©
+            // Get true position in this cluster ï¼ˆDONT DELï¼‰
             Vector2Int pos = new Vector2Int(i, j) + longitudeAndLatitude * terrainSize;
             float sampleNoise = CurInteruptNoiseLite.GetNoise(pos.x, pos.y);
             int clusterStartX = longitudeAndLatitude.x * terrainSize - clusterSampleFix;
             int clusterEndX = (longitudeAndLatitude.x + 1) * terrainSize - 1 + clusterSampleFix;
             int clusterStartY = longitudeAndLatitude.y * terrainSize - clusterSampleFix;
             int clusterEndY = (longitudeAndLatitude.y + 1) * terrainSize - 1 + clusterSampleFix;
-            //pos.x = Mathf.Clamp(pos.x + (int)(sampleNoise * CurMountainNoise.interuptInstence), clusterStartX, clusterEndX);  // Éú³É µØ¿éÎÆÀíÊ± Òª¶îÍâ²ÉÑùÖÜÎ§µÄµã
+            //pos.x = Mathf.Clamp(pos.x + (int)(sampleNoise * CurMountainNoise.interuptInstence), clusterStartX, clusterEndX);  // ç”Ÿæˆ åœ°å—çº¹ç†æ—¶ è¦é¢å¤–é‡‡æ ·å‘¨å›´çš„ç‚¹
             //pos.y = Mathf.Clamp(pos.y + (int)(sampleNoise * CurMountainNoise.interuptInstence), clusterStartY, clusterEndY);
 
             pos.x += (int)(sampleNoise * CurMountainNoise.interuptInstence);
@@ -503,23 +529,23 @@ namespace LZ.WarGameMap.MapEditor
         #endregion
 
 
-        #region ¸ß¶ÈÍ¼·´ĞòÁĞ»¯
+        #region é«˜åº¦å›¾ååºåˆ—åŒ–
 
-        [FoldoutGroup("Éú³ÉHeightDataModel")]
-        [LabelText("µ±Ç°²Ù×÷µÄĞòÁĞ»¯ÎÄ¼ş")]
-        [Tooltip("²»ÒªÖ±½ÓÊ¹ÓÃ¸Ã×Ö¶Îµ¼Èë£¬µã»÷ÏÂ·½µÄ°´Å¥½øĞĞµ¼Èë")]
+        [FoldoutGroup("ç”ŸæˆHeightDataModel")]
+        [LabelText("å½“å‰æ“ä½œçš„åºåˆ—åŒ–æ–‡ä»¶")]
+        [Tooltip("ä¸è¦ç›´æ¥ä½¿ç”¨è¯¥å­—æ®µå¯¼å…¥ï¼Œç‚¹å‡»ä¸‹æ–¹çš„æŒ‰é’®è¿›è¡Œå¯¼å…¥")]
         public List<UnityEngine.Object> heightMapSerilzedFile;
 
-        [FoldoutGroup("Éú³ÉHeightDataModel")]
-        [LabelText("µ¼ÈëÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("ç”ŸæˆHeightDataModel")]
+        [LabelText("å¯¼å…¥ä½ç½®"), ReadOnly]
         public string serlDataOutputPath = MapStoreEnum.HeightMapOutputPath;
 
-        [FoldoutGroup("Éú³ÉHeightDataModel")]
-        [LabelText("µ¼³öÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("ç”ŸæˆHeightDataModel")]
+        [LabelText("å¯¼å‡ºä½ç½®"), ReadOnly]
         public string deserlDataOutputPath = MapStoreEnum.HeightMapScriptableObjPath;
 
-        [FoldoutGroup("Éú³ÉHeightDataModel")]
-        [Button("µ¼ÈëĞòÁĞ»¯ÎÄ¼ş", ButtonSizes.Medium)]
+        [FoldoutGroup("ç”ŸæˆHeightDataModel")]
+        [Button("å¯¼å…¥åºåˆ—åŒ–æ–‡ä»¶", ButtonSizes.Medium)]
         private void ImportSerilizedFile() 
         {
             //string heightMapSerlizedPath = EditorUtility.OpenFilePanel("Import Raw Heightmap", "", "");
@@ -544,8 +570,8 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        [FoldoutGroup("Éú³ÉHeightDataModel")]
-        [Button("Éú³ÉHeightDataModel£¨ÓÃÓÚÓÎÏ·ÖĞ£©", ButtonSizes.Medium)]
+        [FoldoutGroup("ç”ŸæˆHeightDataModel")]
+        [Button("ç”ŸæˆHeightDataModelï¼ˆç”¨äºæ¸¸æˆä¸­ï¼‰", ButtonSizes.Medium)]
         private void DeserializeHeightMaps() 
         {
             Stopwatch stopwatch = new Stopwatch();
@@ -611,24 +637,24 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
-        // TODO : Ã»ÓĞÍê³É
-        // TODO : ºóĞøĞèÒªÔÚÉú³É¸ß¶ÈÍ¼µÄÍ¬Ê±£¬Éú³É·¨ÏßÌùÍ¼£¬»òÕß¶¯Ì¬µØÉú³É·¨ÏßÌùÍ¼
-        #region ¸ù¾İ¸ß¶ÈÍ¼Éú³É·¨ÏßÌùÍ¼
+        // TODO : æ²¡æœ‰å®Œæˆ
+        // TODO : åç»­éœ€è¦åœ¨ç”Ÿæˆé«˜åº¦å›¾çš„åŒæ—¶ï¼Œç”Ÿæˆæ³•çº¿è´´å›¾ï¼Œæˆ–è€…åŠ¨æ€åœ°ç”Ÿæˆæ³•çº¿è´´å›¾
+        #region æ ¹æ®é«˜åº¦å›¾ç”Ÿæˆæ³•çº¿è´´å›¾
 
-        [FoldoutGroup("¸ù¾İ¸ß¶ÈÍ¼Éú³É·¨ÏßÍ¼")]
-        [LabelText("·¨Ïß·Ö±æÂÊ")]
+        [FoldoutGroup("æ ¹æ®é«˜åº¦å›¾ç”Ÿæˆæ³•çº¿å›¾")]
+        [LabelText("æ³•çº¿åˆ†è¾¨ç‡")]
         public int normalMapSize = 512;
 
-        [FoldoutGroup("¸ù¾İ¸ß¶ÈÍ¼Éú³É·¨ÏßÍ¼")]
-        [LabelText("Ô´¸ß¶ÈÍ¼")]
+        [FoldoutGroup("æ ¹æ®é«˜åº¦å›¾ç”Ÿæˆæ³•çº¿å›¾")]
+        [LabelText("æºé«˜åº¦å›¾")]
         public Texture2D originTexture;
 
-        [FoldoutGroup("¸ù¾İ¸ß¶ÈÍ¼Éú³É·¨ÏßÍ¼")]
-        [LabelText("µ¼³öÎ»ÖÃ"), ReadOnly]
+        [FoldoutGroup("æ ¹æ®é«˜åº¦å›¾ç”Ÿæˆæ³•çº¿å›¾")]
+        [LabelText("å¯¼å‡ºä½ç½®"), ReadOnly]
         public string normalTexOutputPath = MapStoreEnum.HeightMapNormalTexOutputPath;
 
-        [FoldoutGroup("¸ù¾İ¸ß¶ÈÍ¼Éú³É·¨ÏßÍ¼")]
-        [Button("Éú³É·¨ÏßÌùÍ¼", ButtonSizes.Medium)]
+        [FoldoutGroup("æ ¹æ®é«˜åº¦å›¾ç”Ÿæˆæ³•çº¿å›¾")]
+        [Button("ç”Ÿæˆæ³•çº¿è´´å›¾", ButtonSizes.Medium)]
 
         private void GenerateNormalMap() {
             if (!Directory.Exists(tifInputPath)) {
@@ -648,7 +674,7 @@ namespace LZ.WarGameMap.MapEditor
             GenerateNormalMap(normalTexOutputPath, heightMapPaths);
         }
 
-        //ERROR : Ä¿Ç°Éú³É½á¹ûÓĞÎÊÌâ£¡
+        //ERROR : ç›®å‰ç”Ÿæˆç»“æœæœ‰é—®é¢˜ï¼
         private void GenerateNormalMap(string outputPath, string[] inputFilePaths) {
             
             int generateBatch = UnityEngine.Random.Range(1, 255);
@@ -716,7 +742,7 @@ namespace LZ.WarGameMap.MapEditor
                         Vector3 normal = new Vector3(-sum_x * strength, -sum_y * strength, 1.0f);
                         normal.Normalize();
 
-                        // Ó³Éäµ½ [0,1] Çø¼ä
+                        // æ˜ å°„åˆ° [0,1] åŒºé—´
                         Color nColor = new Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1.0f);
                         normalTex.SetPixel(i, j, nColor);
 

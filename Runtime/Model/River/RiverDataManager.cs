@@ -82,7 +82,9 @@ namespace LZ.WarGameMap.Runtime
                 }
                 hasLoadedRiverSets.Add(riverID);
 
-                int effectScope = 8;        // TODO : effect scope should store in mapRiverData
+                // NOTE : if you want to change the width of river ,mod it
+                // Recommand 6
+                int effectScope = 6;        // TODO : effect scope should store in mapRiverData
 
                 GenCurveData(riverData, effectScope);
                 DebugUtility.Log($"build river id {riverData.riverID}");

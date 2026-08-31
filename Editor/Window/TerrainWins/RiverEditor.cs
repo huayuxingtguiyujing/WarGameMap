@@ -586,7 +586,7 @@ namespace LZ.WarGameMap.MapEditor
             // 当河流有多段分支的时候，贝塞尔曲线也需要分段，这样的编辑对于河流密集的情况非常麻烦
             // 所以，为提醒后来者：若你确保河流不分段，可以生成贝塞尔曲线-保存河流
             // 若你觉得这套制作流麻烦，请直接使用保存纹理
-            [HorizontalGroup("RiverBtns"), Button("生成河流曲线")]
+            [HorizontalGroup("RiverBtns"), Button("生成河流曲线[ Obsolete]")]
             private void GenerateCurve()
             {
                 GenCurveEvent.Invoke(riverID, this);
@@ -804,9 +804,9 @@ namespace LZ.WarGameMap.MapEditor
 
             List<Vector2Int> brushedPixelPoss = GetBrushedPixels();
 
-            // TODO : 需要验证 贝塞尔曲线 的拟合程度
-            //BezierCurve bezierCurve = BezierCurve.GenCurve(brushedPixelPoss, riverData.riverStart, terSet);
-            BezierCurve bezierCurve = BezierCurve.FitCurve(brushedPixelPoss, riverData.riverStart, terSet);
+            // NOTE : 贝塞尔曲线完全不行，不要用曲线，直接用纹理
+            BezierCurve bezierCurve = BezierCurve.GenCurve(brushedPixelPoss, riverData.riverStart, terSet);
+            //BezierCurve bezierCurve = BezierCurve.FitCurve(brushedPixelPoss, riverData.riverStart, terSet);
             curBezierCurveEditor = CreateBezierEditor(bezierCurve);
             Debug.Log($"gen over, curve node num : {bezierCurve.Count}, pixel num {brushedPixelPoss.Count}");
         }

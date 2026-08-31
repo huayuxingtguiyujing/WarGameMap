@@ -4,10 +4,10 @@ using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
 {
-    // TODO : Ğ´¸öÖ§³Ö¶àÏß³ÌµÄ HeightDataManager
+    // TODO : å†™ä¸ªæ”¯æŒå¤šçº¿ç¨‹çš„ HeightDataManager
     public class HeightDataManager
     {
-        //  ×Ô¾õÒ»µã£¬²»Òª¸Ä¶¯ HeightDataModel ÀïµÄ¶«Î÷
+        //  è‡ªè§‰ä¸€ç‚¹ï¼Œä¸è¦æ”¹åŠ¨ HeightDataModel é‡Œçš„ä¸œè¥¿
         List<HeightDataModel> heightDataModels;
         public List<HeightDataModel> HeightDataModels { get { return heightDataModels; } }
 
@@ -112,6 +112,12 @@ namespace LZ.WarGameMap.Runtime
             return SampleFromHeightData(longAndLat.x, longAndLat.y, vertPos, clusterStartPoint);
         }
 
+        // smoothstep æƒé‡ï¼šä¸€é˜¶å¯¼åœ¨æ ¼å­è¾¹ç•Œä¸º 0ï¼Œæ¶ˆé™¤åŒçº¿æ€§é‡å»ºçš„ C1 æŠ˜ç—•
+        private static float SmoothWeight(float t)
+        {
+            return t * t * (3f - 2f * t);
+        }
+
         public float SampleFromHeightData(int longitude, int latitude, Vector3 vertPos, Vector3 clusterStartPoint) {
 
             if (sampleCache == null) {
@@ -142,13 +148,16 @@ namespace LZ.WarGameMap.Runtime
                 float q10 = GetHeightVal(longitude, latitude, x1, y0, heightData);
                 float q11 = GetHeightVal(longitude, latitude, x1, y1, heightData);
 
-                float rx0 = Mathf.Lerp(q00, q10, sx - x0);
-                float rx1 = Mathf.Lerp(q01, q11, sx - x0);
+                float tx = SmoothWeight(sx - x0);
+                float ty = SmoothWeight(sy - y0);
+                float rx0 = Mathf.Lerp(q00, q10, tx);
+                float rx1 = Mathf.Lerp(q01, q11, tx);
 
                 // caculate the height by the data given
-                float h = Mathf.Lerp(rx0, rx1, sy - y0);
-                float fixed_h = Mathf.Clamp(h, 0, 100);
-                return fixed_h;
+                float h = Mathf.Lerp(rx0, rx1, ty);
+                return h;
+                // float fixed_h = Mathf.Clamp(h, 0, 100);
+                // return fixed_h;
             }
 
             return 0;
@@ -251,7 +260,7 @@ namespace LZ.WarGameMap.Runtime
                     heightData = model.GetHeightData(longitude, latitude);
                 }
 
-                // TODO : ¸ã´í·½Î»ÁË......
+                // TODO : æé”™æ–¹ä½äº†......
                 if (model.ExistHeightData(longitude - 1, latitude)) {
                     //Debug.Log($"NOTE : init left height data, {longitude - 1}, {latitude}");
                     leftHeightData = model.GetHeightData(longitude - 1, latitude);
@@ -333,12 +342,12 @@ namespace LZ.WarGameMap.Runtime
         private float IntepWeightTriangle_Wrapper(GridTerrainData A, GridTerrainData B, GridTerrainData C, Vector2 P) {
             if (A == null || B == null || C == null) {
                 return 0;
-            }   // TODO : ĞèÒªĞŞÉÉ
+            }   // TODO : éœ€è¦ä¿®ç¼®
             return IntepWeightTriangle(A.GetHexCenter(), B.GetHexCenter(), C.GetHexCenter(), 0, 0, 0, P);
         }
 
         private float IntepWeightTriangle(Vector2 A, Vector2 B, Vector2 C, float wA, float wB, float wC, Vector2 P) {
-            // ÖØĞÄ×ø±ê ²åÖµ
+            // é‡å¿ƒåæ ‡ æ’å€¼
             Vector2 v0 = B - A;
             Vector2 v1 = C - A;
             Vector2 v2 = P - A;
@@ -403,7 +412,7 @@ namespace LZ.WarGameMap.Runtime
                 float q10 = GetHeightVal(longitude, latitude, x1, y0, heightData) * scale;
                 float q11 = GetHeightVal(longitude, latitude, x1, y1, heightData) * scale;
 
-                // ¼ÆËãÌİ¶È£¨Sobel Ëã×Ó£©
+                // è®¡ç®—æ¢¯åº¦ï¼ˆSobel ç®—å­ï¼‰
                 Vector3 normal = new Vector3(q00 - q10, 4.0f, q01 - q11);
                 return normal.normalized;
             }

@@ -29,7 +29,7 @@ namespace LZ.WarGameMap.Runtime {
         }
 
         [Header("LOD Setting")]
-        [LabelText("LOD×Ü²ã¼¶Êı")]
+        [LabelText("LODæ€»å±‚çº§æ•°")]
         public int LODLevel = 3;
 
         // recommend : 
@@ -38,7 +38,7 @@ namespace LZ.WarGameMap.Runtime {
         //  2 : 0.35
         //  3 : 0.6
         //  4 : 1.0
-        [LabelText("LOD¸÷¼¶µÄ¼ò»¯³Ì¶È")]
+        [LabelText("LODå„çº§çš„ç®€åŒ–ç¨‹åº¦")]
         public List<float> LODLevelSimplifyTarget = new List<float>() { 
             0.1f, 0.2f, 0.35f, 0.6f, 1.0f
         };  
@@ -56,24 +56,28 @@ namespace LZ.WarGameMap.Runtime {
 
 
         [Header("Terrain Setting")]
-        [LabelText("Terrain´óĞ¡")]
-        [Tooltip("´óµØÍ¼¹æÄ££¬±íÊ¾¹²ÓĞ¶àÉÙ¸öcluster£¬Ëü²»±ØÊÇ2µÄ±¶Êı")]
+        [LabelText("Terrainå¤§å°")]
+        [Tooltip("å¤§åœ°å›¾è§„æ¨¡ï¼Œè¡¨ç¤ºå…±æœ‰å¤šå°‘ä¸ªclusterï¼Œå®ƒä¸å¿…æ˜¯2çš„å€æ•°")]
         public Vector3Int terrainSize = new Vector3Int(10, 0, 10);
 
-        [LabelText("ÆğÊ¼µØ¿é¾­Î³¶È")]
-        [Tooltip("×óÏÂ½ÇµÄµØ¿éµÄ¾­Î³¶È")]
+        [LabelText("èµ·å§‹åœ°å—ç»çº¬åº¦")]
+        [Tooltip("å·¦ä¸‹è§’çš„åœ°å—çš„ç»çº¬åº¦")]
         public Vector2Int startLL;
 
-        [LabelText("cluster´óĞ¡")]
-        [Tooltip("cluster¹æÄ££¬yÖá´ú±í¶Ô¸ß¶ÈÊı¾İµÄ·Å´ó²Ù×÷")]
+        [LabelText("clusterå¤§å°")]
+        [Tooltip("clusterè§„æ¨¡ï¼Œyè½´ä»£è¡¨å¯¹é«˜åº¦æ•°æ®çš„æ”¾å¤§æ“ä½œ")]
         public int clusterSize = MapTerrainEnum.ClusterSize;
 
-        [LabelText("cluster-ĞŞÕıºó´óĞ¡")]
-        [Tooltip("clusterĞŞÕıºó¹æÄ££¬ÓÃÓÚÉú³ÉÎÆÀíÊ±½øĞĞ¿í¶ÈÀ©Õ¹")]
+        [LabelText("cluster-ä¿®æ­£åå¤§å°")]
+        [Tooltip("clusterä¿®æ­£åè§„æ¨¡ï¼Œç”¨äºç”Ÿæˆçº¹ç†æ—¶è¿›è¡Œå®½åº¦æ‰©å±•")]
         public int fixedClusterSize = MapTerrainEnum.ClusterSize + 20;
 
-        [LabelText("µØ¿é´óĞ¡")]
+        [LabelText("åœ°å—å¤§å°")]
         public int tileSize = MapTerrainEnum.TileSize;
+
+        [LabelText("é«˜åº¦ç¼©æ”¾")]
+        [Tooltip("å½’ä¸€åŒ–é«˜åº¦ [0,1] è½¬ä¸–ç•Œå•ä½çš„å€ç‡ï¼Œé»˜è®¤ 500 ä»¥ç»´æŒç°æœ‰è§‚æ„Ÿ")]
+        public float heightScale = 50f;
 
         public int GetTileNumClsPerLine()
         {
@@ -93,16 +97,16 @@ namespace LZ.WarGameMap.Runtime {
 
         // River setting
         [Header("River Setting")]
-        [LabelText("ºÓÁ÷±à¼­Êı¾İÏà±È´óµØÍ¼µÄËõ·Å")]
+        [LabelText("æ²³æµç¼–è¾‘æ•°æ®ç›¸æ¯”å¤§åœ°å›¾çš„ç¼©æ”¾")]
         public ushort paintRTSizeScale = 1;     // only editor
 
-        [LabelText("ºÓµÀ×î´ó³Á½µ")]
+        [LabelText("æ²³é“æœ€å¤§æ²‰é™")]
         public int riverDownOffset = 15;
 
-        [LabelText("·ÇºÓÁ÷ÑÕÉ«£¨ÎÆÀí´æ´¢£©")]
+        [LabelText("éæ²³æµé¢œè‰²ï¼ˆçº¹ç†å­˜å‚¨ï¼‰")]
         public Color noRiverColor = Color.white;
 
-        [LabelText("ºÓÁ÷ÑÕÉ«£¨ÎÆÀí´æ´¢£©")]
+        [LabelText("æ²³æµé¢œè‰²ï¼ˆçº¹ç†å­˜å‚¨ï¼‰")]
         public Color riverColor = Color.blue;
 
 
@@ -119,13 +123,13 @@ namespace LZ.WarGameMap.Runtime {
             return "*_terrain_cluster.bytes";
         }
 
-        // Ê¹ÓÃ´Ë ·½·¨£¬»ñÈ¡³Ö¾Ã»¯µÄ µØ¿é cluster bytes Ãû³Æ
+        // ä½¿ç”¨æ­¤ æ–¹æ³•ï¼Œè·å–æŒä¹…åŒ–çš„ åœ°å— cluster bytes åç§°
         public static string GetClusterFileName(long longitude, long latitude)
         {
             return $"{longitude}_{latitude}_terrain_cluster.bytes";
         }
 
-        // ´Ó cluster bytes ÎÄ¼şÃû <longitude>_<latitude>_terrain_cluster.bytes ½âÎö³ö¾­Î³¶È
+        // ä» cluster bytes æ–‡ä»¶å <longitude>_<latitude>_terrain_cluster.bytes è§£æå‡ºç»çº¬åº¦
         public static bool TryParseClusterFileName(string fileName, out long longitude, out long latitude)
         {
             longitude = 0; latitude = 0;

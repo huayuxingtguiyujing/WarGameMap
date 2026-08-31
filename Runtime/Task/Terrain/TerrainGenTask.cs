@@ -11,12 +11,12 @@ namespace LZ.WarGameMap.Runtime
         public override TaskTickLevel GetTickLevel() { return TaskTickLevel.Medium; }
 
 
-        public static string TerGenClsTaskName = "µØ¿éMeshÓëºÓÁ÷Éú³É";
-        public static string TerSimplifyTaskName = "µØ¿é¼õÃæ";
+        public static string TerGenClsTaskName = "ï¿½Ø¿ï¿½Meshï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½";
+        public static string TerSimplifyTaskName = "ï¿½Ø¿ï¿½ï¿½ï¿½ï¿½";
 
-        public static string TerGenClsGenMeshName = "Éú³ÉMesh";
-        public static string TerGenClsGenRiverName = "Éú³ÉºÓÁ÷";
-        public static string TerGenClsSimplifyName = "LOD¼õÃæ";
+        public static string TerGenClsGenMeshName = "ï¿½ï¿½ï¿½ï¿½Mesh";
+        public static string TerGenClsGenRiverName = "ï¿½ï¿½ï¿½Éºï¿½ï¿½ï¿½";
+        public static string TerGenClsSimplifyName = "LODï¿½ï¿½ï¿½ï¿½";
 
 
         int buildClusterNum;
@@ -43,7 +43,7 @@ namespace LZ.WarGameMap.Runtime
             this.terSet = terSet;
             this.TerrainCtor = TerrainCtor;
             this.clusterIdxList = clusterIdxList;
-            this.shouldGenRiver = shouldGenRiver;                   // TODO : Î´À´ºÓÁ÷µÄ»úÖÆ¿ÉÄÜ»á´ó¸Ä
+            this.shouldGenRiver = shouldGenRiver;                   // TODO : Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½Æ¿ï¿½ï¿½Ü»ï¿½ï¿½ï¿½
             this.shouldGenLODBySimplify = shouldGenLODBySimplify;
             this.useForRuntime = useForRuntime;
 
@@ -84,8 +84,8 @@ namespace LZ.WarGameMap.Runtime
             for (int i = 0; i < buildClusterNum; i++)
             {
                 Vector2Int clsIdx = clusterIdxList[i];
-                terGenMeshRiverNode.AddChildTask($"{TerGenClsTaskName}_{clsIdx}_{TerGenClsGenMeshName}", buildMeshRiverWeight / 2, null, $"µØ¿é{clsIdx} Éú³ÉµØÐÎMeshÖÐ");
-                terGenMeshRiverNode.AddChildTask($"{TerGenClsTaskName}_{clsIdx}_{TerGenClsGenRiverName}", buildMeshRiverWeight / 2, null, $"µØ¿é{clsIdx} Éú³ÉºÓÁ÷ÖÐ");
+                terGenMeshRiverNode.AddChildTask($"{TerGenClsTaskName}_{clsIdx}_{TerGenClsGenMeshName}", buildMeshRiverWeight / 2, null, $"ï¿½Ø¿ï¿½{clsIdx} ï¿½ï¿½ï¿½Éµï¿½ï¿½ï¿½Meshï¿½ï¿½");
+                terGenMeshRiverNode.AddChildTask($"{TerGenClsTaskName}_{clsIdx}_{TerGenClsGenRiverName}", buildMeshRiverWeight / 2, null, $"ï¿½Ø¿ï¿½{clsIdx} ï¿½ï¿½ï¿½Éºï¿½ï¿½ï¿½ï¿½ï¿½");
             }
             AddChildTask(terGenMeshRiverNode);
 
@@ -96,7 +96,7 @@ namespace LZ.WarGameMap.Runtime
                 for (int i = 0; i < buildClusterNum; i++)
                 {
                     Vector2Int clsIdx = clusterIdxList[i];
-                    simplifyNode.AddChildTask($"{TerSimplifyTaskName}_{clsIdx}_{TerGenClsSimplifyName}", simplifyWeight, SetSimplifyProgressCall, $"µØ¿é{clsIdx} LOD¼õÃæÖÐ");
+                    simplifyNode.AddChildTask($"{TerSimplifyTaskName}_{clsIdx}_{TerGenClsSimplifyName}", simplifyWeight, SetSimplifyProgressCall, $"ï¿½Ø¿ï¿½{clsIdx} LODï¿½ï¿½ï¿½ï¿½ï¿½ï¿½");
                 }
                 AddChildTask(simplifyNode);
             }
@@ -207,7 +207,9 @@ namespace LZ.WarGameMap.Runtime
                     TerrainCtor.BuildCluster_OnlyMaxLOD(i, j);
                 }
                 GoNextChildTask();
-                await TerrainCtor.BuildCluster_River(i, j, tokenSrc.Token);
+                if(shouldGenRiver){
+                    await TerrainCtor.BuildCluster_River(i, j, tokenSrc.Token);
+                }
                 GoNextChildTask();
             }
 

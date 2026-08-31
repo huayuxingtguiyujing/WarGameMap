@@ -477,7 +477,6 @@ namespace LZ.WarGameMap.Runtime
                 }
             }
 
-            // TODO : 这里可能有坑
             meshWrapper.SetVertex(vertexs);
         }
 
