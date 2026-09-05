@@ -1,0 +1,355 @@
+// RegionDistanceField.compute
+//
+// 逻辑输入：
+//   _RegionTexture：每个 texel 对应一个 offset hex 的区域颜色 / ID。
+//   _HexmapWidth / _HexmapHeight：逻辑 hex 地图尺寸。
+//   _HexGridSize：hex 的世界空间半径。
+//   _RegionSDFWorldRect：minX, minZ, width, height。
+//   _RegionSDFTexelWorldSize：期望的一个 SDF texel 世界尺寸，用于种子厚度。
+//
+// GPU 输出：
+//   _RegionSeedWrite：RG32_SFloat，最近边界 seed 的 SDF texel 坐标。
+//   _RegionDistanceTexture：R16_SFloat，归一化无符号距离（0 = 边界，1 = 远离边界）。
+//
+// 调度顺序：
+//   1. InitRegionBoundarySeeds
+//   2. RegionJumpFlood，多次；step 从 2 的幂逐次减半至 1
+//   3. FinalizeRegionDistance
+//
+// RegionJumpFlood 每轮交换：
+//   _RegionSeedRead <-> _RegionSeedWrite
+
+#pragma kernel InitRegionBoundarySeeds
+#pragma kernel RegionJumpFlood
+#pragma kernel FinalizeRegionDistance
+
+#include "../Utils/HexLibrary.hlsl"
+
+#define REGION_SDF_THREAD_SIZE 8
+#define INVALID_SEED float2(-1.0, -1.0)
+
+Texture2D<float4> _RegionTexture;
+
+// JFA 读写种子纹理。
+// RenderTexture 格式建议：GraphicsFormat.R32G32_SFloat。
+Texture2D<float2>   _RegionSeedRead;
+RWTexture2D<float2> _RegionSeedWrite;
+
+// 最终距离场（归一化无符号距离：0 = 边界，1 = 远离边界）。
+// RenderTexture 格式建议：GraphicsFormat.R16_SFloat。
+RWTexture2D<float> _RegionDistanceTexture;
+
+int _HexmapWidth;
+int _HexmapHeight;
+float _HexGridSize;
+
+// xy = world min XZ；zw = world width / height。
+float4 _RegionSDFWorldRect;
+
+// 一个 SDF 输出 texel 对应的目标世界长度。
+// 应尽量和 WorldRect / SDF RT 的实际尺寸一致。
+float _RegionSDFTexelWorldSize;
+
+// 当前 JFA 跳跃步长；由 C# 每轮更新。
+int _RegionJfaStep;
+
+// 无归属区域色及比较容差。
+// 若当前项目仍以颜色作区域 ID，必须由 C# 传入对应颜色。
+// 建议长期改为专用的 RegionIdTexture。
+float4 _RegionInvalidColor;
+float _RegionColorEpsilon;
+
+// 归一化距离场的最大世界距离：距离 >= 此值时输出 1.0（远离边界）。
+float _RegionSDFMaxDistanceWorld;
+
+// 1：有效区域紧贴无归属格/地图边界时，也生成边界。
+// 0：仅不同有效区域之间生成边界。
+int _RegionTreatInvalidAsBoundary;
+int _RegionTreatMapEdgeAsBoundary;
+
+
+// HexLibrary 中 GetOffsetHexNeighbor 的方向顺序：
+// 0=E, 1=NE, 2=NW, 3=W, 4=SW, 5=SE。
+static const int HEX_EDGE_START_CORNER[6] = { 5, 0, 1, 2, 3, 4 };
+static const int HEX_EDGE_END_CORNER[6]   = { 0, 1, 2, 3, 4, 5 };
+
+
+bool IsInsideSDF(uint2 pixel, uint width, uint height)
+{
+    return pixel.x < width && pixel.y < height;
+}
+
+bool IsInsideHexMap(int2 offsetHex)
+{
+    return offsetHex.x >= 0 &&
+           offsetHex.y >= 0 &&
+           offsetHex.x < _HexmapWidth &&
+           offsetHex.y < _HexmapHeight;
+}
+
+float4 LoadRegion(int2 offsetHex)
+{
+    return _RegionTexture.Load(int3(offsetHex, 0));
+}
+
+bool IsInvalidRegion(float4 region)
+{
+    return all(abs(region - _RegionInvalidColor) <= _RegionColorEpsilon);
+}
+
+bool IsSameRegion(float4 lhs, float4 rhs)
+{
+    return all(abs(lhs - rhs) <= _RegionColorEpsilon);
+}
+
+
+// 由 SDF 像素坐标得到其对应的世界 XZ 坐标。
+// 使用实际 RT 尺寸与 WorldRect，避免因长宽比造成距离畸变。
+float2 SDFPixelToWorld(uint2 pixel, uint2 sdfSize)
+{
+    float2 texelWorldSize = _RegionSDFWorldRect.zw / float2(sdfSize);
+    return _RegionSDFWorldRect.xy + (float2(pixel) + 0.5) * texelWorldSize;
+}
+
+float2 SeedToWorld(float2 seedPixel, uint2 sdfSize)
+{
+    float2 texelWorldSize = _RegionSDFWorldRect.zw / float2(sdfSize);
+    return _RegionSDFWorldRect.xy + (seedPixel + 0.5) * texelWorldSize;
+}
+
+float DistancePointToSegment(float2 samplePos, float2 segmentStart, float2 segmentEnd)
+{
+    float2 segment = segmentEnd - segmentStart;
+    float segmentLengthSq = max(dot(segment, segment), 0.000001);
+    float t = saturate(dot(samplePos - segmentStart, segment) / segmentLengthSq);
+    return length(samplePos - (segmentStart + segment * t));
+}
+
+// 判断当前世界位置是否足够靠近“有效区域与不同区域相邻”的 hex 边。
+bool IsNearRegionBoundary(float2 worldXZ, int2 offsetHex)
+{
+    if (!IsInsideHexMap(offsetHex))
+        return false;
+
+    float4 currentRegion = LoadRegion(offsetHex);
+
+    // 无归属区域本身不生成内部政治边界种子。
+    if (IsInvalidRegion(currentRegion))
+        return false;
+
+    float3 cubeHex = OffsetCoordToCube(float3(offsetHex.x, offsetHex.y, 0.0));
+
+    // 使用实际的 RT 像素世界尺寸。
+    uint sdfWidth;
+    uint sdfHeight;
+    _RegionSeedWrite.GetDimensions(sdfWidth, sdfHeight);
+
+    float2 actualTexelWorldSize =
+        _RegionSDFWorldRect.zw / float2(sdfWidth, sdfHeight);
+
+    // 半个对角线略加余量，保证任意真实边界至少覆盖一个 seed texel。
+    float seedThickness = max(
+        _RegionSDFTexelWorldSize,
+        length(actualTexelWorldSize) * 0.75
+    );
+
+    [unroll]
+    for (int direction = 0; direction < 6; direction++)
+    {
+        float2 neighborFloat =
+            GetOffsetHexNeighbor(float2(offsetHex), direction, _HexGridSize);
+
+        int2 neighborHex = int2(round(neighborFloat));
+
+        bool neighborInMap = IsInsideHexMap(neighborHex);
+        bool isBoundary = false;
+
+        if (!neighborInMap)
+        {
+            isBoundary = (_RegionTreatMapEdgeAsBoundary != 0);
+        }
+        else
+        {
+            float4 neighborRegion = LoadRegion(neighborHex);
+            bool neighborInvalid = IsInvalidRegion(neighborRegion);
+
+            if (neighborInvalid)
+            {
+                isBoundary = (_RegionTreatInvalidAsBoundary != 0);
+            }
+            else
+            {
+                isBoundary = !IsSameRegion(currentRegion, neighborRegion);
+            }
+        }
+
+        if (!isBoundary)
+            continue;
+
+        float2 edgeStart = GetHexCorner(
+            cubeHex,
+            _HexGridSize,
+            HEX_EDGE_START_CORNER[direction]
+        );
+
+        float2 edgeEnd = GetHexCorner(
+            cubeHex,
+            _HexGridSize,
+            HEX_EDGE_END_CORNER[direction]
+        );
+
+        if (DistancePointToSegment(worldXZ, edgeStart, edgeEnd) <= seedThickness)
+            return true;
+    }
+
+    return false;
+}
+
+
+[numthreads(REGION_SDF_THREAD_SIZE, REGION_SDF_THREAD_SIZE, 1)]
+void InitRegionBoundarySeeds(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint sdfWidth;
+    uint sdfHeight;
+    _RegionSeedWrite.GetDimensions(sdfWidth, sdfHeight);
+
+    uint2 pixel = dispatchThreadId.xy;
+
+    if (!IsInsideSDF(pixel, sdfWidth, sdfHeight))
+        return;
+
+    float2 worldXZ = SDFPixelToWorld(pixel, uint2(sdfWidth, sdfHeight));
+
+    // 先检查是否处在本次 SDF 世界矩形范围内。
+    float2 worldMax = _RegionSDFWorldRect.xy + _RegionSDFWorldRect.zw;
+    bool insideWorldRect =
+        all(worldXZ >= _RegionSDFWorldRect.xy) &&
+        all(worldXZ <= worldMax);
+
+    if (!insideWorldRect)
+    {
+        _RegionSeedWrite[pixel] = INVALID_SEED;
+        return;
+    }
+
+    float3 worldPos = float3(worldXZ.x, 0.0, worldXZ.y);
+    float2 offsetHexFloat = WorldToOffset(worldPos, _HexGridSize).xy;
+    int2 offsetHex = int2(round(offsetHexFloat));
+
+    _RegionSeedWrite[pixel] =
+        IsNearRegionBoundary(worldXZ, offsetHex)
+            ? float2(pixel)
+            : INVALID_SEED;
+}
+
+
+float2 FindNearestSeed(uint2 pixel, uint2 sdfSize)
+{
+    float2 bestSeed = _RegionSeedRead.Load(int3(pixel, 0));
+    float bestDistanceSq = 3.402823466e+38;
+
+    float2 worldPos = SDFPixelToWorld(pixel, sdfSize);
+
+    if (bestSeed.x >= 0.0 && bestSeed.y >= 0.0)
+    {
+        float2 seedWorld = SeedToWorld(bestSeed, sdfSize);
+        float2 delta = worldPos - seedWorld;
+        bestDistanceSq = dot(delta, delta);
+    }
+
+    // 在世界空间 raster 上运行标准 8 邻域 JFA。
+    // 六边形拓扑仅用于 Init 时判定哪些位置是区域边界。
+    [unroll]
+    for (int y = -1; y <= 1; y++)
+    {
+        [unroll]
+        for (int x = -1; x <= 1; x++)
+        {
+            if (x == 0 && y == 0)
+                continue;
+
+            int2 samplePixel = int2(pixel) + int2(x, y) * _RegionJfaStep;
+
+            if (samplePixel.x < 0 || samplePixel.y < 0 ||
+                samplePixel.x >= int(sdfSize.x) ||
+                samplePixel.y >= int(sdfSize.y))
+            {
+                continue;
+            }
+
+            float2 candidateSeed =
+                _RegionSeedRead.Load(int3(samplePixel, 0));
+
+            if (candidateSeed.x < 0.0 || candidateSeed.y < 0.0)
+                continue;
+
+            float2 candidateWorld = SeedToWorld(candidateSeed, sdfSize);
+            float2 delta = worldPos - candidateWorld;
+            float candidateDistanceSq = dot(delta, delta);
+
+            if (candidateDistanceSq < bestDistanceSq)
+            {
+                bestDistanceSq = candidateDistanceSq;
+                bestSeed = candidateSeed;
+            }
+        }
+    }
+
+    return bestSeed;
+}
+
+
+[numthreads(REGION_SDF_THREAD_SIZE, REGION_SDF_THREAD_SIZE, 1)]
+void RegionJumpFlood(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint sdfWidth;
+    uint sdfHeight;
+    _RegionSeedWrite.GetDimensions(sdfWidth, sdfHeight);
+
+    uint2 pixel = dispatchThreadId.xy;
+
+    if (!IsInsideSDF(pixel, sdfWidth, sdfHeight))
+        return;
+
+    _RegionSeedWrite[pixel] =
+        FindNearestSeed(pixel, uint2(sdfWidth, sdfHeight));
+}
+
+
+[numthreads(REGION_SDF_THREAD_SIZE, REGION_SDF_THREAD_SIZE, 1)]
+void FinalizeRegionDistance(uint3 dispatchThreadId : SV_DispatchThreadID)
+{
+    uint sdfWidth;
+    uint sdfHeight;
+    _RegionDistanceTexture.GetDimensions(sdfWidth, sdfHeight);
+
+    uint2 pixel = dispatchThreadId.xy;
+
+    if (!IsInsideSDF(pixel, sdfWidth, sdfHeight))
+        return;
+
+    float2 worldXZ = SDFPixelToWorld(pixel, uint2(sdfWidth, sdfHeight));
+
+    // 无归属地图部分不参与政治填色；
+    // 写较大距离，阶段 C 会直接跳过它。
+    float3 worldPos = float3(worldXZ.x, 0.0, worldXZ.y);
+    int2 offsetHex = int2(round(WorldToOffset(worldPos, _HexGridSize).xy));
+
+    if (!IsInsideHexMap(offsetHex) || IsInvalidRegion(LoadRegion(offsetHex)))
+    {
+        _RegionDistanceTexture[pixel] = 1.0;
+        return;
+    }
+
+    float2 nearestSeed = _RegionSeedRead.Load(int3(pixel, 0));
+
+    if (nearestSeed.x < 0.0 || nearestSeed.y < 0.0)
+    {
+        _RegionDistanceTexture[pixel] = 1.0;
+        return;
+    }
+
+    float2 seedWorld = SeedToWorld(nearestSeed, uint2(sdfWidth, sdfHeight));
+    float distWorld = length(worldXZ - seedWorld);
+    _RegionDistanceTexture[pixel] = saturate(distWorld / _RegionSDFMaxDistanceWorld);
+}

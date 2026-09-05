@@ -42,8 +42,8 @@ namespace LZ.WarGameMap.Runtime
 
         // TODO : 各个 Material, 后续要在外部配置资产，然后自动加载
         [Header("Render Material")]
-        [SerializeField] Material MainMaterial;
-        [SerializeField] Material TerLandformMaterial;
+        [SerializeField] Material MainMaterial;         // 旧版本的MainMaterial
+        [SerializeField] Material TerLandformMaterial;      // 现在的CK3 material
         [SerializeField] Material RiverMaterial;
 
         [Header("Render Terrain Assets")]
@@ -61,6 +61,20 @@ namespace LZ.WarGameMap.Runtime
         [SerializeField] Texture2D ProvinceTexture;
         [SerializeField] Texture2D PrefectureTexture;
         [SerializeField] Texture2D SubPrefectureTexture;
+
+        [Header("Region Divide SDF")]
+        [SerializeField] ComputeShader RegionSDFShader;    // 挂 SDFComputer.compute
+        [SerializeField] Texture2D testResult;    // 挂 SDFComputer.compute
+        [SerializeField] int RegionSDFResolution = 1024;
+        // SDF 相关 RT（运行时创建）
+        RenderTexture regionSeedA;        // RG32_SFloat
+        RenderTexture regionSeedB;        // RG32_SFloat
+        RenderTexture regionDistanceRT;   // R16_SFloat（最终距离场）
+        // SDF 世界矩形与 texel 尺寸，注入到 material
+        Vector4 regionSDFWorldRect;
+        float regionSDFTexelWorldSize;
+
+
 
         #endregion
 
@@ -132,6 +146,7 @@ namespace LZ.WarGameMap.Runtime
             MainMaterial.SetTexture("_ProvinceTexture", ProvinceTexture);
             MainMaterial.SetTexture("_PrefectureTexture", PrefectureTexture);
             MainMaterial.SetTexture("_SubPrefectureTexture", SubPrefectureTexture);
+        
         }
 
         private void InitTerLandformMaterial()
@@ -176,9 +191,12 @@ namespace LZ.WarGameMap.Runtime
             TerLandformMaterial.SetInt("_HexmapWidth", hexSet.mapWidth);
             TerLandformMaterial.SetInt("_HexmapHeight", hexSet.mapHeight);
 
+            // 区域划分所需纹理（ApplyRegionDivide 依赖 _RegionTexture）
+            TerLandformMaterial.SetTexture("_RegionTexture", RegionTexture);
+
             // ===== 六边形边框参数 =====
-            TerLandformMaterial.SetFloat("_HexGridEdgeRatio", 0.075f);
-            TerLandformMaterial.SetFloat("_HexGridEdgeStartLerp", 0.75f);
+            TerLandformMaterial.SetFloat("_HexGridEdgeRatio", 0.04f);
+            TerLandformMaterial.SetFloat("_HexGridEdgeStartLerp", 0.92f);
             TerLandformMaterial.SetColor("_HexGridEdgeColor", new Color(0.3f, 0.3f, 0.3f, 1f));
 
             // 排除列表：浅海(0)、深海(1)、山脉(4) → 不显示边框
@@ -189,6 +207,10 @@ namespace LZ.WarGameMap.Runtime
             excludeOutlineLUT = new ComputeBuffer(terrainTypeCount, sizeof(uint));
             excludeOutlineLUT.SetData(excludeLUT);
             TerLandformMaterial.SetBuffer("_ExcludeOutlineLUT", excludeOutlineLUT);
+
+            // 区域划分：
+            // TODO ：这玩意是动态变化的，要放到 update 里面，后续再变
+            UpdateCountryDivideTexture();
 
             Debug.Log($"Terrain landform inited over!, terrainTypeCount : {terrainTypeCount}");
         }
@@ -266,6 +288,11 @@ namespace LZ.WarGameMap.Runtime
             terrainIDBuffer?.Release();
             terrainMaterialParamsBuffer?.Release();
             excludeOutlineLUT?.Release();
+
+            // 区域划分相关资产
+            regionSeedA?.Release();
+            regionSeedB?.Release();
+            regionDistanceRT?.Release();
         }
 
         #endregion
@@ -296,44 +323,151 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
+        #region 区域划分相关
 
-        // TODO : 思考一下有没有必要做这个 IOA
-        private void InitSDFResource(int width, int height, int clusterSize)
+        // 每次 区域信息有更新的时候，都要调用该函数来生成 新区域的 SDF
+        private void UpdateCountryDivideTexture()
         {
-            int bufferSize = clusterSize * clusterSize;
-            pixelDataBuffer = new ComputeBuffer(bufferSize, sizeof(float) * 4);
-            threadGroupX = Mathf.CeilToInt(width / 16.0f);
-            threadGroupY = Mathf.CeilToInt(height / 16.0f);
+            if (RegionSDFShader == null || RegionTexture == null)
+            {
+                Debug.LogError("RegionSDFShader or RegionTexture is null, skip SDF generation.");
+                return;
+            }
 
-            // 应当缓存 512 * 512 大小的纹理 * 9 以便于重算 JFA
+            int w = hexSet.mapWidth;
+            int h = hexSet.mapHeight;
+            float s = hexSet.hexGridSize;
 
-            // TODO : 继续设置数据
-            SDFGenShader.SetInt("_ClusterWidth", terSet.clusterSize);
-            SDFGenShader.SetInt("_ClusterHeight", terSet.clusterSize);
-            SDFGenShader.SetInt("_HexGridSize", hexSet.hexGridSize);
+            // _RegionSDFWorldRect 必须与 worldPos.xz 的真实世界范围一致。
+            // 地形 mesh 从 (0,0) 起，每个 cluster 占据 clusterSize × clusterSize 世界空间，
+            // 总范围 = clusterSize * terrainSize（terrainSize.x/z 表示 cluster 数量）。
+            float minX = 0f;
+            float minZ = 0f;
+            float widthWorld = terSet.clusterSize * terSet.terrainSize.x;
+            float heightWorld = terSet.clusterSize * terSet.terrainSize.z;
+            regionSDFWorldRect = new Vector4(minX, minZ, widthWorld, heightWorld);
+
+            int res = RegionSDFResolution;
+            regionSDFTexelWorldSize = Mathf.Max(
+                regionSDFWorldRect.z / res,
+                regionSDFWorldRect.w / res);
+
+            EnsureRegionSDFRTs(res);
+
+            // 无归属色（与 CountrySO 保持一致）
+            Color invalid = BaseCountryDatas.NotValidCountryColor;
+
+            int initKernel  = RegionSDFShader.FindKernel("InitRegionBoundarySeeds");
+            int jfaKernel   = RegionSDFShader.FindKernel("RegionJumpFlood");
+            int finalKernel = RegionSDFShader.FindKernel("FinalizeRegionDistance");
+
+            // 对三个 kernel 统一绑定公共参数
+            int[] kernels = { initKernel, jfaKernel, finalKernel };
+            foreach (int k in kernels)
+            {
+                // 所有参数用全局两参版本（对所有 kernel 生效，无需指定 kernel 索引）
+                // RegionSDFShader.SetTexture(initKernel, "_RegionTexture", RegionTexture);
+                RegionSDFShader.SetTexture(k, "_RegionTexture", RegionTexture);
+                RegionSDFShader.SetInt("_HexmapWidth", w);
+                RegionSDFShader.SetInt("_HexmapHeight", h);
+                RegionSDFShader.SetVector("_RegionSDFWorldRect", regionSDFWorldRect);
+                RegionSDFShader.SetVector("_RegionInvalidColor", new Vector4(invalid.r, invalid.g, invalid.b, invalid.a));
+                RegionSDFShader.SetInt("_RegionTreatInvalidAsBoundary", 1);
+                RegionSDFShader.SetInt("_RegionTreatMapEdgeAsBoundary", 1);
+                RegionSDFShader.SetFloat("_HexGridSize", s);
+            }
+            // SetFloat 无三参重载，用全局两参版本（对所有 kernel 生效）
+            RegionSDFShader.SetFloat("_HexGridSize", s);
+            RegionSDFShader.SetFloat("_RegionSDFTexelWorldSize", regionSDFTexelWorldSize);
+            RegionSDFShader.SetFloat("_RegionColorEpsilon", 0.01f);
+            RegionSDFShader.SetFloat("_RegionSDFMaxDistanceWorld", hexSet.hexGridSize * 16.0f);
+
+            int groups = Mathf.CeilToInt(res / 8.0f);
+
+            // 1) 初始化种子：写入 regionSeedA
+            
+            RegionSDFShader.SetTexture(initKernel, "_RegionSeedWrite", regionSeedA);
+            RegionSDFShader.Dispatch(initKernel, groups, groups, 1);
+
+            // 2) JFA 迭代，ping-pong
+            int maxStep = 1;
+            while (maxStep * 2 < res) maxStep *= 2;
+            RenderTexture readRT = regionSeedA;
+            RenderTexture writeRT = regionSeedB;
+            for (int step = maxStep; step >= 1; step /= 2)
+            {
+                RegionSDFShader.SetInt("_RegionJfaStep", step);
+                RegionSDFShader.SetTexture(jfaKernel, "_RegionSeedRead", readRT);
+                RegionSDFShader.SetTexture(jfaKernel, "_RegionSeedWrite", writeRT);
+                RegionSDFShader.Dispatch(jfaKernel, groups, groups, 1);
+
+                // 交换 read/write
+                RenderTexture tmp = readRT;
+                readRT = writeRT;
+                writeRT = tmp;
+            }
+
+            // 3) 最终距离场：readRT 是最后一次写入的 seed
+            RegionSDFShader.SetTexture(finalKernel, "_RegionSeedRead", readRT);
+            RegionSDFShader.SetTexture(finalKernel, "_RegionDistanceTexture", regionDistanceRT);
+            RegionSDFShader.Dispatch(finalKernel, groups, groups, 1);
+
+            // 4) 注入到 TerLandformMaterial（TerrainLandformShader）（MainMat 是过时的）
+            TerLandformMaterial.SetTexture("_RegionDistanceTexture", regionDistanceRT);
+            TerLandformMaterial.SetVector("_RegionSDFWorldRect", regionSDFWorldRect);
+            TerLandformMaterial.SetFloat("_RegionSDFTexelWorldSize", regionSDFTexelWorldSize);
+
+            // terrain 真实世界范围（渲染采样 UV 用）
+            Vector4 terrainWorldRect = new Vector4(
+                0f,
+                0f,
+                terSet.clusterSize * terSet.terrainSize.x,
+                terSet.clusterSize * terSet.terrainSize.z
+            );
+            TerLandformMaterial.SetVector("_RegionTerrainWorldRect", terrainWorldRect);
+
+            // SDF 布局
+            Vector4 regionSDFUVRect = new Vector4(0, 0, hexSet.hexGridSize, hexSet.hexGridSize);
+            TerLandformMaterial.SetVector("_RegionSDFUVRect", regionSDFUVRect);
+        
+            Debug.Log("区域划分 SDF 生成完毕！");
+
+            // Debug：把距离场回读到 testResult 以便在 Inspector 查看
+            if (testResult == null || testResult.width != res || testResult.height != res)
+            {
+                testResult = new Texture2D(res, res, TextureFormat.RFloat, false);
+            }
+            RenderTexture.active = regionDistanceRT;
+            testResult.ReadPixels(new Rect(0, 0, res, res), 0, 0);
+            testResult.Apply();
+            RenderTexture.active = null;
         }
 
-        public void UpdateCountryBorderData(Vector2Int longitudeAndLatitude)
+        private void EnsureRegionSDFRTs(int res)
         {
-            SDFGenShader.SetInt("_StartLongitude", longitudeAndLatitude.x);
-            SDFGenShader.SetInt("_StartLatitude", longitudeAndLatitude.y);
-
-
-            int initJFAKernelIndex = SDFGenShader.FindKernel("InitJFA");
-            int JFAIterKernelIndex = SDFGenShader.FindKernel("JFAIter");
-            int genSDFKernelIndex = SDFGenShader.FindKernel("GenSDF");
-            // TODO : 继续设置数据
-            SDFGenShader.SetTexture(initJFAKernelIndex, "CountryTexture", RegionTexture);
-            SDFGenShader.SetBuffer(initJFAKernelIndex, "PixelDataBuffer", pixelDataBuffer);
-            SDFGenShader.Dispatch(initJFAKernelIndex, threadGroupX, threadGroupY, 1);
-
-            //SDFGenShader.SetVectorArray("_CountryBorderColors", countrySO.countryBorderColors);
-            // TODO : 继续设置数据
-            SDFGenShader.Dispatch(JFAIterKernelIndex, threadGroupX, threadGroupY, 1);
-
-            // TODO : 继续设置数据
-            SDFGenShader.Dispatch(genSDFKernelIndex, threadGroupX, threadGroupY, 1);
+            if (regionSeedA == null)
+            {
+                regionSeedA = new RenderTexture(res, res, 0, UnityEngine.Experimental.Rendering.GraphicsFormat.R32G32_SFloat);
+                regionSeedA.enableRandomWrite = true;
+                regionSeedA.Create();
+            }
+            if (regionSeedB == null)
+            {
+                regionSeedB = new RenderTexture(res, res, 0, UnityEngine.Experimental.Rendering.GraphicsFormat.R32G32_SFloat);
+                regionSeedB.enableRandomWrite = true;
+                regionSeedB.Create();
+            }
+            if (regionDistanceRT == null)
+            {
+                regionDistanceRT = new RenderTexture(res, res, 0, UnityEngine.Experimental.Rendering.GraphicsFormat.R16_SFloat);
+                regionDistanceRT.enableRandomWrite = true;
+                regionDistanceRT.filterMode = FilterMode.Bilinear;
+                regionDistanceRT.wrapMode = TextureWrapMode.Clamp;
+                regionDistanceRT.Create();
+            }
         }
+
+        #endregion
     
     }
 }

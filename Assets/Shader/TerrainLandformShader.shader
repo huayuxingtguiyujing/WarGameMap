@@ -16,8 +16,8 @@ Shader "WarGameMap/Terrain/TerrainLandform"
         _DebugView("Debug View", Float) = 0
 
         [Header(Hex Grid Edge)]
-        _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0.0, 0.5)) = 0.075
-        _HexGridEdgeStartLerp("Hex Grid Edge Start Lerp", Range(0.5, 0.95)) = 0.75
+        _HexGridEdgeRatio("Hex Grid Edge Ratio", Range(0.0, 0.5)) = 0.04
+        _HexGridEdgeStartLerp("Hex Grid Edge Start Lerp", Range(0.5, 0.95)) = 0.92
         _HexGridEdgeColor("Hex Grid Edge Color", Color) = (0.3, 0.3, 0.3, 1)
 
         [Header(Hex Grid Highlight Choose Grid Logic)]
@@ -31,12 +31,23 @@ Shader "WarGameMap/Terrain/TerrainLandform"
         
         [Header(Region Divide)]
         _RegionDivideEnabled("Region Divide Enabled", Float) = 1
-        _RegionBorderWidth("Region Border Width", Range(0.01, 0.3)) = 0.08
-        _RegionBorderSmooth("Region Border Smooth", Range(0.01, 0.2)) = 0.04
+        _RegionBorderWidth("Region Border Width", Range(0.0, 0.3)) = 0.04
+        _RegionBorderSmooth("Region Border Smooth", Range(0.0, 0.2)) = 0.015
         _RegionBorderColor("Region Border Color", Color) = (1, 1, 1, 1)
-        _RegionBlendStrength("Region Blend Strength", Range(0, 1)) = 0.55
+        _RegionBlendStrength("Region Blend Strength", Range(0, 1)) = 0.65
+        _RegionGradientWidth("Region Gradient Width", Range(0.01, 1.0)) = 0.45
+        _EdgeColorMul("Edge Color Mul", Range(0, 2)) = 0.65
+        _GradientColorMul("Gradient Color Mul", Range(0, 2)) = 1.0
+        _RegionEdgeAlpha("Region Edge Alpha", Range(0, 1)) = 1.0
+        _RegionGradientAlphaInside("Gradient Alpha Inside", Range(0, 1)) = 0.35
+        _RegionGradientAlphaOutside("Gradient Alpha Outside", Range(0, 1)) = 0.8
         [NoScaleOffset] _RegionTexture("Region Texture", 2D) = "black" {}
         
+        [Header(Region Divide SDF)]
+        [NoScaleOffset] _RegionDistanceTexture("Region Distance Texture", 2D) = "black" {}
+        _RegionSDFWorldRect("Region SDF World Rect (minX,minZ,width,height)", Vector) = (0, 0, 1, 1)
+        _RegionSDFTexelWorldSize("Region SDF Texel World Size", Float) = 0.02
+        _RegionSDFUVRect("Region SDF UV Rect", Vector) = (0, 0, 1, 1)       // z / w 应该和 hex size 一样
     }
 
     SubShader
@@ -179,28 +190,6 @@ Shader "WarGameMap/Terrain/TerrainLandform"
                 float3 finalNormalTS;
                 float roughness;
                 float metallic;
-
-                // if (selfID == 0) return half4(0.0, 0.0, 0.8, 1.0); // 浅海 深蓝
-                // if (selfID == 1) return half4(0.0, 0.3, 0.6, 1.0); // 深海 中蓝
-                // if (selfID == 2) return half4(0.2, 0.8, 0.2, 1.0); // 平原 绿
-                // if (selfID == 3) return half4(0.6, 0.6, 0.2, 1.0); // 丘陵 黄绿
-                // if (selfID == 4) return half4(0.5, 0.3, 0.2, 1.0); // 山脉 棕
-                // if (selfID == 5) return half4(0.8, 0.7, 0.4, 1.0); // 高原 沙黄
-                // if (selfID == 6) return half4(0.9, 0.9, 0.9, 1.0); // 雪地 白
-                // if (selfID == 7) return half4(0.6, 0.2, 0.6, 1.0); // 紫
-                // if (selfID == 8) return half4(0.2, 0.6, 0.8, 1.0); // 青
-                // if (selfID == 9)  return half4(0.9, 0.4, 0.2, 1.0); // 橙
-                // if (selfID == 10) return half4(0.5, 0.1, 0.5, 1.0); // 深紫
-                // if (selfID == 11) return half4(0.1, 0.7, 0.7, 1.0); // 青绿
-                // if (selfID == 12) return half4(0.9, 0.2, 0.3, 1.0); // 红
-                // if (selfID == 13) return half4(0.3, 0.4, 0.1, 1.0); // 橄榄绿
-                // if (selfID == 14) return half4(0.7, 0.1, 0.3, 1.0); // 深红
-                // if (selfID == 15) return half4(0.1, 0.5, 0.3, 1.0); // 墨绿
-                // if (selfID == 16) return half4(0.8, 0.5, 0.1, 1.0); // 金
-                // if (selfID == 17) return half4(0.3, 0.3, 0.7, 1.0); // 蓝紫
-                // if (selfID == 18) return half4(0.7, 0.7, 0.1, 1.0); // 黄
-                // if (selfID == 19) return half4(0.4, 0.2, 0.1, 1.0); // 深棕
-
                 // ===== 优化：三个 hex ID 相同时跳过邻居采样 =====
                 if (nbrID0 == selfID && nbrID1 == selfID)
                 {
@@ -244,7 +233,7 @@ Shader "WarGameMap/Terrain/TerrainLandform"
                 
                 // 区域划分效果（EU4/CK3 风格政治地图）
                 if (_RegionDivideEnabled > 0.5) {
-                    finalAlbedo = ApplyRegionDivide(i.worldPos, finalAlbedo, offsetHex, _HexGridSize);
+                    finalAlbedo = ApplyRegionDivide(i.worldPos, i.uv, finalAlbedo, offsetHex, _HexGridSize);
                 }
 
                 // 六边形格子边框叠加（在地貌混合之后）

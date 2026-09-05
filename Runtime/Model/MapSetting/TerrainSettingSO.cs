@@ -77,7 +77,7 @@ namespace LZ.WarGameMap.Runtime {
 
         [LabelText("高度缩放")]
         [Tooltip("归一化高度 [0,1] 转世界单位的倍率，默认 500 以维持现有观感")]
-        public float heightScale = 50f;
+        public float heightScale = 100f;
 
         public int GetTileNumClsPerLine()
         {

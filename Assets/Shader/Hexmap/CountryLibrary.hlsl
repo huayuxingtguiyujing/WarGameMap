@@ -34,6 +34,18 @@ float _EdgeRatio;
 float4 _BorderLerpColor1;
 float4 _BorderLerpColor2;
 
+// 新版的 SDF - 区域划分
+// ===== SDF 距离场（由 SDFComputer 生成，注入到 material）=====
+sampler2D _RegionDistanceTexture;
+float4    _RegionDistanceTexture_TexelSize;
+float4    _RegionSDFWorldRect;      // xy = minXZ, zw = width/height（compute 生成时使用）
+float     _RegionSDFTexelWorldSize;
+
+// terrain 真实世界范围与 UV 变换（渲染采样阶段使用）
+float4    _RegionTerrainWorldRect;  // xy = terrain minXZ, zw = terrain width/height
+float4    _RegionSDFUVTransform;    // xy = scale, zw = offset（预留）
+float4    _RegionSDFUVRect;         // xy = minUV, zw = sizeUV（hex 网格在 SDF 纹理 UV 空间的子矩形）
+
 
 int IsHexEdgeGrid(float3 worldPos, int flag, float4 gridColor, float _HexGridSize, out float4 testColor)
 {
@@ -204,10 +216,16 @@ float4 GetCountryColor(float3 worldPos, float3 terrainColor, int flag, float _He
 
 // ===== 区域划分 SDF 效果 (EU4/CK3 风格政治地图) =====
 float  _RegionDivideEnabled;
-float  _RegionBorderWidth;
-float  _RegionBorderSmooth;
-float4 _RegionBorderColor;
-float  _RegionBlendStrength;
+float  _RegionBorderWidth;     // 0~1 归一化：边界线宽度
+float  _RegionBorderSmooth;    // 0~1 归一化：边界过渡平滑度
+float4 _RegionBorderColor;     // 边界高亮色（当前公式未使用，保留兼容）
+float  _RegionBlendStrength;   // 区域色叠加总强度
+float  _RegionGradientWidth;   // 0~1 归一化：从边界向内的渐变宽度
+float  _EdgeColorMul;          // 边界处区域色强度（压暗）
+float  _GradientColorMul;      // 渐变处区域色强度
+float  _RegionEdgeAlpha;          // 边界线 alpha 强度
+float  _RegionGradientAlphaInside;  // 区域内部渐变 alpha
+float  _RegionGradientAlphaOutside; // 区域边界渐变 alpha
 
 // 判断颜色是否是无归属颜色（NotValidCountryColor = (0.25, 0.25, 0.25)）
 bool IsNotValidCountryColor(float3 c)
@@ -222,16 +240,31 @@ float3 SampleRegionColorAtOffset(float2 offsetHex)
     return tex2Dlod(_RegionTexture, float4(uv, 0, 0)).rgb;
 }
 
-// NOTE : TODO : 区域划分还是没有实现，当前效果不尽如人意，难搞！
+// -------------------------------------
+
+// 将 terrain UV（i.uv，= worldXZ / clusterSize）变换到 SDF 纹理 UV 空间。
+// 通过 _RegionSDFUVRect（hex 网格在 SDF 纹理 UV 空间里的子矩形）做平移缩放。
+float2 TransformRegionSDFUV(float2 terrainUV)
+{
+    return (terrainUV - _RegionSDFUVRect.xy) / _RegionSDFUVRect.zw;
+}
+
+// 根据 terrain UV 采样连续距离场。
+// 返回 0~1 归一化值：0 = 正在边界上，1 = 离边界足够远。
+// 越界返回 1.0（视为远离边界）。
+float SampleRegionDistanceByTerrainUV(float2 terrainUV)
+{
+    float2 sdfUV = TransformRegionSDFUV(terrainUV);
+    if (any(sdfUV < 0.0) || any(sdfUV > 1.0))
+        return 1.0;
+    return tex2Dlod(_RegionDistanceTexture, float4(sdfUV, 0, 0)).r;
+}
 
 // ApplyRegionDivide : EU4/CK3 风格区域划分着色
 // 输入: worldPos (世界坐标), terrainColor (地形混合后的颜色), offsetHex (当前格子 offset 坐标)
 // 输出: 混合区域色后的颜色
 //
-// NOTE (优化预留): 当前通过实时采样邻居格子的 _RegionTexture 颜色来判断边界方向，
-// 每次调用需最多 6 次额外纹理采样。后续可将 6 方向边界信息编码到
-// _CountryGridRelationTexture.r 的 6 个 bit 中，以消除邻居采样开销。
-float3 ApplyRegionDivide(float3 worldPos, float3 terrainColor, float2 offsetHex, float _HexGridSize)
+float3 ApplyRegionDivide(float3 worldPos, float2 uv, float3 terrainColor, float2 offsetHex, float _HexGridSize)
 {
     if (_RegionDivideEnabled < 0.5)
         return terrainColor;
@@ -239,49 +272,39 @@ float3 ApplyRegionDivide(float3 worldPos, float3 terrainColor, float2 offsetHex,
     // 1. 采样当前格子的区域颜色
     float3 selfRegionColor = SampleRegionColorAtOffset(offsetHex);
 
-    // TODO : 下面的 SDF 表现是错误的！下次再搞吧
+    // 2. 无归属格子（山脉/海洋）不绘制区域色，直接返回地形色
+    if (IsNotValidCountryColor(selfRegionColor))
+        return terrainColor;
 
-    // // 2. 无归属格子（山脉/海洋）不绘制区域色，直接返回地形色
-    // if (IsNotValidCountryColor(selfRegionColor))
-    //     return terrainColor;
+    // 3. 采样连续 SDF 距离（0 = 边界，1 = 远离边界），基于 terrain UV
+    float d = SampleRegionDistanceByTerrainUV(uv);
 
-    // // 3. 确定片元所在的三角扇区方向
-    // int areaDir = GetOffsetHexArea(worldPos, offsetHex, _HexGridSize);
+    // 4. 渐变强度：从边界(1)向内部(0)平滑过渡
+    float gradientT = 1.0 - saturate((d - _RegionBorderWidth) / _RegionGradientWidth);
 
-    // // 4. 采样该方向邻居的区域颜色，判断是否为边界方向
-    // float2 neighborOffset = GetOffsetHexNeighbor(offsetHex, areaDir, _HexGridSize);
-    // float3 neighborRegionColor = SampleRegionColorAtOffset(neighborOffset);
+    // 5. 边界 mask：贴近边界处为 1，向内平滑衰减为 0
+    float edgeMask = smoothstep(
+        _RegionBorderWidth + _RegionBorderSmooth,
+        _RegionBorderWidth,
+        d
+    );
 
-    // // 5. 判断该方向是否有区域边界
-    // //    (邻居有归属 && 邻居颜色 != 自己颜色) → 边界方向
-    // bool isBoundaryDir = !IsNotValidCountryColor(neighborRegionColor) &&
-    //                      any(abs(neighborRegionColor - selfRegionColor) > 0.01);
+    // 6. 渐变 alpha：内部用 Inside，边界用 Outside
+    float gradientAlpha = lerp(
+        _RegionGradientAlphaInside,
+        _RegionGradientAlphaOutside,
+        gradientT
+    );
 
-    // // 6. 计算片元到六边形边缘的距离比 (0=中心, 1=边缘)
-    // float edgeRatio = GetRatioToHexEdge(worldPos, offsetHex, _HexGridSize);
+    // 7. 区域色覆盖层：渐变处纯区域色，边界处区域色压暗
+    float3 gradientRGB = selfRegionColor * _GradientColorMul;
+    float3 edgeRGB = selfRegionColor * _EdgeColorMul;
 
-    // 7. SDF 边界效果计算
-    // float borderMask = 0.0;
-    // if (isBoundaryDir)
-    // {
-    //     // 该方向是边界：用 smoothstep 产生从边缘向内的羽化过渡
-    //     // edgeRatio 越大越靠近边缘 → borderMask 在边缘附近为 1，向内衰减为 0
-    //     borderMask = 1.0 - smoothstep(1.0 - _RegionBorderWidth - _RegionBorderSmooth,
-    //                                    1.0 - _RegionBorderWidth,
-    //                                    edgeRatio);
-    // }
+    float3 overlayRGB = lerp(gradientRGB, edgeRGB, edgeMask);
+    float overlayAlpha = _RegionBlendStrength * max(gradientAlpha, edgeMask * _RegionEdgeAlpha);
 
-    // 8. 区域内部颜色混合：区域色 lerp 地形色
-    //    靠近边界时偏向边界高亮色，内部偏向区域本色
-    float3 regionInteriorColor = lerp(terrainColor, selfRegionColor, _RegionBlendStrength);
-
-    // 9. 边界线高亮：白色/亮色描边
-    // float3 borderHighlight = lerp(regionInteriorColor, _RegionBorderColor.rgb, borderMask);
-
-    // 10. 最终结果 = 加法叠加到地形色上（半透明叠加策略 B）
-    //    注意：这里的叠加发生在 regionInteriorColor 已经混入区域色的基础上，
-    //    所以最终输出是：内部=区域色+地形底纹，边界=亮白描边
-    return regionInteriorColor;
+    // 8. 最终：地形色与区域覆盖层混合
+    return lerp(terrainColor, overlayRGB, saturate(overlayAlpha));
 }
 
 #endif
