@@ -42,6 +42,8 @@ namespace LZ.WarGameMap.Runtime
         public Material terMaterial;
 
         public bool IsInit = false;
+        private int previewLODLevel = -1;
+
         public bool IsGen = false;
         // NOTE : Should change to private
 
@@ -70,6 +72,7 @@ namespace LZ.WarGameMap.Runtime
 
         public void InitTerrainCons(MapRuntimeSetting mapSet, TerrainSettingSO terSet, HexSettingSO hexSetting, List<HeightDataModel> heightDataModels, 
             HexMapSO rawHexMapSO, Material mat, MapRiverData mapRiverData) {
+            previewLODLevel = -1;
             heightDataManager = new HeightDataManager();
             heightDataManager.InitHeightDataManager(heightDataModels, terSet, hexSetting, rawHexMapSO);
             //heightDataManager.InitHexSet(hexSetting, rawHexMapSO);
@@ -110,16 +113,21 @@ namespace LZ.WarGameMap.Runtime
             if (riverDataManager != null)
             {
                 riverDataManager.Dispose();
+                riverDataManager = null;
             }
             riverMeshParent.ClearObjChildren();
 
+            clusterList = null;
             IsInit = false;    // clear 之后回归未初始化状态
             IsGen = false;
         }
 
         private void OnDestroy()
         {
-            riverDataManager.Dispose();
+            if (riverDataManager != null)
+            {
+                riverDataManager.Dispose();
+            }
         }
 
         #endregion
@@ -266,7 +274,9 @@ namespace LZ.WarGameMap.Runtime
 
         private void CheckClusterIdxValid(int i, int j)
         {
-            if (i < 0 || i >= terrainHeight || j < 0 || j >= terrainWidth)
+            bool invalidX = i < 0 || i >= terrainWidth;
+            bool invalidY = j < 0 || j >= terrainHeight;
+            if (invalidX || invalidY)
             {
                 throw new Exception($"wrong terrain cluster index : {i}, {j}");
             }
@@ -299,104 +309,220 @@ namespace LZ.WarGameMap.Runtime
 
         #region 序列化/反序列化 terrain mesh 数据
 
-#if UNITY_EDITOR
-        // Editor 状态下推荐用这个方法 加载mesh数据
-        public void ExportClusterByBinary(int idxX, int idxY, int longitude, int latitude, BinaryReader reader) {
-            if (!clusterList[idxX, idxY].IsInited) {
-                GameObject clusterGo = CreateTerrainCluster(idxX, idxY);
-                clusterList[idxX, idxY].InitTerrainCluster_Static(idxX, idxY, longitude, latitude, terSet, clusterGo, terMaterial);
+        public void WriteClusterLOD(BinaryWriter writer, TerrainCluster cluster, int lodLevel)
+        {
+            // 写入 terset 到 writer 里面
+            terSet.GetTerrainSetting().WriteToBinary(writer);
+            writer.Write(1);
+            cluster.WriteToBinary(writer);
+            writer.Write(lodLevel);
+            writer.Write(cluster.TileList.Count);
+            // 写入数据量大小
+            foreach (TerrainTile tile in cluster.TileList)
+            {
+                TerrainMeshData data = tile.GetLODMeshes()[lodLevel];
+                int tileBytes = checked(tile.GetBinarySize() + data.GetBinarySize());
+                writer.Write(tileBytes);
             }
-            //clusterList[idxX, idxY].SetTerrainCluster(reader);
+            // 写入所有 tile 的某个 lod mesh 到 writer
+            foreach (TerrainTile tile in cluster.TileList)
+            {
+                tile.WriteToBinary(writer, lodLevel);
+                tile.GetLODMeshes()[lodLevel].WriteToBinary(writer);
+            }
+        }
 
-            TDList<TerrainTile> tiles = clusterList[idxX, idxY].TileList;
+        // 读取 cluster head 数据
+        private TerrainCluster ReadClusterLODHeader(BinaryReader reader, out int lodLevel)
+        {
+            TerrainSetting storedSetting = new TerrainSetting();
+            storedSetting.ReadFromBinary(reader);
+            TerrainSetting expectedSetting = terSet.GetTerrainSetting();
+            if (storedSetting != expectedSetting)
+            {
+                throw new InvalidDataException("Cluster settings do not match the current terrain.");
+            }
+            // 读取 cluster 数量
+            int clusterCount = reader.ReadInt32();
+            if (clusterCount != 1)
+            {
+                throw new InvalidDataException("Expected one cluster per LOD file.");
+            }
+            TerrainCluster storedCluster = new TerrainCluster();
+            storedCluster.ReadFromBinary(reader);
+            lodLevel = reader.ReadInt32();
+            bool validLod = lodLevel >= 0 && lodLevel < terSet.LODLevel;
+            if (!validLod)
+            {
+                throw new InvalidDataException("Invalid persisted LOD level.");
+            }
+            return storedCluster;
+        }
 
+        // 读取 cluster lod tile 数据
+        private void ReadClusterLODTiles(BinaryReader reader, TerrainCluster cluster, int lodLevel)
+        {
             int tileCount = reader.ReadInt32();
-            if (tileCount != tiles.Count)
+            if (tileCount != cluster.TileList.Count)
             {
-                Debug.LogError("存储的地形bin数据内的tile count 与实际tile count 不相等！");
-                return;
+                throw new InvalidDataException("Tile count does not match the cluster.");
             }
-
-            List<int> tileSizeList = new List<int>(tileCount);
-            foreach (var tile in tiles) {
-                int tileSize = reader.ReadInt32();
-                tileSizeList.Add(tileSize);
+            // 先拿到 每个 tile 的 size，设置偏移
+            int[] sizes = new int[tileCount];
+            long totalBytes = 0;
+            for (int i = 0; i < tileCount; i++)
+            {
+                int size = reader.ReadInt32();
+                if (size <= 0)
+                {
+                    throw new InvalidDataException("Invalid tile byte length.");
+                }
+                sizes[i] = size;
+                totalBytes += size;
             }
-            // TODO : tileSizeList 后续可以去支持多线程读取操作，现在先不做
-
-            foreach (var tile in tiles) {
+            long remainingBytes = reader.BaseStream.Length - reader.BaseStream.Position;
+            if (totalBytes != remainingBytes)
+            {
+                throw new InvalidDataException("LOD payload size mismatch.");
+            }
+            int tileIndex = 0;
+            // 读取所有 tile 的数据
+            foreach (TerrainTile tile in cluster.TileList)
+            {
+                long tileEnd = reader.BaseStream.Position + sizes[tileIndex];
+                int expectedX = tile.tileIdxX;
+                int expectedY = tile.tileIdxY;
                 tile.ReadFromBinary(reader);
-                TerrainMeshData[] meshDatas = tile.GetLODMeshes();
-                int lodLevel = 0;
-                foreach (var terrainMesh in meshDatas) {
-                    try {
-                        terrainMesh.ReadFromBinary(reader);
-                    } catch (System.IO.EndOfStreamException) {
-                        Debug.LogError($"cluster({longitude},{latitude}) 数据不足, 缺失 LOD{lodLevel}");
-                        break;
-                    }
-                    lodLevel ++;
+                bool matchingTile = tile.tileIdxX == expectedX && tile.tileIdxY == expectedY;
+                bool matchingCoordinate = tile.longitude == cluster.longitude && tile.latitude == cluster.latitude;
+                if (!matchingTile || !matchingCoordinate)
+                {
+                    throw new InvalidDataException("Tile identity does not match the cluster.");
                 }
+                TerrainMeshData data = new TerrainMeshData();
+                data.SetTileIdentity(expectedX, expectedY, lodLevel);
+                data.ReadFromBinary(reader, tileEnd);
+                tile.SetLODData(lodLevel, data);
+                tileIndex++;
             }
-
-            ExportOverAndBuildMesh(idxX, idxY, longitude, latitude);
+            cluster.SetLODLoaded();
         }
-#endif
 
-        // Runtime 状态下用这个 利用 bin 文件获取到 cluster 的方法，上面的是旧版的；
-        public async void ExportClusterByBinary(int longitude, int latitude)
+        // 对外接口：调用它来加载某个地块
+        public void LoadPersistedCluster(BinaryReader reader, int longitude, int latitude, int expectedLod)
         {
-            Vector2Int startLL = terSet.startLL;
-            int idxX = longitude - startLL.x;
-            int idxY = latitude - startLL.y;
-
-            TerrainCluster cluster = clusterList[idxX, idxY];
-            if (!cluster.IsInited)
+            TerrainCluster stored = ReadClusterLODHeader(reader, out int lodLevel);
+            bool matchingFile = stored.longitude == longitude && stored.latitude == latitude && lodLevel == expectedLod;
+            if (!matchingFile)
             {
-                CreateTerrainCluster(idxX, idxY);
+                throw new InvalidDataException("Cluster file identity does not match its name.");
             }
-
-            TerrainLoader loader = new TerrainLoader();
-            await loader.LoadClusterAsync(longitude, latitude, cluster);
-
-            ExportOverAndBuildMesh(idxX, idxY, longitude, latitude);
+            int x = longitude - terSet.startLL.x;
+            int y = latitude - terSet.startLL.y;
+            CheckClusterIdxValid(x, y);
+            bool matchingIndex = stored.idxX == x && stored.idxY == y;
+            if (!matchingIndex)
+            {
+                throw new InvalidDataException("Cluster index does not match the terrain origin.");
+            }
+            TerrainCluster cluster = clusterList[x, y];
+            try
+            {
+                if (!cluster.IsInited)
+                {
+                    GameObject clusterObject = CreateTerrainCluster(x, y);
+                    cluster.InitTerrainCluster_Static(x, y, longitude, latitude, terSet, clusterObject, terMaterial);
+                }
+                ReadClusterLODTiles(reader, cluster, lodLevel);
+                foreach (TerrainTile tile in cluster.TileList)
+                {
+                    tile.GetLODMeshes()[lodLevel].BuildOriginMesh();
+                }
+            }
+            catch
+            {
+                cluster.Dispose();
+                if (cluster.clusterGo != null)
+                {
+#if UNITY_EDITOR
+                    UnityEngine.Object.DestroyImmediate(cluster.clusterGo);
+#else
+                    UnityEngine.Object.Destroy(cluster.clusterGo);
+#endif
+                }
+                clusterList[x, y] = new TerrainCluster();
+                throw;
+            }
+            IsGen = true;
         }
 
-        private void ExportOverAndBuildMesh(int idxX, int idxY, int longitude, int latitude)
+        public async Task ExportClusterByBinary(int longitude, int latitude, int lodLevel)
         {
-            BuildOriginMeshWrapper(idxX, idxY);
-            BuildOriginMesh(idxX, idxY);
+            TerrainLoader loader = new TerrainLoader();
+            byte[] bytes = await loader.ReadClusterBytesAsync(longitude, latitude, lodLevel);
+            using (MemoryStream stream = new MemoryStream(bytes, false))
+            using (BinaryReader reader = new BinaryReader(stream))
+            {
+                LoadPersistedCluster(reader, longitude, latitude, lodLevel);
+            }
         }
 
-        public void ImportClusterToBinary(int i, int j, BinaryWriter writer) {
-            if (!clusterList[i, j].IsInited) {
-                return;
+        public TerrainCluster CreateClusterData(int longitude, int latitude)
+        {
+            int x = longitude - terSet.startLL.x;
+            int y = latitude - terSet.startLL.y;
+            TerrainCluster cluster = new TerrainCluster();
+            cluster.InitTerrainClusterData(x, y, longitude, latitude, terSet);
+            return cluster;
+        }
+
+        public async Task SetMeshData_ByLOD(TerrainCluster cluster, int lodLevel, CancellationToken token, Action<int> reportProgress)
+        {
+            int completedTiles = 0;
+            foreach (TerrainTile tile in cluster.TileList)
+            {
+                reportProgress(completedTiles);
+                token.ThrowIfCancellationRequested();
+                tile.SetMeshData_ByLOD(lodLevel, terSet, heightDataManager);
+                completedTiles++;
+                reportProgress(completedTiles);
+                await Task.Yield();
             }
+        }   
 
-            TDList<TerrainTile> tiles = clusterList[i, j].TileList;
-
-            writer.Write(tiles.Count);
-            // 预先写入 tile 以及所有 meshdata 的数据量大小
-            // NOTE : 要使用该功能必须有全 LOD 的资产
-            foreach (var tile in tiles) {
-                int size = tile.GetBinarySize();
-                TerrainMeshData[] meshDatas = tile.GetLODMeshes();
-                foreach (var terrainMesh in meshDatas) {
-                    size += terrainMesh.GetBinarySize();
-                }
-                writer.Write(size);
+        // 这个方法仅设置lod 0 的数据
+        public void SetMeshData_LOD0ToAll(BinaryReader reader, int longitude, int latitude)
+        {
+            LoadPersistedCluster(reader, longitude, latitude, 0);
+            int x = longitude - terSet.startLL.x;
+            int y = latitude - terSet.startLL.y;
+            TerrainCluster cluster = clusterList[x, y];
+            foreach (TerrainTile tile in cluster.TileList)
+            {
+                tile.SetMeshData_LOD0ToAll();
             }
+        }
 
-            foreach (var tile in tiles) {
-                // write tile setting to file
-                tile.WriteToBinary(writer);
-
-                // write every mesh to file
-                TerrainMeshData[] meshDatas = tile.GetLODMeshes();
-                foreach (var terrainMesh in meshDatas) {
-                    terrainMesh.WriteToBinary(writer);
-                }
-            }
+        // 初始化
+        public void InitTerrainData(TerrainSettingSO setting, List<HeightDataModel> models)
+        {
+            terSet = setting;
+            heightDataManager = new HeightDataManager();
+            heightDataManager.InitHeightDataManager(models, setting, null, null);
+        }
+        // 初始化
+        public void InitTerrainPreview(MapRuntimeSetting mapSetting, TerrainSettingSO setting, Material material, int lodLevel)
+        {
+            ClearClusterObj();
+            mapSet = mapSetting;
+            terSet = setting;
+            terMaterial = material;
+            heightDataManager = null;
+            terrainWidth = setting.terrainSize.x + 1;
+            terrainHeight = setting.terrainSize.z + 1;
+            clusterList = new TDList<TerrainCluster>(terrainWidth, terrainHeight);
+            previewLODLevel = lodLevel;
+            IsInit = true;
         }
 
         #endregion
@@ -416,6 +542,17 @@ namespace LZ.WarGameMap.Runtime
             if (clusterList == null) 
             {
                 //Debug.LogError("cluster list is null!");
+                return;
+            }
+            if (previewLODLevel >= 0)
+            {
+                foreach (TerrainCluster cluster in clusterList)
+                {
+                    if (cluster.IsLoaded)
+                    {
+                        cluster.UpdateTerrainCluster_LODHeight(previewLODLevel, terSet.LODLevel);
+                    }
+                }
                 return;
             }
             if (!mapSet.UseAOI)

@@ -42,6 +42,10 @@ namespace LZ.WarGameMap.Runtime
 
         public List<int> GetTriangles() { return triangles; }
 
+        public List<Vector3> GetNormals() { return normals; }
+
+        public List<Vector2> GetUVs() { return uvs; }
+
         public void SetTriangles(List<int> triangles) { this.triangles = triangles; }
 
         public void SetNormals(List<Vector3> normals) { this.normals = normals; }
@@ -82,7 +86,8 @@ namespace LZ.WarGameMap.Runtime
             }
 
             mesh.vertices = vertexs.ToArray();
-            if (normals != null && colors.Count > 0)
+            bool hasNormals = normals != null && normals.Count == vertexs.Count;
+            if (hasNormals)
             {
                 mesh.normals = normals.ToArray();
             }
@@ -112,11 +117,16 @@ namespace LZ.WarGameMap.Runtime
 
         public void Dispose()
         {
+            if (mesh == null)
+            {
+                return;
+            }
 #if UNITY_EDITOR
             UnityEngine.Object.DestroyImmediate(mesh);
 #else
             UnityEngine.Object.Destroy(mesh);
 #endif
+            mesh = null;
         }
 
 

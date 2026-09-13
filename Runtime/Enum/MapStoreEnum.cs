@@ -3,6 +3,10 @@ namespace LZ.WarGameMap.Runtime.Enums {
     public static class MapStoreEnum
     {
 
+        public const string RuntimeManifestPath = "Assets/WarGameMap/MapSetting/MapRuntimeAssets_Default.asset";
+        public const string RuntimeManifestAddress = "WarGameMap/DefaultManifest";
+        public const string RuntimeConfigGroup = "WarGameMapConfig";
+        public const string RuntimeRenderGroup = "WarGameMapRender";
         public const string WarGameMapRootPath = "Assets/WarGameMap";
 
         // µÿÕº…Ë÷√

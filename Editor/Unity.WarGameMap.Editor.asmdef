@@ -2,6 +2,9 @@
     "name": "Unity.LZWarGameMap.MapEditor",
     "rootNamespace": "LZ.WarGameMap.MapEditor",
     "references": [
+        "GUID:9e24947de15b9834991c9d8411ea37cf",
+        "GUID:84651a3751eca9349aac36a66bba901b",
+        "GUID:69448af7b92c7f342b298e06a37122aa",
         "GUID:035ce3cbf07a21a44bb3e25664c0338a",
         "GUID:e0cd26848372d4e5c891c569017e11f1",
         "GUID:d8b63aba1907145bea998dd612889d6b",

@@ -107,6 +107,85 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
+        #region Runtime landform initialization
+
+        // 注入已加载的渲染资产，不读取路径或创建替代资源。
+        public void SetLandformResources(Texture2DArray albedoArray, Texture2DArray normalArray,
+            Texture2D regionTexture, ComputeShader regionSdfShader)
+        {
+            if (albedoArray == null || normalArray == null || regionTexture == null || regionSdfShader == null)
+            {
+                throw new System.ArgumentException("Landform textures and region compute shader are required.");
+            }
+            TerrainAlbedoArray = albedoArray;
+            TerrainNormalArray = normalArray;
+            RegionTexture = regionTexture;
+            RegionSDFShader = regionSdfShader;
+        }
+
+        // 使用调用方持有的材质实例，复用地貌与初始区域 SDF 构建。
+        public void InitRuntimeLandformMaterial(Material material)
+        {
+            ValidateRuntimeLandformResources(material);
+            TerLandformMaterial = material;
+            InitTerLandformMaterial();
+        }
+
+        // 校验现有渲染算法的输入约束，避免缺失资源时跳过初始化。
+        private void ValidateRuntimeLandformResources(Material material)
+        {
+            if (terSet == null || hexSet == null || mapSet == null || gridTerrainSO == null || countrySO == null)
+            {
+                throw new System.InvalidOperationException("Call InitMapRenderCons before initializing landform rendering.");
+            }
+            if (material == null || material.shader == null || material.shader.name != "WarGameMap/Terrain/TerrainLandform")
+            {
+                throw new System.ArgumentException("The material must use TerrainLandformShader.", nameof(material));
+            }
+            if (TerrainAlbedoArray == null || TerrainNormalArray == null || RegionTexture == null || RegionSDFShader == null)
+            {
+                throw new System.InvalidOperationException("Call SetLandformResources before initializing landform rendering.");
+            }
+            // 当前地貌索引布局使用方形网格，此入口不修改既有采样算法。
+            if (hexSet.mapWidth <= 0 || hexSet.mapWidth != hexSet.mapHeight || hexSet.hexGridSize <= 0)
+            {
+                throw new System.InvalidOperationException("The existing landform layout requires a positive square Hex map.");
+            }
+            if (terSet.clusterSize <= 0 || terSet.terrainSize.x <= 0 || terSet.terrainSize.z <= 0 || RegionSDFResolution <= 0)
+            {
+                throw new System.InvalidOperationException("Terrain world size and region SDF resolution must be positive.");
+            }
+            var terrainTypes = gridTerrainSO.GridTerrainTypeList;
+            var gridTypes = gridTerrainSO.HexmapGridTerTypeList;
+            int gridCount = checked(hexSet.mapWidth * hexSet.mapHeight);
+            if (terrainTypes == null || terrainTypes.Count < 5 || gridTypes == null || gridTypes.Count != gridCount)
+            {
+                throw new System.InvalidOperationException("Landform types or Hex grid data are incomplete.");
+            }
+            int terrainTypeCount = terrainTypes.Count;
+            if (TerrainAlbedoArray.depth < terrainTypeCount || TerrainNormalArray.depth < terrainTypeCount)
+            {
+                throw new System.InvalidOperationException("Landform texture arrays do not contain all terrain types.");
+            }
+            foreach (var grid in gridTypes)
+            {
+                if (grid[0] >= terrainTypeCount)
+                {
+                    throw new System.InvalidOperationException("A Hex grid has an invalid base terrain type.");
+                }
+            }
+            string[] kernels = { "InitRegionBoundarySeeds", "RegionJumpFlood", "FinalizeRegionDistance" };
+            foreach (string kernel in kernels)
+            {
+                if (!RegionSDFShader.HasKernel(kernel))
+                {
+                    throw new System.InvalidOperationException("Missing region SDF kernel: " + kernel);
+                }
+            }
+        }
+
+        #endregion
+
         public void InitMaterial(Material MainMaterial, Material terLandformMat, Material RiverMaterial)
         {
             this.MainMaterial = MainMaterial;

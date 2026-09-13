@@ -36,6 +36,11 @@ namespace LZ.WarGameMap.Runtime.Model
     // Storage all administrative divisions data
     public class CountrySO : SerializedScriptableObject
     {
+        public static string GetDefaultAssetName()
+        {
+            return "CountrySO_256x256.asset";
+        }
+
         public int mapWidth;
 
         public int mapHeight;

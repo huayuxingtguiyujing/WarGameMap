@@ -47,47 +47,98 @@ namespace LZ.WarGameMap.Runtime
 
         #region Init tile data
 
-        public void InitTileMeshData(int idxX, int idxY, int longitude, int latitude, Vector3 startPoint, MeshFilter meshFilter, MeshRenderer renderer, int[] lODLevels, TerrainSettingSO terSet) {
-
-            this.clusterSize = terSet.clusterSize;
-            this.tileSize = terSet.tileSize;
-            this.clusterStartPoint = startPoint;
-            this.meshFilter = meshFilter;
-            this.renderer = renderer;
-
+        public void InitTileData(int idxX, int idxY, int longitude, int latitude, Vector3 startPoint, TerrainSettingSO terSet)
+        {
+            clusterSize = terSet.clusterSize;
+            tileSize = terSet.tileSize;
+            clusterStartPoint = startPoint;
             tileIdxX = idxX;
             tileIdxY = idxY;
-
             this.longitude = longitude;
             this.latitude = latitude;
-
-            curLODLevel = -1;       // init as -1
-
-            int vertexNumFix = 1;
-
-            LODLevels = lODLevels;
-            LODMeshes = new TerrainMeshData[lODLevels.Length];
-            for(int i = 0; i < LODMeshes.Length; i ++)
+            curLODLevel = -1;
+            LODLevels = new int[terSet.LODLevel];
+            LODMeshes = new TerrainMeshData[terSet.LODLevel];
+            for (int i = 0; i < LODLevels.Length; i++)
             {
-                // some mid data caculate
-                int gridNumPerLine = tileSize / vertexNumFix;   // vertexNumFix
-                int gridSize = tileSize / gridNumPerLine;
-                int vertexPerLine = tileSize / vertexNumFix + 1;
-
-                int gridNumPerLineFixed = gridNumPerLine + 2;
-                int vertexPerLineFixed = vertexPerLine + 2;
-
-                LODMeshes[i] = new TerrainMeshData();
-                LODMeshes[i].InitMeshData(tileIdxX, tileIdxY, i, gridNumPerLine, gridNumPerLineFixed, vertexPerLine, vertexPerLineFixed);
-                vertexNumFix *= 2;
+                LODLevels[i] = i;
             }
         }
 
-        public void Dispose() {
-            foreach (var mesh in LODMeshes) {
-                if (mesh != null) {
-                    mesh.Dispose();
+        public void BindSceneComponents(MeshFilter meshFilter, MeshRenderer renderer)
+        {
+            this.meshFilter = meshFilter;
+            this.renderer = renderer;
+        }
+
+        public void InitTileMeshData(int idxX, int idxY, int longitude, int latitude, Vector3 startPoint, MeshFilter meshFilter, MeshRenderer renderer, int[] lODLevels, TerrainSettingSO terSet)
+        {
+            InitTileData(idxX, idxY, longitude, latitude, startPoint, terSet);
+            BindSceneComponents(meshFilter, renderer);
+        }
+
+        public void SetLODData(int lodLevel, TerrainMeshData meshData)
+        {
+            ReleaseLODData(lodLevel);
+            LODMeshes[lodLevel] = meshData;
+        }
+
+        public void ReleaseLODData(int lodLevel)
+        {
+            TerrainMeshData meshData = LODMeshes[lodLevel];
+            LODMeshes[lodLevel] = null;
+            if (meshData == null)
+            {
+                return;
+            }
+            foreach (TerrainMeshData other in LODMeshes)
+            {
+                if (ReferenceEquals(other, meshData))
+                {
+                    return;
                 }
+            }
+            meshData.Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (LODMeshes == null)
+            {
+                return;
+            }
+            for (int lod = 0; lod < LODMeshes.Length; lod++)
+            {
+                ReleaseLODData(lod);
+            }
+        }
+
+        // Generate this level independently; larger LOD indices use finer samples.
+        public void SetMeshData_ByLOD(int lodLevel, TerrainSettingSO setting, HeightDataManager manager)
+        {
+            int levelDistance = setting.LODLevel - 1 - lodLevel;
+            int sampleStep = 1;
+            for (int i = 0; i < levelDistance; i++)
+            {
+                sampleStep = Mathf.Min(sampleStep * 2, setting.tileSize);
+            }
+            ReleaseLODData(lodLevel);
+            SetMeshData_Origin(lodLevel, setting, sampleStep, manager);
+            LODMeshes[lodLevel].BuildOriginMeshWrapper();
+        }
+
+        // Preview uses one shared LOD0 instance in every slot, not copied buffers.
+        public void SetMeshData_LOD0ToAll()
+        {
+            TerrainMeshData lowestData = LODMeshes[0];
+            if (lowestData == null)
+            {
+                throw new InvalidOperationException("Load LOD0 before applying it to all LOD slots.");
+            }
+            for (int lod = 1; lod < LODMeshes.Length; lod++)
+            {
+                ReleaseLODData(lod);
+                LODMeshes[lod] = lowestData;
             }
         }
 
@@ -141,7 +192,7 @@ namespace LZ.WarGameMap.Runtime
                     bool isVertOutOfMesh = (i == 0) || (i == vertexPerLineFixed - 1) || (j == 0) || (j == vertexPerLineFixed - 1);
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
-                    // NOTE : ����Ĵ��벻��ɾ��ǧ����ɾ��
+                    // NOTE : ����Ĵ��벻��ɾ��ǧ����ɾ��?
                     float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint) / terSet.heightScale;
                     //float height = heightDataManager.SampleFromHexMap(vert);
                     //float height = 0;
@@ -243,7 +294,7 @@ namespace LZ.WarGameMap.Runtime
                     bool isVertOutOfMesh = (i == 0) || (i == vertexPerLineFixed - 1) || (j == 0) || (j == vertexPerLineFixed - 1);
                     Vector3 vert = new Vector3(gridSize * i, 0, gridSize * j) + startPoint - offsetInMeshVert;
 
-                    // NOTE : ����Ĵ��벻��ɾ��ǧ����ɾ��
+                    // NOTE : ����Ĵ��벻��ɾ��ǧ����ɾ��?
                     //float height = SampleFromHeightData(terrainClusterSize, vert);
                     //float height = heightDataManager.SampleFromHeightData(longitude, latitude, vert, clusterStartPoint);
                     //float height = heightDataManager.SampleFromHexMap(vert);
@@ -302,6 +353,7 @@ namespace LZ.WarGameMap.Runtime
             TerrainMeshData meshData = LODMeshes[dstLODLevel];
             meshData.CopyMeshData(dstLODLevel, LODMeshes[srcLODLevel]);
             meshData.SetInited();
+
         }
 
 
@@ -340,7 +392,7 @@ namespace LZ.WarGameMap.Runtime
 
         public void RecaculateNormal_Mesh()
         {
-            // NOTE : ����ؿ�ʹ�� normal ��ͼ���Զ����ɵ�normal �߽�����������...�ܲ������ڼ����ĵر� 
+            // NOTE : ����ؿ�ʹ��?normal ��ͼ���Զ����ɵ�normal �߽�����������...�ܲ������ڼ����ĵر� 
             for (int i = 0; i < LODMeshes.Length; i++)
             {
                 if (LODMeshes[i] != null)
@@ -464,17 +516,23 @@ namespace LZ.WarGameMap.Runtime
             return $"{tileIdxX},{tileIdxY},{longitude},{latitude},{curLODLevel},{clusterStartPoint.ToStringFixed()}";
         }
 
-        // 计算 WriteToBinary 会写出的字节数（与 WriteToBinary、ReadFromBinary 同步维护）
+        // 计算 WriteToBinary 会写出的字节数（�?WriteToBinary、ReadFromBinary 同步维护�?
         public int GetBinarySize() {
             return 5 * sizeof(int) + 3 * sizeof(float);
         }
 
-        public void WriteToBinary(BinaryWriter writer) {
+        public void WriteToBinary(BinaryWriter writer)
+        {
+            WriteToBinary(writer, curLODLevel);
+        }
+
+        public void WriteToBinary(BinaryWriter writer, int lodLevel)
+        {
             writer.Write(tileIdxX);
             writer.Write(tileIdxY);
             writer.Write(longitude);
             writer.Write(latitude);
-            writer.Write(curLODLevel);
+            writer.Write(lodLevel);
 
             writer.Write(clusterStartPoint.x);
             writer.Write(clusterStartPoint.y);

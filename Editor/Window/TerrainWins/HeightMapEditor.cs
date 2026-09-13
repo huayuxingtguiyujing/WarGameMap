@@ -53,24 +53,34 @@ namespace LZ.WarGameMap.MapEditor
 
         private void SetTIFHeightInfo(string inputFileName)
         {
-            // Get tif file info from the name, such as "n33_e110_1arc_v3"
-            string[] tifFileInfo = inputFileName.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
-            if (tifFileInfo.Length < 3)
+            Match match = Regex.Match(inputFileName,
+                @"^ALPSMLC30_(?<latHem>[NS])(?<lat>\d{3})(?<lonHem>[EW])(?<lon>\d{3})_DSM\.tif$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!match.Success)
             {
-                Debug.LogError($"the tif error, name not correct : {inputFileName}");
-                return;
+                throw new FormatException($"Invalid DSM filename: {inputFileName}");
             }
 
-            // TIF File Sample: n32_e109_1arc_v3.tif
-            // Remove offset of tif longitude and latitude, because the tif file is not start from (0, 0)
-            int baseLatitude = 32;
-            int baseLongitude = 109;
+            latitude = int.Parse(match.Groups["lat"].Value);
+            longitude = int.Parse(match.Groups["lon"].Value);
+            bool coordinatesOutOfRange = latitude > 90 || longitude > 180;
+            if (coordinatesOutOfRange)
+            {
+                throw new FormatException($"DSM coordinates out of range: {inputFileName}");
+            }
 
-            // Read the tif file, get longitude and latitude, write to this output file
-            Match matchLatitude = Regex.Match(tifFileInfo[0], @"^[a-zA-Z]+(\d+)$");
-            latitude = int.Parse(matchLatitude.Groups[1].Value) - baseLatitude;
-            Match matchLongitude = Regex.Match(tifFileInfo[1], @"^[a-zA-Z]+(\d+)$");
-            longitude = int.Parse(matchLongitude.Groups[1].Value) - baseLongitude;
+            string latitudeHemisphere = match.Groups["latHem"].Value;
+            string longitudeHemisphere = match.Groups["lonHem"].Value;
+            bool isSouth = string.Equals(latitudeHemisphere, "S", StringComparison.OrdinalIgnoreCase);
+            bool isWest = string.Equals(longitudeHemisphere, "W", StringComparison.OrdinalIgnoreCase);
+            if (isSouth)
+            {
+                latitude = -latitude;
+            }
+            if (isWest)
+            {
+                longitude = -longitude;
+            }
         }
 
         private void SetGridTerrainHeightInfo(string inputFileName)
@@ -151,8 +161,8 @@ namespace LZ.WarGameMap.MapEditor
 
         //[ShowIf("IsInTIFWorkFlow")]
         [FoldoutGroup("高度图转二进制文件")]
-        [LabelText("导入时翻转"), ReadOnly]
-        public bool flipVertically = true;
+        [LabelText("导入时翻转")]
+        public bool flipVertically = false;
 
         [ShowIf("IsInTIFWorkFlow")]
         [FoldoutGroup("高度图转二进制文件")]
@@ -198,7 +208,7 @@ namespace LZ.WarGameMap.MapEditor
             switch (WorkFlow)
             {
                 case HeightMapWorkFlow.TIF:
-                    StartSerialize(batchTIFTileNum, "*.tif", tifInputPath);
+                    StartSerialize(batchTIFTileNum, "*_DSM.tif", tifInputPath);
                     break;
                 case HeightMapWorkFlow.GridTerrain:
                     StartSerialize(batchGridTerrainTileNum, "*.png", gridTerrainTexInputPath);
@@ -216,7 +226,33 @@ namespace LZ.WarGameMap.MapEditor
             }
 
             string[] heightMapPaths = Directory.GetFiles(fileInputPath, filterFileSuffix, SearchOption.AllDirectories);
-            int batches = heightMapPaths.Length / batchTileNum + 1;
+            Array.Sort(heightMapPaths, StringComparer.OrdinalIgnoreCase);
+            bool invalidOutputSettings = batchTileNum <= 0 || compressResultSize <= 0;
+            if (invalidOutputSettings)
+            {
+                throw new InvalidOperationException("Batch count and output resolution must be positive.");
+            }
+            if (heightMapPaths.Length == 0)
+            {
+                throw new InvalidOperationException($"No height maps matching {filterFileSuffix} in {fileInputPath}");
+            }
+            // Validate the entire DSM input before creating any binary files.
+            if (WorkFlow == HeightMapWorkFlow.TIF)
+            {
+                var coordinates = new Dictionary<Vector2Int, string>();
+                foreach (string path in heightMapPaths)
+                {
+                    var info = new SerializedHeightMapInfo(path, WorkFlow);
+                    Vector2Int key = info.GetFixedLongitudeAndLatitude();
+                    bool duplicateCoordinates = coordinates.TryGetValue(key, out string previousPath);
+                    if (duplicateCoordinates)
+                    {
+                        throw new InvalidOperationException($"Duplicate DSM coordinates {key}: {previousPath} and {path}");
+                    }
+                    coordinates.Add(key, path);
+                }
+            }
+            int batches = (heightMapPaths.Length + batchTileNum - 1) / batchTileNum;
             for (int i = 0; i < batches; i++)
             {
                 // Get specify number of TIF file
@@ -245,8 +281,15 @@ namespace LZ.WarGameMap.MapEditor
                         string fixedFilePath = AssetsUtility.FixFilePath(inputFilePath);
 
                         SerializedHeightMapInfo heightMapInfo = new SerializedHeightMapInfo(fixedFilePath, WorkFlow);
-                        writer.Write(heightMapInfo.latitude + terSet.startLL.y);
-                        writer.Write(heightMapInfo.longitude + terSet.startLL.x);
+                        int latitude = heightMapInfo.latitude;
+                        int longitude = heightMapInfo.longitude;
+                        if (WorkFlow == HeightMapWorkFlow.GridTerrain)
+                        {
+                            latitude += terSet.startLL.y;
+                            longitude += terSet.startLL.x;
+                        }
+                        writer.Write(latitude);
+                        writer.Write(longitude);
 
                         CompressAndWirteHeight(fixedFilePath, writer, heightMapInfo);
                     }
@@ -317,7 +360,11 @@ namespace LZ.WarGameMap.MapEditor
                     for (int y = y0; y < y1 && y < srcH; y++) {
                         for (int x = x0; x < x1 && x < srcW; x++) {
                             float v = src[x, y];
-                            if (v <= noDataValue) continue;
+                            bool isNoData = float.IsNaN(v) || v <= noDataValue;
+                            if (isNoData)
+                            {
+                                continue;
+                            }
                             sum += v;
                             count++;
                         }
@@ -332,31 +379,69 @@ namespace LZ.WarGameMap.MapEditor
             TDList<float> heights = null;
 
             using (Tiff image = Tiff.Open(path, "r")) {
-                if (image == null) {
-                    Debug.LogError($"无法打开 TIF 文件: {path}");
-                    return new TDList<float>();
+                if (image == null)
+                {
+                    throw new IOException($"无法打开 TIF 文件: {path}");
                 }
 
                 int width = image.GetField(TiffTag.IMAGEWIDTH)[0].ToInt();
                 int height = image.GetField(TiffTag.IMAGELENGTH)[0].ToInt();
+
+                int bitsPerSample = image.GetFieldDefaulted(TiffTag.BITSPERSAMPLE)[0].ToInt();
+                int samplesPerPixel = image.GetFieldDefaulted(TiffTag.SAMPLESPERPIXEL)[0].ToInt();
+                SampleFormat sampleFormat = (SampleFormat)image.GetFieldDefaulted(TiffTag.SAMPLEFORMAT)[0].ToInt();
+                bool isSigned16Bit = bitsPerSample == 16 && sampleFormat == SampleFormat.INT;
+                bool isSingleChannelScanline = samplesPerPixel == 1 && !image.IsTiled();
+                bool supportedFormat = isSigned16Bit && isSingleChannelScanline;
+                if (!supportedFormat)
+                {
+                    throw new InvalidDataException($"Expected a scanline-based, single-channel int16 DSM: {path}");
+                }
+
+                // LibTiff exposes this custom ASCII tag as count followed by its value.
+                float noData = -9999f;
+                FieldValue[] noDataField = image.GetField((TiffTag)42113);
+                if (noDataField != null)
+                {
+                    string noDataText = noDataField[noDataField.Length - 1].ToString().TrimEnd('\0');
+                    bool parsedNoData = float.TryParse(noDataText,
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out noData);
+                    if (!parsedNoData)
+                    {
+                        throw new InvalidDataException($"Invalid DSM NoData tag: {path}");
+                    }
+                }
 
                 heights = new TDList<float>(width, height);
 
                 // 16-bit 高程，逐行读取原始字节再转 short（小端序）
                 byte[] buffer = new byte[image.ScanlineSize()];
                 for (int row = 0; row < height; row++) {
-                    image.ReadScanline(buffer, row);
+                    bool readSucceeded = image.ReadScanline(buffer, row);
+                    if (!readSucceeded)
+                    {
+                        throw new IOException($"Cannot read DSM scanline {row}: {path}");
+                    }
                     for (int col = 0; col < width; col++) {
                         ushort pixelValue = (ushort)(buffer[col * 2] | (buffer[col * 2 + 1] << 8));
 
-                        // 还原符号（SRTM int16），NODATA = -32768 置 0
+                        // Preserve missing samples until downsampling so they do not bias the average.
                         short signedValue = unchecked((short)pixelValue);
-                        float h = (signedValue == -32768) ? 0f : signedValue;
+                        float h = signedValue;
+                        if (signedValue == noData)
+                        {
+                            h = float.NaN;
+                        }
 
-                        // 翻转处理（flipVertically 时行列镜像）
-                        if (flipVertically) {
-                            heights[width - 1 - col, height - 1 - row] = h;
-                        } else {
+                        // TIFF 行从北向南排列，仅翻转行以对应地形 Z 轴方向。
+                        if (flipVertically)
+                        {
+                            int targetRow = height - 1 - row;
+                            heights[col, targetRow] = h;
+                        }
+                        else
+                        {
                             heights[col, row] = h;
                         }
                     }

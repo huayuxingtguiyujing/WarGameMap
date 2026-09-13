@@ -327,38 +327,22 @@ namespace LZ.WarGameMap.MapEditor
             }
         }
 
-        private Vector2Int ImportMeshToTerrain_Binary(string curHandleMeshPath) {
-            Vector2Int LL = new Vector2Int();
-            using (FileStream fs = new FileStream(curHandleMeshPath, FileMode.Open, FileAccess.Read))
-            using (BufferedStream bufferedStream = new BufferedStream(fs))
-            using (BinaryReader reader = new BinaryReader(bufferedStream)) {
-
-                TerrainSetting trSet = new TerrainSetting();
-                trSet.ReadFromBinary(reader);
-                int terrainWidth = trSet.terrainSize.x;
-                int terrainHeight = trSet.terrainSize.z;
-                if(trSet != terSet.GetTerrainSetting()) {
-                    Debug.LogError($"this meshFile'setting is not equal to cur terSet : {trSet.ToString()}");
-                    return Vector2Int.zero;
-                }
-
-                // TODO : hex set should also read from the file
-
-                // todo : 这部分有问题！！！
-                int validClusterNum = reader.ReadInt32();
-                for (int i = 0; i < validClusterNum; i++) {
-                    TerrainCluster cls = new TerrainCluster();
-                    cls.ReadFromBinary(reader);
-                    LL = cls.GetClusterLL();
-                    
-                    TerrainCtor.ExportClusterByBinary(cls.idxX, cls.idxY, cls.longitude, cls.latitude, reader);
-                }
-
+        private Vector2Int ImportMeshToTerrain_Binary(string curHandleMeshPath)
+        {
+            string fileName = Path.GetFileName(curHandleMeshPath);
+            bool parsed = TerrainSettingSO.TryParseClusterFileName(fileName, out long longitude, out long latitude, out int lodLevel);
+            if (!parsed)
+            {
+                throw new InvalidDataException("Invalid cluster LOD filename: " + fileName);
             }
-            TerrainCtor.SetTerrainGened();
-
-            Debug.Log($"export {LL} cls, path : {curHandleMeshPath}");
-            return LL;
+            int lon = checked((int)longitude);
+            int lat = checked((int)latitude);
+            using (FileStream stream = File.OpenRead(curHandleMeshPath))
+            using (BinaryReader reader = new BinaryReader(stream))
+            {
+                TerrainCtor.LoadPersistedCluster(reader, lon, lat, lodLevel);
+            }
+            return new Vector2Int(lon, lat);
         }
 
         #endregion

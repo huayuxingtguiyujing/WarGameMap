@@ -92,6 +92,11 @@ namespace LZ.WarGameMap.Runtime
     // Size of HexMap : 3000 * 3000, need lazy load
     public class GridTerrainSO : ScriptableObject
     {
+        public static string GetDefaultAssetName()
+        {
+            return "GridTerrainSO_Default.asset";
+        }
+
         static GridTerrainSO instance;
 
         public static GridTerrainSO GetInstance()

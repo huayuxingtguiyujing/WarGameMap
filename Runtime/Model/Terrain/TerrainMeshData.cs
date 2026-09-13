@@ -85,8 +85,8 @@ namespace LZ.WarGameMap.Runtime
 
         public void CopyMeshData(int lodLevel, TerrainMeshData other)
         {
-            this.tileIdxX = tileIdxX;
-            this.tileIdxY = tileIdxY;
+            this.tileIdxX = other.tileIdxX;
+            this.tileIdxY = other.tileIdxY;
 
             this.curLODLevel = lodLevel;
             this.vertexPerLine = other.vertexPerLine;
@@ -270,6 +270,10 @@ namespace LZ.WarGameMap.Runtime
 
         // code ref: Procedural-Landmass-Generation-master\Proc Gen E21
         private void RecaculateNormal_Origin() {
+            for (int i = 0; i < normals.Count; i++)
+            {
+                normals[i] = Vector3.zero;
+            }
 
             int triangleCount = triangles.Count / 3;
             for (int i = 0; i < triangleCount; i++) {
@@ -492,12 +496,67 @@ namespace LZ.WarGameMap.Runtime
 
         // this function build a terrain tile mesh (tiled mesh)
         public void BuildOriginMeshWrapper() {
+            if (meshWrapper.IsValid)
+            {
+                return;
+            }
             RecaculateNormal_Origin();
 
             meshWrapper = new MeshWrapper(GetMeshName(), vertexs.ToList(), triangles.ToList(), normals.ToList(), uvs.ToList(), colors.ToList());
         }
 
         #endregion
+
+        // Rebuild normals against the simplified topology, including preserved border samples.
+        public void PrepareRenderData()
+        {
+            BuildOriginMeshWrapper();
+            List<Vector3> points = meshWrapper.GetVertex();
+            List<int> indices = meshWrapper.GetTriangles();
+            List<Vector3> renderNormals = new List<Vector3>(new Vector3[points.Count]);
+            AccumulateRenderNormals(points, indices, renderNormals);
+            AccumulateRenderNormals(points, outOfMeshTriangles, renderNormals);
+            for (int i = 0; i < renderNormals.Count; i++)
+            {
+                renderNormals[i] = renderNormals[i].normalized;
+            }
+            meshWrapper.SetNormals(renderNormals);
+        }
+
+        private void AccumulateRenderNormals(List<Vector3> points, IList<int> indices, List<Vector3> renderNormals)
+        {
+            for (int i = 0; i < indices.Count; i += 3)
+            {
+                int a = indices[i];
+                int b = indices[i + 1];
+                int c = indices[i + 2];
+                Vector3 pa = GetRenderPoint(points, a);
+                Vector3 pb = GetRenderPoint(points, b);
+                Vector3 pc = GetRenderPoint(points, c);
+                Vector3 normal = Vector3.Cross(pb - pa, pc - pa).normalized;
+                if (a >= 0)
+                {
+                    renderNormals[a] += normal;
+                }
+                if (b >= 0)
+                {
+                    renderNormals[b] += normal;
+                }
+                if (c >= 0)
+                {
+                    renderNormals[c] += normal;
+                }
+            }
+        }
+
+        private Vector3 GetRenderPoint(List<Vector3> points, int index)
+        {
+            if (index < 0)
+            {
+                return outofMeshVertexs[-index - 1];
+            }
+            return points[index];
+        }
 
         public void SetMeshWrapper(MeshWrapper meshWrapper) {
             this.meshWrapper = meshWrapper;
@@ -746,153 +805,106 @@ namespace LZ.WarGameMap.Runtime
             writer.WriteLine(stringBuilder.ToString());
         }
 
-        public int GetBinarySize() {
-            int size = 0;
-
-            size += 4;                                  // vertexs.Count (int)
-            size += vertexs.Count * 3 * 4;              // 每个 Vector3 = 3 × float
-
-            size += 4;                                  // outofMeshVertexs.Count
-            size += outofMeshVertexs.Count * 3 * 4;
-
-            size += 4;                                  // normals.Count
-            size += normals.Count * 3 * 4;              // 每个 Vector3 = 3 × float
-
-            size += 4;                                  // uvs.Count
-            size += uvs.Count * 2 * 4;                  // 每个 Vector2 = 2 × float
-
-            size += 4;                                  // vertexIndiceMap.GetLength(0)
-            size += 4;                                  // vertexIndiceMap.GetLength(1)
-            int w = vertexIndiceMap.GetLength(0);
-            int h = vertexIndiceMap.GetLength(1);
-            size += w * h * 3 * 4;                      // 每元素写 i(int) + j(int) + value(int)
-
-            size += 4;                                  // triangles.Count
-            size += triangles.Count * 4;                // 每个 int
-
-            size += 4;                                  // outOfMeshTriangles.Length
-            size += outOfMeshTriangles.Length * 4;      // 每个 int
-
-            return size;
-        }
-
-        // NOTE : 关于normal，为什么不存normal，因为动态计算出的normal表现效果太差了
-        // 直接用 normal 贴图覆盖上地形，这才是最好的
-        public void WriteToBinary(BinaryWriter writer) {
-            //Vector3[] vertexs = new Vector3[1];
-            //Vector3[] outofMeshVertexs = new Vector3[1];
-            //Vector3[] normals = new Vector3[1];
-            //Vector2[] uvs = new Vector2[1];
-            //Color[] colors = new Color[1];
-
-            writer.Write(vertexs.Count);
-            for (int i = 0; i < vertexs.Count; i++) {
-                writer.Write(vertexs[i].x); writer.Write(vertexs[i].y); writer.Write(vertexs[i].z);
-            }
-            writer.Write(outofMeshVertexs.Count);
-            for (int i = 0; i < outofMeshVertexs.Count; i++) {
-                writer.Write(outofMeshVertexs[i].x); writer.Write(outofMeshVertexs[i].y); writer.Write(outofMeshVertexs[i].z);
-            }
-            writer.Write(normals.Count);
-            for (int i = 0; i < normals.Count; i++)
+        private void PrepareSerializedData()
+        {
+            BuildOriginMeshWrapper();
+            List<Vector3> renderNormals = meshWrapper.GetNormals();
+            if (renderNormals == null)
             {
-                writer.Write(normals[i].x); writer.Write(normals[i].y); writer.Write(normals[i].z);
-            }
-            writer.Write(uvs.Count);
-            for (int i = 0; i < uvs.Count; i++) {
-                writer.Write(uvs[i].x); writer.Write(uvs[i].y);
-            }
-            //for (int i = 0; i < colors.Length; i++) {
-            //    writer.Write(colors[i].r); writer.Write(colors[i].g); writer.Write(colors[i].b);
-            //}
-
-            // TODO : this var is used to fix lod seam, should not storage in file
-            //int[,] vertexIndiceMap = new int[1, 1];         // map the (x, y) to index in vertexs/outofMeshVertexs
-            writer.Write(vertexIndiceMap.GetLength(0));
-            writer.Write(vertexIndiceMap.GetLength(1));
-            for (int i = 0; i < vertexIndiceMap.GetLength(0); i++) {
-                for (int j = 0; j < vertexIndiceMap.GetLength(1); j++) {
-                    writer.Write(i); writer.Write(j); writer.Write(vertexIndiceMap[i, j]);
-                }
-            }
-
-            //int[] triangles = new int[1];
-            //int[] outOfMeshTriangles = new int[1];
-            writer.Write(triangles.Count);
-            for (int i = 0; i < triangles.Count; i += 3) {
-                writer.Write(triangles[i]); writer.Write(triangles[i + 1]); writer.Write(triangles[i + 2]);
-            }
-
-            writer.Write(outOfMeshTriangles.Length);
-            for (int i = 0; i < outOfMeshTriangles.Length; i += 3) {
-                writer.Write(outOfMeshTriangles[i]); writer.Write(outOfMeshTriangles[i + 1]); writer.Write(outOfMeshTriangles[i + 2]);
+                PrepareRenderData();
             }
         }
 
-        public void ReadFromBinary(BinaryReader reader) {
-            // 
-            // Vector3[] vertexs = new Vector3[1];
-            // Vector3[] outofMeshVertexs = new Vector3[1];
-            // Vector3[] normals = new Vector3[1];
-            // Vector2[] uvs = new Vector2[1];
-            // Color[] colors = new Color[1];
-            //
-            int vertLen = reader.ReadInt32();
-            vertexs = new List<Vector3>(vertLen);
-            vertexs.FillInList(vertLen);
-            for (int i = 0; i < vertLen; i++) {
-                vertexs[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-            }
+        public int GetBinarySize()
+        {
+            PrepareSerializedData();
+            int vertexCount = meshWrapper.GetVertNum();
+            int indexCount = meshWrapper.GetTriangles().Count;
+            return checked(8 + vertexCount * 32 + indexCount * 4);
+        }
 
-            int outofMeshVertexsLen = reader.ReadInt32();
-            outofMeshVertexs = new List<Vector3>(outofMeshVertexsLen);
-            outofMeshVertexs.FillInList(outofMeshVertexsLen);
-            for (int i = 0; i < outofMeshVertexs.Count; i++) {
-                outofMeshVertexs[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-            }
-
-            int normalLen = reader.ReadInt32();
-            normals = new List<Vector3>(normalLen);
-            normals.FillInList(normalLen);
-            for (int i = 0; i < normals.Count; i++)
+        // Persist the final topology, including results produced by the old simplification flow.
+        public void WriteToBinary(BinaryWriter writer)
+        {
+            PrepareSerializedData();
+            List<Vector3> points = meshWrapper.GetVertex();
+            List<Vector3> renderNormals = meshWrapper.GetNormals();
+            List<Vector2> renderUVs = meshWrapper.GetUVs();
+            bool validAttributes = renderNormals.Count == points.Count && renderUVs.Count == points.Count;
+            if (!validAttributes)
             {
-                normals[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                throw new InvalidDataException("Mesh attributes do not match the vertex count.");
             }
-
-            int uvsLen = reader.ReadInt32();
-            uvs = new List<Vector2>(uvsLen);
-            uvs.FillInList(uvsLen);
-            for (int i = 0; i < uvs.Count; i++) {
-                uvs[i] = new Vector2(reader.ReadSingle(), reader.ReadSingle());
+            writer.Write(points.Count);
+            for (int i = 0; i < points.Count; i++)
+            {
+                Vector3 point = points[i];
+                Vector3 normal = renderNormals[i];
+                Vector2 uv = renderUVs[i];
+                writer.Write(point.x);
+                writer.Write(point.y);
+                writer.Write(point.z);
+                writer.Write(normal.x);
+                writer.Write(normal.y);
+                writer.Write(normal.z);
+                writer.Write(uv.x);
+                writer.Write(uv.y);
             }
-
-            // TODO : this var is used to fix lod seam, should not storage in file
-            //int[,] vertexIndiceMap = new int[1, 1];         // map the (x, y) to index in vertexs/outofMeshVertexs
-            int w = reader.ReadInt32();
-            int h = reader.ReadInt32();
-            vertexIndiceMap = new int[w, h];
-            for (int i = 0; i < w; i++) {
-                for (int j = 0; j < h; j++) {
-                    int _i = reader.ReadInt32(); int _j = reader.ReadInt32();
-                    vertexIndiceMap[i, j] = reader.ReadInt32();
-                }
-            }
-
-            //int[] triangles = new int[1];
-            //int[] outOfMeshTriangles = new int[1];
-            int trianglesLen = reader.ReadInt32();
-            triangles = new List<int>(trianglesLen);
-            triangles.FillInList(trianglesLen);
-            for (int i = 0; i < triangles.Count; i += 3) {
-                triangles[i] = reader.ReadInt32(); triangles[i + 1] = reader.ReadInt32(); triangles[i + 2] = reader.ReadInt32();
-            }
-            int outOfMeshTrianglesLen = reader.ReadInt32();
-            outOfMeshTriangles = new int[outOfMeshTrianglesLen];
-            for (int i = 0; i < outOfMeshTriangles.Length; i += 3) {
-                outOfMeshTriangles[i] = reader.ReadInt32(); outOfMeshTriangles[i + 1] = reader.ReadInt32(); outOfMeshTriangles[i + 2] = reader.ReadInt32();
+            List<int> indices = meshWrapper.GetTriangles();
+            writer.Write(indices.Count);
+            foreach (int index in indices)
+            {
+                writer.Write(index);
             }
         }
 
+        public void ReadFromBinary(BinaryReader reader)
+        {
+            ReadFromBinary(reader, reader.BaseStream.Length);
+        }
+
+        public void ReadFromBinary(BinaryReader reader, long tileEnd)
+        {
+            int vertexCount = reader.ReadInt32();
+            long attributeBytes = (long)vertexCount * 32 + 4;
+            long availableBytes = tileEnd - reader.BaseStream.Position;
+            bool validVertexCount = vertexCount > 0 && attributeBytes <= availableBytes;
+            if (!validVertexCount)
+            {
+                throw new InvalidDataException("Invalid vertex count in terrain LOD data.");
+            }
+            vertexs = new List<Vector3>(vertexCount);
+            normals = new List<Vector3>(vertexCount);
+            uvs = new List<Vector2>(vertexCount);
+            for (int i = 0; i < vertexCount; i++)
+            {
+                vertexs.Add(new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()));
+                normals.Add(new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle()));
+                uvs.Add(new Vector2(reader.ReadSingle(), reader.ReadSingle()));
+            }
+            int indexCount = reader.ReadInt32();
+            long indexBytes = (long)indexCount * 4;
+            availableBytes = tileEnd - reader.BaseStream.Position;
+            bool validIndexCount = indexCount >= 0 && indexCount % 3 == 0 && indexBytes == availableBytes;
+            if (!validIndexCount)
+            {
+                throw new InvalidDataException("Invalid triangle index count in terrain LOD data.");
+            }
+            triangles = new List<int>(indexCount);
+            for (int i = 0; i < indexCount; i++)
+            {
+                int index = reader.ReadInt32();
+                bool validIndex = index >= 0 && index < vertexCount;
+                if (!validIndex)
+                {
+                    throw new InvalidDataException("Triangle index is outside the vertex buffer.");
+                }
+                triangles.Add(index);
+            }
+            // The wrapper shares these lists. Loading does not duplicate mesh buffers.
+            meshWrapper = new MeshWrapper(GetMeshName(), vertexs, triangles, normals, uvs, null);
+            SetInited();
+        }
 
         #endregion
 

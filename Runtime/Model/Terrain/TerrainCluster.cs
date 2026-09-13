@@ -41,49 +41,38 @@ namespace LZ.WarGameMap.Runtime
 
         #region Init cluster
 
-        public void InitTerrainCluster_Static(int idxX, int idxY, int longitude, int latitude, TerrainSettingSO terSet, GameObject clusterGo, Material mat)
+        public void InitTerrainClusterData(int idxX, int idxY, int longitude, int latitude, TerrainSettingSO terSet)
         {
             this.idxX = idxX;
             this.idxY = idxY;
-
             this.longitude = longitude;
             this.latitude = latitude;
-
             this.terSet = terSet;
-
-            this.clusterGo = clusterGo;
-
             clusterStartPoint = new Vector3(terSet.clusterSize * idxX, 0, terSet.clusterSize * idxY);
-            _InitTerrainCluster_Static(mat);
-
+            int tileSide = terSet.GetTileNumClsPerLine();
+            tileList = new TDList<TerrainTile>(tileSide, tileSide);
+            for (int x = 0; x < tileSide; x++)
+            {
+                for (int y = 0; y < tileSide; y++)
+                {
+                    tileList[x, y].InitTileData(x, y, longitude, latitude, clusterStartPoint, terSet);
+                }
+            }
             IsInited = true;
         }
 
-        private void _InitTerrainCluster_Static(Material mat)
+        public void InitTerrainCluster_Static(int idxX, int idxY, int longitude, int latitude, TerrainSettingSO terSet, GameObject clusterGo, Material mat)
         {
-            int tileNumPerLine = terSet.GetTileNumClsPerLine();
+            InitTerrainClusterData(idxX, idxY, longitude, latitude, terSet);
+            this.clusterGo = clusterGo;
             this.mat = mat;
-            //Debug.Log(string.Format("the cluster size : {0}x{1}, because the size of cluster is {2}, so there are {3} tiles in a row", 
-            //    terrainSize.x, terrainSize.z, tileSize, tileNumPerLine));
-
-            tileList = new TDList<TerrainTile>(tileNumPerLine, tileNumPerLine);
-            int[] lodLevels = new int[terSet.LODLevel];
-            for (int i = 0; i < terSet.LODLevel; i++)
+            foreach (TerrainTile tile in tileList)
             {
-                lodLevels[i] = i;
+                GameObject tileGo = CreateTerrainTile(tile.tileIdxX, tile.tileIdxY, mat);
+                MeshFilter filter = tileGo.GetComponent<MeshFilter>();
+                MeshRenderer renderer = tileGo.GetComponent<MeshRenderer>();
+                tile.BindSceneComponents(filter, renderer);
             }
-
-            for (int i = 0; i < tileNumPerLine; i++)
-            {
-                for (int j = 0; j < tileNumPerLine; j++)
-                {
-                    GameObject tileGo = CreateTerrainTile(i, j, mat);
-                    MeshFilter meshFilter = tileGo.GetComponent<MeshFilter>();
-                    MeshRenderer meshRenderer = tileGo.GetComponent<MeshRenderer>();
-                    tileList[i, j].InitTileMeshData(i, j, longitude, latitude, clusterStartPoint, meshFilter, meshRenderer, lodLevels, terSet);
-                }
-            }
-
         }
 
         private GameObject CreateTerrainTile(int idxX, int idxY, Material mat)
@@ -91,11 +80,15 @@ namespace LZ.WarGameMap.Runtime
             GameObject tileGo = new GameObject();
             tileGo.transform.parent = clusterGo.transform;
             tileGo.name = string.Format("heightTile_{0}_{1}", idxX, idxY);
-
-            MeshFilter meshFilter = tileGo.AddComponent<MeshFilter>();
-            MeshRenderer meshRenderer = tileGo.AddComponent<MeshRenderer>();
-            meshRenderer.sharedMaterial = mat;
+            tileGo.AddComponent<MeshFilter>();
+            MeshRenderer renderer = tileGo.AddComponent<MeshRenderer>();
+            renderer.sharedMaterial = mat;
             return tileGo;
+        }
+
+        public void SetLODLoaded()
+        {
+            IsLoaded = true;
         }
 
 

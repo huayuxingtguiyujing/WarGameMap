@@ -6,6 +6,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -85,20 +87,330 @@ namespace LZ.WarGameMap.MapEditor
         }
 
         [FoldoutGroup("构建地形-高度图流程")]
-        [Button("构建地块Mesh", ButtonSizes.Medium)]
-        private void BuildCluster_ForEdit() 
+        [Button("构建地块_指定范围地块", ButtonSizes.Medium)]
+        private void BuildCluster_ForEdit()
         {
-            if (heightDataModels == null) {
+            List<Vector2Int> clusterIdxList = GetBuildClusterTargets();
+            BuildClusters_ForEdit(clusterIdxList);
+        }
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [Button("构建地块_所有", ButtonSizes.Medium)]
+        private void BuildAllClusters_ForEdit()
+        {
+            List<Vector2Int> clusterIdxList = GetAllBuildClusterTargets();
+            BuildClusters_ForEdit(clusterIdxList);
+        }
+
+        private bool isLodOperationRunning; // 判断是否正在生成
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [LabelText("构建时不覆盖已有地块文件）")]
+        public bool noOverride;
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [Button("一键式保存_指定范围地块", ButtonSizes.Medium)]
+        private async void BuildAndSaveTerrainMeshInRange()
+        {
+            await SaveTerrainLODAssets(true);
+        }
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [Button("一键式保存_所有", ButtonSizes.Medium)]
+        private async void BuildAndSaveTerrainMesh()
+        {
+            await SaveTerrainLODAssets(false);
+        }
+
+        private async Task SaveTerrainLODAssets(bool specifiedRange)
+        {
+            if (isLodOperationRunning)
+            {
+                return;
+            }
+            isLodOperationRunning = true;
+            CancellationTokenSource cancellation = new CancellationTokenSource();
+            try
+            {
+                Directory.CreateDirectory(exportHandleMeshPath);
+                List<Vector2Int> availableTargets = GetAllBuildClusterTargets();
+                HashSet<Vector2Int> availableIndices = new HashSet<Vector2Int>(availableTargets);
+                List<Vector2Int> targets = availableTargets;
+                if (specifiedRange)
+                {
+                    targets = GetBuildClusterTargets();
+                }
+                int savedFiles = 0;
+                int skippedFiles = 0;
+                TerrainCtor.InitTerrainData(terSet, heightDataModels);
+                int highestLod = terSet.LODLevel - 1;
+                for (int i = 0; i < targets.Count; i++)
+                {
+                    Vector2Int index = targets[i];
+                    int longitude = index.x + terSet.startLL.x;
+                    int latitude = index.y + terSet.startLL.y;
+                    bool hasHeightData = availableIndices.Contains(index);
+                    if (!hasHeightData)
+                    {
+                        Debug.LogError($"缺少高度数据，跳过地块：索引 {index}，经纬度 {longitude}, {latitude}。");
+                        continue;
+                    }
+                    // 调用 CreateClusterData 直接创建 cluster 数据
+                    TerrainCluster cluster = TerrainCtor.CreateClusterData(longitude, latitude);
+                    try
+                    {
+                        for (int lod = highestLod; lod >= 0; lod--)
+                        {
+                            string fileName = TerrainSettingSO.GetClusterFileName(longitude, latitude, lod);
+                            string outputFile = Path.Combine(exportHandleMeshPath, fileName);
+                            bool skipExisting = noOverride && File.Exists(outputFile);
+                            if (skipExisting)
+                            {
+                                skippedFiles++;
+                                continue;
+                            }
+                            int currentLod = lod;
+                            Action<int> reportProgress = completedTiles =>
+                            {
+                                float tileProgress = (float)completedTiles / cluster.TileList.Count;
+                                float clusterProgress = (highestLod - currentLod + tileProgress) / terSet.LODLevel;
+                                float progress = (i + clusterProgress) / targets.Count;
+                                string message = $"地块 {longitude}, {latitude}，LOD{currentLod}，Tile {completedTiles}/{cluster.TileList.Count}";
+                                bool canceled = EditorUtility.DisplayCancelableProgressBar("构建并保存地形", message, progress);
+                                if (canceled)
+                                {
+                                    cancellation.Cancel();
+                                }
+                            };
+                            // 设置 mesh 数据，因为我们保存 mesh 需要通过 cluster（gameobject）
+                            await TerrainCtor.SetMeshData_ByLOD(cluster, lod, cancellation.Token, reportProgress);
+                            cancellation.Token.ThrowIfCancellationRequested();
+                            SaveClusterLOD(cluster, lod);
+                            savedFiles++;
+
+                            // 持久化mesh完毕，释放cluster的所有mesh数据
+                            foreach (TerrainTile tile in cluster.TileList)
+                            {
+                                tile.ReleaseLODData(lod);
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        cluster.Dispose();
+                    }
+                }
+                AssetDatabase.Refresh();
+                TerrainLoader loader = new TerrainLoader();
+                loader.AddTerrainMeshToAB(exportHandleMeshPath);
+                Debug.Log($"地形保存完成：保存 {savedFiles} 个 LOD 文件，跳过已有文件 {skippedFiles} 个。");
+            }
+            catch (OperationCanceledException)
+            {
+                Debug.Log("已取消地形保存，已完成的 LOD 文件保留。");
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+            finally
+            {
+                cancellation.Dispose();
+                EditorUtility.ClearProgressBar();
+                isLodOperationRunning = false;
+            }
+        }
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [Button("一键式加载_指定范围地块", ButtonSizes.Medium)]
+        private async void LoadLowestTerrainLODInRange()
+        {
+            await LoadTerrainLODAssets(true, GetBuildClusterTargets());
+        }
+
+        [FoldoutGroup("构建地形-高度图流程")]
+        [Button("一键式加载_所有", ButtonSizes.Medium)]
+        private async void LoadLowestTerrainLOD()
+        {
+            await LoadTerrainLODAssets(true);
+        }
+
+        private async Task LoadTerrainLODAssets(bool lowestOnly, List<Vector2Int> targets = null)
+        {
+            if (isLodOperationRunning)
+            {
+                return;
+            }
+            isLodOperationRunning = true;
+            try
+            {
+                string pattern = TerrainSettingSO.GetClusterFileSuffixName();
+                if (lowestOnly)
+                {
+                    pattern = "*_LOD0_terrain_cluster.bytes";
+                }
+                // 加载所有 cluster 的地块 lod，获取它们的 filename
+                string[] files;
+                if (targets == null)
+                {
+                    files = Directory.GetFiles(exportHandleMeshPath, pattern);
+                }
+                else
+                {
+                    files = new string[targets.Count];
+                    for (int i = 0; i < targets.Count; i++)
+                    {
+                        Vector2Int index = targets[i];
+                        int longitude = index.x + terSet.startLL.x;
+                        int latitude = index.y + terSet.startLL.y;
+                        string fileName = TerrainSettingSO.GetClusterFileName(longitude, latitude, 0);
+                        files[i] = Path.Combine(exportHandleMeshPath, fileName);
+                    }
+                }
+                int loadedFiles = 0;
+                if (files.Length == 0)
+                {
+                    Debug.Log("没有找到匹配的地形 LOD 资产。");
+                    return;
+                }
+                int previewLod = terSet.LODLevel - 1;
+                if (lowestOnly)
+                {
+                    previewLod = 0;
+                }
+                TerrainCtor.InitTerrainPreview(mapSet, terSet, terMaterial, previewLod);
+
+                for (int i = 0; i < files.Length; i++)
+                {
+                    string file = files[i];
+                    string name = Path.GetFileName(file);
+                    bool parsed = TerrainSettingSO.TryParseClusterFileName(name, out long longitude, out long latitude, out int lod);
+                    if (!parsed)
+                    {
+                        throw new InvalidDataException("Invalid LOD filename: " + name);
+                    }
+                    float progress = (float)i / files.Length;
+                    bool canceled = EditorUtility.DisplayCancelableProgressBar("加载地形 LOD", name, progress);
+                    if (canceled)
+                    {
+                        throw new OperationCanceledException();
+                    }
+                    try
+                    {
+                        using (FileStream stream = File.OpenRead(file))
+                        using (BinaryReader reader = new BinaryReader(stream))
+                        {
+                            int lon = checked((int)longitude);
+                            int lat = checked((int)latitude);
+                            // 加载完毕，应用 file 资产到 gameobject 上去显示
+                            if (lowestOnly)
+                            {
+                                TerrainCtor.SetMeshData_LOD0ToAll(reader, lon, lat);
+                            }
+                            else
+                            {
+                                TerrainCtor.LoadPersistedCluster(reader, lon, lat, lod);
+                            }
+                        }
+                        loadedFiles++;
+                    }
+                    catch (Exception exception)
+                    {
+                        Vector2Int index = new Vector2Int((int)longitude - terSet.startLL.x, (int)latitude - terSet.startLL.y);
+                        Debug.LogError($"加载失败，跳过地块：索引 {index}，经纬度 {longitude}, {latitude}，文件 {file}。{exception.Message}");
+                    }
+                    await Task.Yield();
+                }
+                TerrainCtor.UpdateTerrain();
+                Debug.Log($"地形加载完成：成功 {loadedFiles}/{files.Length} 个 LOD 文件，预览 LOD{previewLod}。");
+            }
+            catch (OperationCanceledException)
+            {
+                TerrainCtor.ClearClusterObj();
+                Debug.Log("已取消加载并清理本次预览。");
+            }
+            catch (Exception exception)
+            {
+                TerrainCtor.ClearClusterObj();
+                Debug.LogException(exception);
+            }
+            finally
+            {
+                EditorUtility.ClearProgressBar();
+                isLodOperationRunning = false;
+            }
+        }
+
+        // 输入 cluster 和 lodlevel， 保存它们
+        private void SaveClusterLOD(TerrainCluster cluster, int lodLevel)
+        {
+            string fileName = TerrainSettingSO.GetClusterFileName(cluster.longitude, cluster.latitude, lodLevel);
+            string outputFile = Path.Combine(exportHandleMeshPath, fileName);
+            string temporaryFile = outputFile + ".tmp";
+            try
+            {
+                using (FileStream stream = new FileStream(temporaryFile, FileMode.Create, FileAccess.Write))
+                using (BufferedStream buffered = new BufferedStream(stream))
+                using (BinaryWriter writer = new BinaryWriter(buffered))
+                {
+                    TerrainCtor.WriteClusterLOD(writer, cluster, lodLevel);
+                }
+                if (File.Exists(outputFile))
+                {
+                    File.Replace(temporaryFile, outputFile, null);
+                }
+                else
+                {
+                    File.Move(temporaryFile, outputFile);
+                }
+            }
+            finally
+            {
+                if (File.Exists(temporaryFile))
+                {
+                    File.Delete(temporaryFile);
+                }
+            }
+        }
+
+        // 从当前的 heightdatamodel 里面获取所有要构建地块
+        private List<Vector2Int> GetAllBuildClusterTargets()
+        {
+            List<Vector2Int> clusterIdxList = new List<Vector2Int>();
+            HashSet<Vector2Int> addedClusterIndices = new HashSet<Vector2Int>();
+            Vector2Int startLL = terSet.startLL;
+            foreach (HeightDataModel model in heightDataModels)
+            {
+                foreach (HeightData heightData in model.HeightDataList)
+                {
+                    int clusterX = heightData.longitude - startLL.x;
+                    int clusterY = heightData.latitude - startLL.y;
+                    Vector2Int clusterIdx = new Vector2Int(clusterX, clusterY);
+                    bool isNewCluster = addedClusterIndices.Add(clusterIdx);
+                    if (isNewCluster)
+                    {
+                        clusterIdxList.Add(clusterIdx);
+                    }
+                }
+            }
+            return clusterIdxList;
+        }
+
+        // 构建指定 索引的 地块
+        private void BuildClusters_ForEdit(List<Vector2Int> clusterIdxList)
+        {
+            if (heightDataModels == null)
+            {
                 Debug.LogError("you do not set the heightDataModel");
                 return;
             }
-            if (TerrainCtor == null) {
+            if (TerrainCtor == null)
+            {
                 Debug.LogError("terrian ctor is null!");
                 return;
             }
-            List<Vector2Int> clusterIdxList = GetBuildClusterTargets();
 
-            TerrainGenTask terrainGenTask = new TerrainGenTask(heightDataModels, terSet, TerrainCtor, 
+            TerrainGenTask terrainGenTask = new TerrainGenTask(heightDataModels, terSet, TerrainCtor,
                 clusterIdxList, shouldGenRiver, shouldGenLODBySimplify, genRuntimeClusterMesh);
             int taskID = TaskManager.GetInstance().StartProgress(TaskTickLevel.Medium, terrainGenTask);
             TerGenTaskPop.GetPopInstance().ShowBasePop(terrainGenTask);
@@ -286,125 +598,38 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("地形持久化")]
         [Button("导出当前地形为资产", ButtonSizes.Medium)]
-        private void ExportTerrainAsMesh() {
-            if (TerrainCtor == null) {
-                Debug.LogError("terrian ctor is null!");
-                return;
-            }
-
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            TDList<TerrainCluster> clusters = TerrainCtor.ClusterList;
-            int terrainWidth = clusters.GetLength(1);
-            int terrainHeight = clusters.GetLength(0);
-
-            int exportClusterNum = 0;
-            for (int i = 0; i < terrainWidth; i++) {
-                for (int j = 0; j < terrainHeight; j++) {
-                    TerrainCluster cluster = clusters[i, j];
-                    if (!cluster.IsInited) {
-                        continue;
-                    }
-
-                    //Vector2Int LL = new Vector2Int(cluster.longitude, cluster.latitude);
-                    string outputFile = AssetsUtility.CombinedPath(exportHandleMeshPath,
-                        TerrainSettingSO.GetClusterFileName(cluster.longitude, cluster.latitude));
-
-                    // NOTE : 用这个方法导出的文件一个cluster有80mb，引以为戒
-                    //ExportTerrainAsMesh_Obj(outputFile);
-                    ExportTerrainAsMesh_Binary(i, j, cluster, outputFile);
-                    exportClusterNum++;
+        private void ExportTerrainAsMesh()
+        {
+            Directory.CreateDirectory(exportHandleMeshPath);
+            foreach (TerrainCluster cluster in TerrainCtor.ClusterList)
+            {
+                if (!cluster.IsLoaded)
+                {
+                    continue;
                 }
-            }
-
-            TerrainLoader loader = new TerrainLoader();
-            loader.AddTerrainMeshToAB(exportHandleMeshPath);
-
-            stopwatch.Stop();
-            Debug.Log($"{exportClusterNum} cluster terrain mesh has been exported to: {exportHandleMeshPath}, cost : {stopwatch.ElapsedMilliseconds} ms");
-        }
-
-        private void ExportTerrainAsMesh_Obj(string outputFile) {
-
-            TDList<TerrainCluster> clusters = TerrainCtor.ClusterList;
-            int terrainWidth = clusters.GetLength(1);
-            int terrainHeight = clusters.GetLength(0);
-
-            using (FileStream fs = new FileStream(outputFile, FileMode.CreateNew, FileAccess.Write))
-            using (BufferedStream bufferedStream = new BufferedStream(fs))
-            using (StreamWriter writer = new StreamWriter(bufferedStream)) {
-                // NOTE : how to serilize mesh data
-                // set : map setting
-                // cls : a cluster start
-                // tl : a tile start
-
-                // write cur terrainSetting to file
-                string setInfo = string.Format("{0},{1}", "set", terSet.GetTerrainSetting().ToString());
-                writer.WriteLine(setInfo);
-
-                for (int i = 0; i < terrainWidth; i++) {
-                    for (int j = 0; j < terrainHeight; j++) {
-                        if (!clusters[i, j].IsInited) {
-                            continue;
+                for (int lod = 0; lod < terSet.LODLevel; lod++)
+                {
+                    bool completeLod = true;
+                    foreach (TerrainTile tile in cluster.TileList)
+                    {
+                        TerrainMeshData data = tile.GetLODMeshes()[lod];
+                        if (data == null)
+                        {
+                            completeLod = false;
+                            break;
                         }
-
-                        //// write cluster setting to file
-                        //string clsInfo = string.Format("{0},{1}", "cls", clusters[i, j].GetClusterInfo());
-                        //writer.WriteLine(clsInfo);
-
-                        //StringBuilder tileSb = new StringBuilder();
-                        //TDList<TerrainTile> tiles = clusters[i, j].TileList;
-                        //foreach (var tile in tiles) {
-                        //    // write tile setting to file
-                        //    tileSb.Clear();
-                        //    tileSb.Append($"tl,");
-                        //    tileSb.Append(tile.GetTileInfo());
-                        //    writer.WriteLine(tileSb.ToString());
-
-                        //    // write every mesh to file
-                        //    TerrainMeshData[] meshDatas = tile.GetLODMeshes();
-                        //    foreach (var terrainMesh in meshDatas) {
-                        //        terrainMesh.SerializeTerrainMesh(writer);
-                        //    }
-                        //}
-                        writer.Flush();
+                        data.BuildOriginMeshWrapper();
+                    }
+                    if (completeLod)
+                    {
+                        SaveClusterLOD(cluster, lod);
                     }
                 }
-            }
-
-        }
-
-        private void ExportTerrainAsMesh_Binary(int i, int j, TerrainCluster cluster, string outputFile) {
-
-            using (FileStream fs = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
-            using (BufferedStream bufferedStream = new BufferedStream(fs))
-            using (BinaryWriter writer = new BinaryWriter(bufferedStream)) {
-                // NOTE : how to serilize mesh data
-                // set : map setting
-                // cls : a cluster start
-                // tl : a tile start
-
-                // write cur terrainSetting to file
-                terSet.GetTerrainSetting().WriteToBinary(writer);
-
-                // NOTE : 当前改为 每个 cluster 对应一个文件，后续建议把这里的限制逻辑去掉
-                // NOTE : 当需要修改每个文件的cls数目时，操作这里
-                //int validClusterNum = TerrainCtor.GetValidClusterNum();
-                int validClusterNum = 1;
-                writer.Write(validClusterNum);
-
-                TDList<TerrainCluster> clusters = TerrainCtor.ClusterList;
-                int terrainWidth = clusters.GetLength(1);
-                int terrainHeight = clusters.GetLength(0);
-
-                cluster.WriteToBinary(writer);
-                TerrainCtor.ImportClusterToBinary(i, j, writer);
-                writer.Flush();
             }
             AssetDatabase.Refresh();
+            TerrainLoader loader = new TerrainLoader();
+            loader.AddTerrainMeshToAB(exportHandleMeshPath);
         }
-
 
         [FoldoutGroup("地形持久化")]
         [Button("测试-刷新group", ButtonSizes.Medium)]
@@ -417,61 +642,10 @@ namespace LZ.WarGameMap.MapEditor
 
         [FoldoutGroup("地形持久化")]
         [Button("导入资产到当前地形", ButtonSizes.Medium)]
-        private void ImportMeshToTerrain() {
-            if (TerrainCtor == null) {
-                Debug.LogError("terrian ctor is null!");
-                return;
-            }
-
-            if (exportHandleMeshPath == null) {
-                Debug.LogError("cur TerrainMeshDatas path is null");
-                return;
-            }
-
-            Stopwatch stopwatch = new Stopwatch();
-            stopwatch.Start();
-
-            ImportMeshToTerrain_Binary(exportHandleMeshPath);
-
-            stopwatch.Stop();
-            Debug.Log($"mesh data ({exportHandleMeshPath}) trans to terrain, cost : {stopwatch.ElapsedMilliseconds} ms");
-        }
-
-        private void ImportMeshToTerrain_Binary(string exportHandleMeshPath) {
-
-            if (!Directory.Exists(exportHandleMeshPath)) { 
-                Debug.LogError("目录不存在"); 
-                return; 
-            }
-
-            // TODO : terSet hexSet 最好要从 持久化文件里面读取
-            TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, terMaterial, null);
-
-            foreach (string file in Directory.GetFiles(exportHandleMeshPath, TerrainSettingSO.GetClusterFileSuffixName())) {
-
-                using (FileStream fs = new FileStream(file, FileMode.Open, FileAccess.Read))
-                using (BufferedStream bufferedStream = new BufferedStream(fs))
-                using (BinaryReader reader = new BinaryReader(bufferedStream)) {
-                    // NOTE : 勿删
-                    // TODO : 这是为了兼容导出逻辑，实际上这个trSet 就不应该写入，后面再想想怎么改
-                    TerrainSetting trSet = new TerrainSetting();
-                    trSet.ReadFromBinary(reader);
-                    //int terrainWidth = trSet.terrainSize.x;
-                    //int terrainHeight = trSet.terrainSize.z;
-
-                    // TODO : 后面会换成单cluster 对应一个文件
-                    int validClusterNum = reader.ReadInt32();
-                    for (int i = 0; i < validClusterNum; i++) {
-
-
-                        TerrainCluster cls = new TerrainCluster();
-                        cls.ReadFromBinary(reader);
-                        TerrainCtor.ExportClusterByBinary(cls.idxX, cls.idxY, cls.longitude, cls.latitude, reader);
-                        TerrainCtor.SetTerrainGened();
-                    }
-                }
-            }
-            AssetDatabase.Refresh();
+        // TODO: Reuse the Runtime import entry after the one-click loading flow is implemented and verified.
+        private async void ImportMeshToTerrain()
+        {
+            await LoadTerrainLODAssets(false);
         }
 
         #endregion
