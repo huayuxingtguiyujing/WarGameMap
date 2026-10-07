@@ -475,25 +475,40 @@ namespace LZ.WarGameMap.Runtime
             return 0;   // default level
         }
 
-        public Mesh GetMesh(int curLODLevel, int fixDirection, LODSwitchMethod switchMethod) {
-            this.curLODLevel = curLODLevel;
-            if (curLODLevel < 0 || curLODLevel >= LODMeshes.Length) {
+        public bool isShowing
+        {
+            get
+            {
+                return meshFilter != null && meshFilter.sharedMesh != null;
+            }
+        }
+
+        public Mesh GetMesh(int curLODLevel, int fixDirection, LODSwitchMethod switchMethod)
+        {
+            if (curLODLevel < 0 || curLODLevel >= LODMeshes.Length)
+            {
                 DebugUtility.LogError("Wrong LOD level, can not get mesh", DebugPriority.Medium);
                 return null;
             }
-
-            if(LODMeshes[curLODLevel] == null)
+            if (LODMeshes[curLODLevel] == null)
             {
                 return null;
             }
 
-            if(switchMethod == LODSwitchMethod.Height) {
-                return LODMeshes[curLODLevel].GetMesh_LODHeight();
-            } else if(switchMethod == LODSwitchMethod.Distance) {
-                // NOTE : Deprecate,we will only use height to ctrl
-                return LODMeshes[curLODLevel].GetMesh_LODDistance(tileIdxX, tileIdxY, fixDirection);
+            Mesh mesh = null;
+            if (switchMethod == LODSwitchMethod.Height)
+            {
+                mesh = LODMeshes[curLODLevel].GetMesh_LODHeight();
             }
-            return null;
+            else if (switchMethod == LODSwitchMethod.Distance)
+            {
+                mesh = LODMeshes[curLODLevel].GetMesh_LODDistance(tileIdxX, tileIdxY, fixDirection);
+            }
+            if (mesh != null)
+            {
+                this.curLODLevel = curLODLevel;
+            }
+            return mesh;
         }
 
         public void SetMesh(Mesh mesh, Material mat) {

@@ -8,7 +8,7 @@ namespace LZ.WarGameMap.Runtime
     public enum MapRuntimeAssetRole
     {
         TerrainSetting, RuntimeSetting, HexSetting, GridTerrain, Country,
-        LandformMaterial, AlbedoArray, NormalArray, RegionTexture, RegionSDFShader
+        LandformMaterial, AlbedoArray, NormalArray, RegionTexture, RegionSDFShader, HexMapData
     }
 
     [Serializable]

@@ -1,10 +1,5 @@
 using System.Threading.Tasks;
 
-#if UNITY_EDITOR
-using UnityEditor;
-using UnityEditor.AddressableAssets;
-#endif
-
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
@@ -28,39 +23,6 @@ namespace LZ.WarGameCommon
             await Addressables.InitializeAsync().Task;
         }
 
-
-#if UNITY_EDITOR
-        public void AddBinToGroup(string binPath, string label, string groupName) 
-        {
-            // Get Ab setting and Ab group
-            var settings = AddressableAssetSettingsDefaultObject.Settings;  // 需确认
-            var group = settings.FindGroup(groupName);
-            if (group == null)
-            {
-                group = settings.CreateGroup(groupName, false, false, true, null);
-            }
-
-            // remove old asset
-            var oldEntry = settings.FindAssetEntry(label);
-            if (oldEntry != null)
-            {
-                settings.RemoveAssetEntry(label, false);   // 或 group.RemoveAssetEntry(oldEntry)
-            }
-        
-            // Add asset to group
-            string guid = AssetDatabase.AssetPathToGUID(binPath);
-            var entry = settings.CreateOrMoveEntry(guid, group);
-            entry.SetAddress(label);
-            entry.SetLabel(label, true);
-        }
-
-        public void RefreshABGroup()
-        {
-            var settings = AddressableAssetSettingsDefaultObject.Settings;  // 需确认
-            EditorUtility.SetDirty(settings);
-        }
-
-#endif
 
         public AssetBundle LoadABFile(string path) 
         {

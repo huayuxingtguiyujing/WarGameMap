@@ -206,8 +206,7 @@ namespace LZ.WarGameMap.MapEditor
             GizmosCtrl.GetInstance().UnregisterGizmosAll();
         }
 
-        protected override void OnImGUI() {
-            base.OnImGUI();
+        protected override void DrawEditors() {
 
             // 获取当前选中的菜单项
             if (this.MenuTree.Selection.Count > 0) {
@@ -231,6 +230,8 @@ namespace LZ.WarGameMap.MapEditor
                     //Debug.Log($"{curSelected.Name} enable");
                 }
             }
+
+            base.DrawEditors();
         }
 
         protected override void OnDestroy() {

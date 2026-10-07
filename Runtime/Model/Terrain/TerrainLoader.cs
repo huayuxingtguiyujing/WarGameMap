@@ -1,13 +1,5 @@
 using LZ.WarGameCommon;
-using LZ.WarGameMap.Runtime.Enums;
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
-#if UNITY_EDITOR
-using UnityEditor;
-#endif
 using UnityEngine;
 
 namespace LZ.WarGameMap.Runtime
@@ -20,36 +12,6 @@ namespace LZ.WarGameMap.Runtime
         public TerrainLoader()
         {
         }
-#if UNITY_EDITOR
-        #region Editor 将 TerrainMesh 加入AB资产
-
-        public void AddTerrainMeshToAB(string terrainMeshPath) {
-
-            if (!Directory.Exists(terrainMeshPath))
-            {
-                Debug.LogError($"目录不存在: {terrainMeshPath}");
-                return;
-            }
-
-            foreach (string filePath in Directory.GetFiles(terrainMeshPath, TerrainSettingSO.GetClusterFileSuffixName()))
-            {
-                string fileName = Path.GetFileName(filePath);
-                bool parsed = TerrainSettingSO.TryParseClusterFileName(fileName, out long longitude, out long latitude, out int lodLevel);
-                if (!parsed)
-                {
-                    throw new InvalidDataException("Invalid cluster LOD filename: " + fileName);
-                }
-                string label = TerrainSettingSO.GetClusterFileName(longitude, latitude, lodLevel);
-                ABLoader.GetInstance().AddBinToGroup(filePath, label, MapStoreEnum.TerrainMeshAssetGroupName);
-            }
-
-            ABLoader.GetInstance().RefreshABGroup();
-        }
-
-
-        #endregion
-#endif
-
         #region Runtime 加载/卸载地块
 
 

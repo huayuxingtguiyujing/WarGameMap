@@ -22,6 +22,16 @@ namespace LZ.WarGameMap.MapEditor
 
         public override string EditorName => MapEditorEnum.MapSetEditor;
 
+        #region behaviors
+
+        public override void Enable()
+        {
+            base.Enable();
+            InitializeRuntimeHeightAssets();
+        }
+
+        #endregion
+
 
         [FoldoutGroup("配置scene")]
         [LabelText("地图Runtime配置")]
@@ -186,10 +196,20 @@ namespace LZ.WarGameMap.MapEditor
 
         #region 运行时资产配置
 
+        internal static void SetRuntimeHexMapData(HexMapSO data) {
+            MapRuntimeAssetsBuilder.SetAsset(MapRuntimeAssetRole.HexMapData, data);
+        }
+
         [ShowInInspector, ReadOnly, FoldoutGroup("运行时资产配置")]
         [LabelText("默认资源清单")]
-        [InfoBox("拖拽仅保存配置；点击按钮才检查并更新 Addressables。空高度列表自动读取指定目录顶层，纹理数组请手动配置。")]
+        [InfoBox("配置资产后，要点击按钮并更新 Addressables")]
         private MapRuntimeAssetsSO RuntimeManifest => MapRuntimeAssetsBuilder.GetManifest();
+
+        [ShowInInspector, AssetsOnly, FoldoutGroup("运行时资产配置"), LabelText("Hex地图数据")]
+        private HexMapSO RuntimeHexMapData {
+            get => MapRuntimeAssetsBuilder.GetAsset<HexMapSO>(MapRuntimeAssetRole.HexMapData);
+            set => SetRuntimeHexMapData(value);
+        }
 
         [ShowInInspector, AssetsOnly, FoldoutGroup("运行时资产配置"), LabelText("地形配置")]
         private TerrainSettingSO RuntimeTerrainSetting
@@ -264,25 +284,15 @@ namespace LZ.WarGameMap.MapEditor
         // 高度列表仅作界面缓存，实际配置保存在清单中。
         [NonSerialized, ShowInInspector, AssetsOnly, FoldoutGroup("运行时资产配置", 10)]
         [LabelText("高度数据")]
-        [OnInspectorInit(nameof(InitializeRuntimeHeightAssets))]
-        [OnInspectorDispose(nameof(DisposeRuntimeHeightAssets))]
         [OnValueChanged(nameof(SaveRuntimeHeightAssets), IncludeChildren = true)]
         [OnCollectionChanged(null, nameof(SaveRuntimeHeightAssets))]
         private List<HeightDataModel> runtimeHeightAssets = new List<HeightDataModel>();
 
-        // 打开配置时尝试补齐高度数据，并同步清单与 Undo 状态。
+        // 切换到本编辑器时，在绘制前补齐高度数据并读取清单。
         private void InitializeRuntimeHeightAssets()
         {
             MapRuntimeAssetsBuilder.FillDefaultHeightAssets();
             ReloadRuntimeHeightAssets();
-            Undo.undoRedoPerformed -= ReloadRuntimeHeightAssets;
-            Undo.undoRedoPerformed += ReloadRuntimeHeightAssets;
-        }
-
-        // 关闭界面时解除 Undo 订阅。
-        private void DisposeRuntimeHeightAssets()
-        {
-            Undo.undoRedoPerformed -= ReloadRuntimeHeightAssets;
         }
 
         private void ReloadRuntimeHeightAssets()
@@ -363,6 +373,7 @@ namespace LZ.WarGameMap.MapEditor
                     new MapAssetField(MapRuntimeAssetRole.RuntimeSetting, "Runtime配置", typeof(MapRuntimeSetting), runtimePath),
                     new MapAssetField(MapRuntimeAssetRole.HexSetting, "Hex配置", typeof(HexSettingSO), hexPath),
                     new MapAssetField(MapRuntimeAssetRole.GridTerrain, "格子地貌数据", typeof(GridTerrainSO), gridPath),
+                    new MapAssetField(MapRuntimeAssetRole.HexMapData, "Hex地图数据", typeof(HexMapSO), MapStoreEnum.HexMapDataPath),
                     new MapAssetField(MapRuntimeAssetRole.Country, "区域数据", typeof(CountrySO), countryPath),
                     new MapAssetField(MapRuntimeAssetRole.LandformMaterial, "地貌材质", typeof(Material), landformMaterialPath),
                     new MapAssetField(MapRuntimeAssetRole.AlbedoArray, "地貌颜色纹理数组", typeof(Texture2DArray)),
@@ -456,7 +467,6 @@ namespace LZ.WarGameMap.MapEditor
                 var data = GetManifest();
                 var reference = Reference(asset);
                 var entry = data.assets.SingleOrDefault(item => item.role == role);
-                Undo.RecordObject(data, "Configure runtime map asset");
                 if (entry == null)
                 {
                     entry = new MapRuntimeAssetEntry { role = role };
@@ -520,7 +530,6 @@ namespace LZ.WarGameMap.MapEditor
                 {
                     return;
                 }
-                Undo.RecordObject(data, "Configure map height assets");
                 data.heightDataModels = references;
                 Save(data);
             }
@@ -528,7 +537,6 @@ namespace LZ.WarGameMap.MapEditor
             public static void SetTerrainDirectory(string directory)
             {
                 var data = GetManifest();
-                Undo.RecordObject(data, "Configure terrain directory");
                 data.terrainDirectory = directory;
                 Save(data);
             }
@@ -541,7 +549,21 @@ namespace LZ.WarGameMap.MapEditor
 
             private sealed class Registration
             {
-                public string Guid, Address, Group;
+                public string Guid, Address, Group, Label;
+                public bool LabelUsesFileName;
+            }
+
+            private static string GetLabel(Object asset, MapRuntimeAssetRole role)
+            {
+                switch (role)
+                {
+                    case MapRuntimeAssetRole.GridTerrain:
+                        return GridTerrainSO.GetDefaultAssetName();
+                    case MapRuntimeAssetRole.Country:
+                        return CountrySO.GetDefaultAssetName();
+                    default:
+                        return Path.GetFileName(AssetDatabase.GetAssetPath(asset));
+                }
             }
 
             public static void UpdateAddressables()
@@ -581,9 +603,13 @@ namespace LZ.WarGameMap.MapEditor
                         throw new InvalidOperationException("必需资源为空或类型错误：" + field.Label);
                     }
                     string assetPath = AssetDatabase.GetAssetPath(asset);
-                    bool isRenderAsset = field.Role >= MapRuntimeAssetRole.LandformMaterial;
+                    bool isRenderAsset = field.Role >= MapRuntimeAssetRole.LandformMaterial
+                        && field.Role <= MapRuntimeAssetRole.RegionSDFShader;
                     string groupName = isRenderAsset ? MapStoreEnum.RuntimeRenderGroup : MapStoreEnum.RuntimeConfigGroup;
-                    Add(registrations, asset, assetPath, groupName);
+                    bool labelUsesFileName = field.Role != MapRuntimeAssetRole.GridTerrain
+                        && field.Role != MapRuntimeAssetRole.Country;
+                    Add(registrations, asset, assetPath, groupName,
+                        GetLabel(asset, field.Role), labelUsesFileName);
                 }
                 bool hasKnownRoles = data.assets.Count == Fields.Length;
                 if (!hasKnownRoles)
@@ -610,7 +636,8 @@ namespace LZ.WarGameMap.MapEditor
                         throw new InvalidOperationException("高度数据重复：" + height.name);
                     }
                     string heightPath = AssetDatabase.GetAssetPath(height);
-                    Add(registrations, height, heightPath, MapStoreEnum.RuntimeConfigGroup);
+                    Add(registrations, height, heightPath, MapStoreEnum.RuntimeConfigGroup,
+                        Path.GetFileName(heightPath), true);
                 }
 
                 var materialEntry = data.assets.Single(x => x.role == MapRuntimeAssetRole.LandformMaterial);
@@ -738,10 +765,12 @@ namespace LZ.WarGameMap.MapEditor
                         }
                         clusters.Add(item);
                         string clusterAddress = TerrainSettingSO.GetClusterFileName(lon, lat, lod);
-                        Add(registrations, asset, clusterAddress, MapStoreEnum.TerrainMeshAssetGroupName);
+                        Add(registrations, asset, clusterAddress, MapStoreEnum.TerrainMeshAssetGroupName,
+                            clusterAddress, true);
                     }
                 }
-                Add(registrations, data, MapStoreEnum.RuntimeManifestAddress, MapStoreEnum.RuntimeConfigGroup);
+                Add(registrations, data, MapStoreEnum.RuntimeManifestAddress, MapStoreEnum.RuntimeConfigGroup,
+                    Path.GetFileName(AssetDatabase.GetAssetPath(data)), false);
                 // Complete all validation before changing any group or generated cluster list.
                 ValidateRegistrations(settings, registrations);
                 foreach (var registration in registrations)
@@ -751,7 +780,14 @@ namespace LZ.WarGameMap.MapEditor
                         group = settings.CreateGroup(registration.Group, false, false, true, null,
                             typeof(BundledAssetGroupSchema), typeof(ContentUpdateGroupSchema));
                     var entry = settings.CreateOrMoveEntry(registration.Guid, group);
+                    if (registration.LabelUsesFileName && entry.address != registration.Address)
+                    {
+                        string oldFileName = Path.GetFileName(entry.address);
+                        if (!string.IsNullOrEmpty(oldFileName) && entry.labels.Contains(oldFileName))
+                            entry.SetLabel(oldFileName, false);
+                    }
                     entry.SetAddress(registration.Address);
+                    entry.SetLabel(registration.Label, true, true);
                 }
                 data.clusters = clusters;
                 Save(data);
@@ -761,7 +797,8 @@ namespace LZ.WarGameMap.MapEditor
                     "，耗时 " + watch.ElapsedMilliseconds + " ms。请通过 Addressables 构建入口打包。");
             }
 
-            private static void Add(List<Registration> list, Object asset, string address, string group)
+            private static void Add(List<Registration> list, Object asset, string address,
+                string group, string label, bool labelUsesFileName)
             {
                 string assetPath = AssetDatabase.GetAssetPath(asset);
                 string guid = AssetDatabase.AssetPathToGUID(assetPath);
@@ -770,21 +807,38 @@ namespace LZ.WarGameMap.MapEditor
                 {
                     throw new InvalidOperationException("资源不是持久化主资产：" + asset.name);
                 }
+                if (string.IsNullOrWhiteSpace(label))
+                {
+                    throw new InvalidOperationException("资源 label 为空：" + assetPath);
+                }
                 var previous = list.Find(x => x.Guid == guid);
                 if (previous != null)
                 {
-                    bool hasSameRegistration = previous.Address == address && previous.Group == group;
+                    bool hasSameRegistration = previous.Address == address && previous.Group == group
+                        && previous.Label == label && previous.LabelUsesFileName == labelUsesFileName;
                     if (!hasSameRegistration)
                     {
                         throw new InvalidOperationException("资源登记用途冲突：" + asset.name);
                     }
                     return;
                 }
-                list.Add(new Registration { Guid = guid, Address = address, Group = group });
+                list.Add(new Registration { Guid = guid, Address = address, Group = group,
+                    Label = label, LabelUsesFileName = labelUsesFileName });
             }
 
             private static void ValidateRegistrations(AddressableAssetSettings settings, List<Registration> list)
             {
+                var labelOwners = new Dictionary<string, Registration>(StringComparer.Ordinal);
+                foreach (var item in list)
+                {
+                    if (labelOwners.TryGetValue(item.Label, out var other) && other.Guid != item.Guid)
+                    {
+                        throw new InvalidOperationException("自动 label 重复：" + item.Label + "；资源："
+                            + AssetDatabase.GUIDToAssetPath(other.Guid) + "、"
+                            + AssetDatabase.GUIDToAssetPath(item.Guid));
+                    }
+                    labelOwners[item.Label] = item;
+                }
                 var addresses = list.Select(registration => registration.Address);
                 int uniqueAddressCount = addresses.Distinct(StringComparer.Ordinal).Count();
                 bool hasUniqueAddresses = uniqueAddressCount == list.Count;

@@ -24,6 +24,7 @@ namespace LZ.WarGameMap.Runtime
         public TerrainSettingSO terSet;
         public MapRuntimeSetting mapSet;
 
+        public HexMapSO hexMapSO;
         public GridTerrainSO gridTerrainSO;
         public CountrySO countrySO;
 
@@ -46,12 +47,22 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-        #region Runtime initialization
+        #region Camera Control
 
+        [SerializeField] private Camera gameCamera;
+        public CameraController cameraController { get; private set; }
+
+        #endregion
+
+        #region Runtime init
+
+        // 初始化期间的状态管理
         public bool IsInitialized { get; private set; }
         private bool initializationStarted;
         private bool initializationRunning;
         private bool isDestroyed;
+
+        // 初始化期间的资产 临时引用
         private MapRuntimeAssetsSO runtimeAssets;
         private readonly List<AsyncOperationHandle> assetHandles = new List<AsyncOperationHandle>();
         private GameObject runtimeRoot;
@@ -61,7 +72,9 @@ namespace LZ.WarGameMap.Runtime
         private Texture2D regionTexture;
         private ComputeShader regionSdfShader;
 
-        // 依次加载资源并等待全部地块构建成功，不自动驱动地图更新。
+        // NOTE: 对外接口：
+        //      一键初始化地图
+        //          依次加载资源并等待全部地块构建成功
         public async Task InitWarGameMap()
         {
             if (initializationStarted || isDestroyed)
@@ -81,11 +94,18 @@ namespace LZ.WarGameMap.Runtime
                 await LoadRuntimeAssets();
                 CheckManagerAlive();
                 PrepareRuntimeComponents();
-                InitLandform();
                 await LoadTerrain();
                 CheckManagerAlive();
                 TerrainCtor.SetTerrainGened();
-                // TODO：后续在此接入 HexCtor 和河流初始化。
+                InitCameraController();
+
+                RenderCtor.InitMapRenderCons(terSet, hexSet, mapSet, gridTerrainSO, countrySO);
+                RenderCtor.SetLandformResources(albedoArray, normalArray, regionTexture, regionSdfShader);
+                RenderCtor.InitRuntimeLandformMaterial(runtimeLandformMaterial);
+                RenderCtor.InitHexHighlight(cameraController.GetCamera(), HexCtor);
+
+                TerrainCtor.UpdateTerrain(cameraController.focusPoint, cameraController.cameraPosition);
+                // Hex 格子已常驻初始化，六边形显示与河流启动另行接入。
                 IsInitialized = true;
                 Debug.Log($"[WarGameMap] 初始化完成，地块 {runtimeAssets.clusters.Count}，耗时 {watch.ElapsedMilliseconds} ms。");
             }
@@ -102,7 +122,7 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        // 清单中的引用通过 Addressables 加载，Shader 随材质依赖进入内存。
+        // 清单中的引用通过 Addressables 加载，Shader 随材质依赖进入内存
         private async Task LoadRuntimeAssets()
         {
             var initialization = Addressables.InitializeAsync(false);
@@ -123,6 +143,7 @@ namespace LZ.WarGameMap.Runtime
             mapSet = await LoadRole<MapRuntimeSetting>(MapRuntimeAssetRole.RuntimeSetting);
             hexSet = await LoadRole<HexSettingSO>(MapRuntimeAssetRole.HexSetting);
             gridTerrainSO = await LoadRole<GridTerrainSO>(MapRuntimeAssetRole.GridTerrain);
+            hexMapSO = await LoadRole<HexMapSO>(MapRuntimeAssetRole.HexMapData);
             countrySO = await LoadRole<CountrySO>(MapRuntimeAssetRole.Country);
             terrainLandformMat = await LoadRole<Material>(MapRuntimeAssetRole.LandformMaterial);
             albedoArray = await LoadRole<Texture2DArray>(MapRuntimeAssetRole.AlbedoArray);
@@ -151,7 +172,10 @@ namespace LZ.WarGameMap.Runtime
             MapRuntimeAssetEntry selected = null;
             foreach (var entry in runtimeAssets.assets)
             {
-                if (entry == null || entry.role != role) continue;
+                if (entry == null || entry.role != role)
+                {
+                    continue;
+                }
                 if (selected != null)
                 {
                     throw new InvalidOperationException("Duplicate map resource role: " + role);
@@ -178,9 +202,10 @@ namespace LZ.WarGameMap.Runtime
             return handle.Result;
         }
 
-        // 只创建并管理本次启动所需的节点和组件。
+        // 创建并管理本次启动所需的节点和组件。
         private void PrepareRuntimeComponents()
         {
+            // init hierarchy
             runtimeRoot = new GameObject(MapEnum.MapRootName);
             runtimeRoot.transform.SetParent(transform, false);
             var clusters = new GameObject(MapEnum.ClusterParentName);
@@ -188,19 +213,39 @@ namespace LZ.WarGameMap.Runtime
             var rivers = new GameObject("rivers");
             rivers.transform.SetParent(runtimeRoot.transform, false);
             runtimeLandformMaterial = new Material(terrainLandformMat);
+
+            // terrain ctor、hex ctor etc 的 init
             TerrainCtor = runtimeRoot.AddComponent<TerrainConstructor>();
             TerrainCtor.SetMapPrefab(runtimeRoot.transform, clusters.transform, rivers.transform);
             TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, runtimeLandformMaterial, null);
+
             RenderCtor = runtimeRoot.AddComponent<MapRenderConstructor>();
+
+            HexCtor = runtimeRoot.AddComponent<HexmapConstructor>();
+            HexCtor.InitHexMapData(hexSet, hexMapSO);
+
+            GameObject cameraControllerObject = new GameObject("cameraController");
+            cameraControllerObject.transform.SetParent(runtimeRoot.transform, false);
+            cameraController = cameraControllerObject.AddComponent<CameraController>();
         }
 
-        private void InitLandform(){
-            RenderCtor.InitMapRenderCons(terSet, hexSet, mapSet, gridTerrainSO, countrySO);
-            RenderCtor.SetLandformResources(albedoArray, normalArray, regionTexture, regionSdfShader);
-            RenderCtor.InitRuntimeLandformMaterial(runtimeLandformMaterial);
+        private void InitCameraController()
+        {
+            Camera camera = gameCamera;
+            if (camera == null)
+            {
+                camera = Camera.main;
+            }
+            if (camera == null)
+            {
+                throw new InvalidOperationException("A game camera is required.");
+            }
+
+            Rect mapBoundsXZ = TerrainCtor.GetMapBoundsXZ();
+            cameraController.Init(camera, terSet, mapBoundsXZ);
         }
 
-        // 加载地图中的地块Mesh，不要用 InitTerrain，它耗时很高
+        // 加载地图中的地块Mesh
         private async Task LoadTerrain()
         {
             var coordinates = new HashSet<Vector3Int>();
@@ -232,6 +277,15 @@ namespace LZ.WarGameMap.Runtime
                 completed++;
                 Debug.Log($"[WarGameMap] 地块 {coordinate} 完成，进度 {completed}/{runtimeAssets.clusters.Count}。");
             }
+
+            foreach (MapRuntimeClusterEntry entry in runtimeAssets.clusters)
+            {
+                TerrainCluster cluster = TerrainCtor.ClusterList[entry.idxX, entry.idxY];
+                if (!cluster.HasLoadedLOD(0))
+                {
+                    throw new InvalidOperationException("The runtime terrain requires LOD0 for every loaded cluster.");
+                }
+            }
         }
 
         private void CheckManagerAlive()
@@ -242,19 +296,14 @@ namespace LZ.WarGameMap.Runtime
             }
         }
 
-        private void OnDestroy()
-        {
-            isDestroyed = true;
-            IsInitialized = false;
-            if (!initializationRunning)
-            {
-                ReleaseRuntimeAssets();
-            }
-        }
-
         // 仅释放本管理器取得的资源，旧地块加载器的句柄仍由其现有逻辑负责。
         private void ReleaseRuntimeAssets()
         {
+            if (cameraController != null)
+            {
+                cameraController.inputEnabled = false;
+            }
+            cameraController = null;
             if (runtimeRoot != null) Destroy(runtimeRoot);
             if (runtimeLandformMaterial != null) Destroy(runtimeLandformMaterial);
             runtimeRoot = null;
@@ -268,62 +317,43 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
-        private void InitTerrain(){
-            int tileNumARow = terSet.clusterSize / terSet.tileSize;
+        #region Runtime 接口
 
-            DebugUtility.Log($"the map size is : {terSet.terrainSize}");
-            DebugUtility.Log($"the cluster size : {terSet.clusterSize}, the tile size : {terSet.tileSize}, there are {tileNumARow} tiles per line");
-
-            if (TerrainCtor == null) {
-                Debug.LogError("terrian ctor is null!");
-                return;
-            }
-
-            if (heightDataModels == null) {
-                Debug.LogError("you do not set the heightDataModel");
-                return;
-            }
-
-            // 初始化地块
-            TerrainCtor.InitTerrainCons(mapSet, terSet, hexSet, heightDataModels, null, mainMaterial, mapRvData);
-        
-            List<Vector2Int> clusterIdxList = GetBuildClusterTargets();
-
-            // 实际构建地块Mesh
-            TerrainGenTask terrainGenTask = new TerrainGenTask(heightDataModels, terSet, TerrainCtor, 
-                clusterIdxList, shouldGenRiver, shouldGenLODBySimplify, genRuntimeClusterMesh);
-            int taskID = TaskManager.GetInstance().StartProgress(TaskTickLevel.Medium, terrainGenTask);
-            // TODO: TerGenTaskPop 是 Editor 代码，Runtime 中不可用，后续需要用 Runtime 的进度UI
-            // TerGenTaskPop.GetPopInstance().ShowBasePop(terrainGenTask);
-            terrainGenTask.StartTask(taskID);
-        }
-
-        /// 默认构建所有 cluster
-        private List<Vector2Int> GetBuildClusterTargets()
+        public void UpdateWarGameMap()
         {
-            List<Vector2Int> result = new List<Vector2Int>();
-            int clusterHeight = terSet.terrainSize.x/ terSet.clusterSize;
-            int clusterWidth = terSet.terrainSize.z / terSet.clusterSize;
-            for (int x = 0; x < clusterHeight; x++)
+            if (!IsInitialized)
             {
-                for (int y = 0; y < clusterWidth; y++)
-                {
-                    result.Add(new Vector2Int(x, y));
-                }
+                return;
             }
-            return result;
+
+            cameraController.Tick(Time.deltaTime);
+            TerrainCtor.UpdateTerrain(cameraController.focusPoint, cameraController.cameraPosition);
+            //HexCtor.UpdateHex();
+                RenderCtor.UpdateMapRender();
         }
 
-        private void InitRiverAndWater(){
-
+        /// <summary>
+        /// 按 offset 坐标获取地图格子
+        ///     越界、海洋、山脉返回 null；
+        /// </summary>
+        public MapGrid GetHexMapGrid(Vector2Int coordinate)
+        {
+            if (!IsInitialized) { 
+                throw new InvalidOperationException("地图尚未初始化完成。"); 
+            }
+            return HexCtor.GetHexMapGrid(coordinate);
         }
 
-        private void InitRegion(){
+        #endregion
 
-        }
-
-        private void InitGamePlay(){
-
+        private void OnDestroy()
+        {
+            isDestroyed = true;
+            IsInitialized = false;
+            if (!initializationRunning)
+            {
+                ReleaseRuntimeAssets();
+            }
         }
 
     }

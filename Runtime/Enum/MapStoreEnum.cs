@@ -38,6 +38,8 @@ namespace LZ.WarGameMap.Runtime.Enums {
         public const string TerrainHexmapGridDataPath = "Assets/WarGameMap/Terrain/HexmapData/GridData";
 
         // 地形 - 河流 山脉
+        public const string HexMapDataPath = "Assets/WarGameMap/Terrain/HexmapData/HexMap_Default.asset";
+
         public const string RiverDataPath = "Assets/WarGameMap/Terrain/River";
 
         public const string RiverTexDataPath = "Assets/WarGameMap/Terrain/River/RvTexture";

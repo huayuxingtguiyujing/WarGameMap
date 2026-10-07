@@ -54,6 +54,13 @@ namespace LZ.WarGameMap.Runtime {
 
         // TODO : 要参考隔壁的 TerrainConstructor，用Task机制来控制生成（就是建一个 xxxxTask，然后用Task控制Hexmap生成的全过程
 
+        // hexmap 格子数据，常驻
+        // NOTE : 分块（HexCluster）仅负责 LOD 和显示；卸载分块时不要卸载这里的格子数据
+        private MapGrid[] mapGrids;
+        private int gridMapWidth;
+        private int gridMapHeight;
+        public bool IsGridDataInitialized => mapGrids != null;
+
         #region hex map init
 
         public void SetHexSetting(HexSettingSO hexSettingSO, Transform clusterParentObj, Material hexMat) {
@@ -70,6 +77,124 @@ namespace LZ.WarGameMap.Runtime {
             }
         }
 
+
+        /// <summary>
+        /// 初始化 hexmap 格子
+        ///     - 仅生成数据，并不生成 hex 格子实体
+        /// </summary>
+        public void InitHexMapData(HexSettingSO settings, HexMapSO data, GridTerrainSO terrainData = null)
+        {
+            if (settings == null || data == null)
+            {
+                throw new ArgumentNullException("Hex 地图配置或数据为空。");
+            }
+            int mapWidth = settings.mapWidth;
+            int mapHeight = settings.mapHeight;
+            if (mapWidth <= 0 || mapHeight <= 0 || settings.clusterSize <= 0)
+            {
+                throw new InvalidOperationException("Hex 地图尺寸或分块尺寸无效。");
+            }
+
+            List<Vector2Int> generatedCoordinates = null;
+            if (terrainData != null)
+            {
+                if (!terrainData.IsHexmapInit || !terrainData.isTerTypeInit
+                    || terrainData.mapWidth != mapWidth || terrainData.mapHeight != mapHeight)
+                {
+                    throw new InvalidOperationException("GridTerrain 尚未初始化或与 Hex 配置尺寸不一致。");
+                }
+                // TODO ：GridTerrain 的 x * mapWidth + y 索引约定，别乱改！
+                if (mapWidth != mapHeight)
+                {
+                    throw new InvalidOperationException("本次生成仅支持正方形 GridTerrain，避免改变原有索引约定。");
+                }
+                int expectedCount = checked(mapWidth * mapHeight);
+                if (terrainData.HexmapGridTerTypeList == null || terrainData.HexmapGridTerTypeList.Count != expectedCount)
+                {
+                    throw new InvalidOperationException("GridTerrain 格子数量不完整。");
+                }
+                generatedCoordinates = new List<Vector2Int>();
+                for (int x = 0; x < mapWidth; x++)
+                {
+                    for (int y = 0; y < mapHeight; y++)
+                    {
+                        var coordinate = new Vector2Int(x, y);
+                        // 获取到 offset 坐标，去 terrainData 中查找基础地形类型
+                        uint typeIndex = terrainData.HexmapGridTerTypeList[x * mapWidth + y][TerrainLayerIdxs.BaseLayer];
+                        if (typeIndex >= terrainData.GridTerrainTypeList.Count)
+                        {
+                            throw new InvalidOperationException("基础地形类型索引无效：" + coordinate);
+                        }
+                        var type = terrainData.GridTerrainTypeList[(int)typeIndex];
+                        if (type == null)
+                        {
+                            throw new InvalidOperationException("基础地形类型为空：" + coordinate);
+                        }
+                        string typeName = type.terrainTypeName;
+
+                        // 海洋和山地不会生成 hex 格子
+                        if (BaseGridTerrain.IsSea(typeName) || BaseGridTerrain.IsMountain(typeName))
+                        {
+                            continue;
+                        }
+                        generatedCoordinates.Add(coordinate);
+                    }
+                }
+            }
+            else if (!data.HasGenerated || data.MapWidth != mapWidth || data.MapHeight != mapHeight)
+            {
+                throw new InvalidOperationException("请先生成 HexMapSO，且确保尺寸与 Hex 配置一致。");
+            }
+
+            // 更新完毕 coordinates（offset坐标）
+            IReadOnlyList<Vector2Int> coordinates = data.GridCoordinates;
+            if (generatedCoordinates != null)
+            {
+                coordinates = generatedCoordinates;
+            }
+
+            var grids = new MapGrid[checked(mapWidth * mapHeight)];
+            var gridLayout = settings.GetScreenLayout();
+            foreach (var coordinate in coordinates)
+            {
+                if (coordinate.x < 0 || coordinate.y < 0 || coordinate.x >= mapWidth || coordinate.y >= mapHeight)
+                {
+                    throw new InvalidOperationException("格子坐标越界：" + coordinate);
+                }
+                int index = coordinate.y * mapWidth + coordinate.x;
+                if (grids[index] != null)
+                {
+                    throw new InvalidOperationException("格子坐标重复：" + coordinate);
+                }
+
+                // 这里是初始化 hexmap 格子操作
+                var localIndex = new Vector2Int(coordinate.x % settings.clusterSize, coordinate.y % settings.clusterSize);
+                Vector3 position = HexHelper.OffsetToWorld(gridLayout, coordinate);
+                grids[index] = new MapGrid(coordinate, localIndex, position);
+            }
+            if (generatedCoordinates != null)
+            {
+                data.ReplaceData(mapWidth, mapHeight, generatedCoordinates);
+            }
+            hexSet = settings;
+            gridMapWidth = mapWidth;
+            gridMapHeight = mapHeight;
+            mapGrids = grids;
+
+            // 刷新已存在的分块引用，避免显示持有旧实体。
+            if (hexClusters != null)
+            {
+                foreach (var cluster in hexClusters)
+                {
+                    if (cluster.hasInit)
+                    {
+                        cluster.RefreshGridReferences(this);
+                    }
+                }
+            }
+        }
+
+        // init 初始化格子实体
         public void InitHexConsParallelogram(int q1, int q2, int r1, int r2) {
             InitHexGenerator();
             hexGenerator.GenerateParallelogram(q1 + 1, q2, r1, r2);
@@ -237,7 +362,10 @@ namespace LZ.WarGameMap.Runtime {
                 Vector2Int inClusterIdx = hex.Key;
                 Vector2Int mapIdx = startMapGridIdx + inClusterIdx;
 
-                hexClusters[i, j].AddMapGrid(mapIdx, inClusterIdx, hex.Value, layout);
+                MapGrid residentGrid = null;
+                if (IsGridDataInitialized)
+                    residentGrid = GetHexMapGrid(mapIdx);
+                hexClusters[i, j].AddMapGrid(mapIdx, inClusterIdx, hex.Value, layout, residentGrid);
             }
 
             // Build this cluster
@@ -405,7 +533,7 @@ namespace LZ.WarGameMap.Runtime {
         #endregion
 
 
-        #region gameplay init
+        #region gameplay 相关
 
         // If Country info changes, call it
         public void InitCountry(CountrySO countrySO)
@@ -413,8 +541,39 @@ namespace LZ.WarGameMap.Runtime {
             countryManager.InitCountryManager(countrySO);
         }
 
+        /// <summary>
+        /// 按 offset 坐标取得常驻格子
+        /// </summary>
+        public MapGrid GetHexMapGridByWorldPosition(Vector3 worldPosition)
+        {
+            if (!IsGridDataInitialized)
+            {
+                return null;
+            }
+
+            Vector2 worldXZ = new Vector2(worldPosition.x, worldPosition.z);
+            Hexagon hexagon = HexHelper.PixelToAxialHex(worldXZ, hexSet.hexGridSize);
+            Vector2Int coordinate = HexHelper.AxialToOffset(hexagon);
+            return GetHexMapGrid(coordinate);
+        }
+
+        public MapGrid GetHexMapGrid(Vector2Int coordinate)
+        {
+            if (!IsGridDataInitialized)
+            {
+                throw new InvalidOperationException("Hex 格子数据尚未初始化。");
+            }
+            if (coordinate.x < 0 || coordinate.y < 0 || coordinate.x >= gridMapWidth || coordinate.y >= gridMapHeight)
+            {
+                return null;
+            }
+            int index = coordinate.y * gridMapWidth + coordinate.x;
+            return mapGrids[index];
+        }
+
         #endregion
 
+        // TODO : 还没做完
         #region country, gridtype functions
 
         public void UpdateCountryColor()
@@ -501,6 +660,11 @@ namespace LZ.WarGameMap.Runtime {
 
         // get map grid by map index / grid position
         public MapGrid GetMapGrid(int mapIdxX, int mapIdxY) {
+            if (IsGridDataInitialized)
+                return GetHexMapGrid(new Vector2Int(mapIdxX, mapIdxY));
+            if (hexClusters == null)
+                return null;
+            // 兼容尚未生成 HexMapSO 的旧编辑器显示链路。
 
             Vector2Int clusterIdx = GetGridClusterIdx(mapIdxX, mapIdxY);
             Vector2Int inClusterIdx = GetGridInClusterIdx(mapIdxX, mapIdxY);
@@ -526,7 +690,7 @@ namespace LZ.WarGameMap.Runtime {
             }
 
             
-            HashSet<Vector2Int> gridRec = new HashSet<Vector2Int>() { };
+            HashSet<Vector2Int> gridRec = new HashSet<Vector2Int>() { centerGrid.mapIdx };
             List<MapGrid> resGrids = new List<MapGrid>() { centerGrid };
             Queue<MapGrid> curGrids = new Queue<MapGrid>();
             curGrids.Enqueue(centerGrid);
@@ -612,6 +776,11 @@ namespace LZ.WarGameMap.Runtime {
 
             Dictionary<Vector2Int, List<Vector2Int>> clusterGridsDict = new Dictionary<Vector2Int, List<Vector2Int>>();
             foreach (var grid in grids) {
+                if (grid == null)
+                    continue;
+                grid.SetGridColor(color32);
+                if (hexClusters == null)
+                    continue;
                 Vector2Int clusterIdx = GetGridClusterIdx(grid.mapIdx.x, grid.mapIdx.y);
                 Vector2Int inClusterIdx = GetGridInClusterIdx(grid.mapIdx.x, grid.mapIdx.y);
 
@@ -739,14 +908,17 @@ namespace LZ.WarGameMap.Runtime {
             hasShow = true;
         }
 
-        internal void AddMapGrid(Vector2Int mapIdx, Vector2Int inClusterIdx, Hexagon hex, Layout layout) {
+        internal void AddMapGrid(Vector2Int mapIdx, Vector2Int inClusterIdx, Hexagon hex, Layout layout, MapGrid residentGrid = null) {
             this.layout = layout;
 
             Point center = hex.Hex_To_Pixel(layout).ConvertToXZ();
             Vector3 hexPos = new Vector3((float)center.x, 0, (float)center.z);
             
             // construct the map grid, and add it
-            MapGrid mapGrid = new MapGrid(mapIdx, inClusterIdx, hexPos);
+            // 常驻实体复用引用。海洋、山脉和旧显示模式的临时格子仅用于 Mesh，不进入数据查询链路。
+            MapGrid mapGrid = residentGrid;
+            if (mapGrid == null)
+                mapGrid = new MapGrid(mapIdx, inClusterIdx, hexPos);
             mapGridList[inClusterIdx.x, inClusterIdx.y] = mapGrid;
             if (mapPosGridDict.ContainsKey(hexPos)) {
                 mapPosGridDict[hexPos] = mapGrid;
@@ -754,7 +926,23 @@ namespace LZ.WarGameMap.Runtime {
                 mapPosGridDict.Add(hexPos, mapGrid);
             }
 
-            BuildGridMesh(hex, layout, MapEnum.DefaultGridColor);
+            BuildGridMesh(hex, layout, mapGrid.GridColor);
+        }
+
+        internal void RefreshGridReferences(HexmapConstructor constructor) {
+            for (int x = 0; x < clusterSize; x++) {
+                for (int y = 0; y < clusterSize; y++) {
+                    var grid = mapGridList[x, y];
+                    if (grid == null || !grid.IsValidGrid)
+                        continue;
+                    var resident = constructor.GetHexMapGrid(grid.mapIdx);
+                    if (resident == null)
+                        resident = new MapGrid(grid.mapIdx, grid.clusterIdx, grid.Position);
+                    mapGridList[x, y] = resident;
+                    mapPosGridDict[resident.Position] = resident;
+                }
+            }
+            RebuildClusterMesh(layout);
         }
 
         private void RebuildClusterMesh(Layout layout) {
@@ -763,7 +951,7 @@ namespace LZ.WarGameMap.Runtime {
                 if (!grid.IsValidGrid) {
                     continue;
                 }
-                BuildGridMesh(grid.hexagon, layout, Color.white);
+                BuildGridMesh(grid.hexagon, layout, grid.GridColor);
             }
             SetClusterMesh();
         }
@@ -821,6 +1009,7 @@ namespace LZ.WarGameMap.Runtime {
             vertices.Clear();
             triangles.Clear();
             colors.Clear();
+            uvs.Clear();
             hexMesh.vertices = vertices.ToArray();
             hexMesh.triangles = triangles.ToArray();
             hexMesh.colors = colors.ToArray();
@@ -858,6 +1047,7 @@ namespace LZ.WarGameMap.Runtime {
         }
 
         public void Dispose() {
+            // 仅释放显示资源，分块中引用的常驻格子及外部状态不受影响。
             if(hexMesh != null) {
                 GameObject.DestroyImmediate(hexMesh);
                 hexMesh = null;
@@ -963,7 +1153,7 @@ namespace LZ.WarGameMap.Runtime {
 
         public Vector2Int mapIdx { get; private set; }
         public Vector2Int clusterIdx { get; private set; }
-        public Hexagon hexagon { get; private set; }
+        public Hexagon hexagon => HexHelper.OffsetToAxial(mapIdx);
 
 
         public Vector3 Position { get; private set; }
@@ -971,8 +1161,49 @@ namespace LZ.WarGameMap.Runtime {
         public Color32 GridColor { get; private set; }
 
 
-        [Header("neighbor")]
-        public Vector2Int[] neighborGrids = new Vector2Int[6];          // idx与邻居方位对应
+        // 外部状态通常约三个，按职责拆分，不设置硬上限；未挂载时不分配容器。
+        private List<MapGridStatusInterface> statuses;
+
+        /// <summary>挂载运行时状态；同一具体类型替换原引用，不接受 null。</summary>
+        public void SetStatus<T>(T status) where T : class, MapGridStatusInterface {
+            if (status == null)
+                throw new ArgumentNullException(nameof(status));
+            if (statuses == null)
+                statuses = new List<MapGridStatusInterface>(3);
+            Type statusType = status.GetType();
+            for (int i = 0; i < statuses.Count; i++) {
+                var current = statuses[i];
+                if (current.GetType() != statusType)
+                    continue;
+                statuses[i] = status;
+                return;
+            }
+            statuses.Add(status);
+        }
+
+        /// <summary>按精确具体类型取得状态；未挂载返回 null，不匹配公共基类或接口。</summary>
+        public T GetStatus<T>() where T : class, MapGridStatusInterface {
+            if (statuses == null)
+                return null;
+            foreach (var status in statuses) {
+                if (status.GetType() == typeof(T))
+                    return (T)status;
+            }
+            return null;
+        }
+
+        /// <summary>移除指定具体类型的引用；不负责释放外部对象。</summary>
+        public bool RemoveStatus<T>() where T : class, MapGridStatusInterface {
+            if (statuses == null)
+                return false;
+            for (int i = 0; i < statuses.Count; i++) {
+                if (statuses[i].GetType() != typeof(T))
+                    continue;
+                statuses.RemoveAt(i);
+                return true;
+            }
+            return false;
+        }
 
         public MapGrid() {
             IsValidGrid = false;
@@ -981,29 +1212,7 @@ namespace LZ.WarGameMap.Runtime {
         internal MapGrid(Vector2Int mapIdx, Vector2Int clsIdx, Vector3 position) {
             this.mapIdx = mapIdx;
             this.clusterIdx = clsIdx;
-            this.hexagon = hexagon;
             Position = position;
-
-            // set neighbor
-            if (mapIdx.y % 2 == 1) {
-                // 奇数行
-                neighborGrids[0] = new Vector2Int(mapIdx.x - 1, mapIdx.y);
-                neighborGrids[1] = new Vector2Int(mapIdx.x, mapIdx.y + 1);
-                neighborGrids[2] = new Vector2Int(mapIdx.x + 1, mapIdx.y + 1);
-                neighborGrids[3] = new Vector2Int(mapIdx.x + 1, mapIdx.y);
-                neighborGrids[4] = new Vector2Int(mapIdx.x + 1, mapIdx.y - 1);
-                neighborGrids[5] = new Vector2Int(mapIdx.x, mapIdx.y - 1);
-
-            } else {
-                // 偶数行
-                neighborGrids[0] = new Vector2Int(mapIdx.x - 1, mapIdx.y);
-                neighborGrids[1] = new Vector2Int(mapIdx.x - 1, mapIdx.y + 1);
-                neighborGrids[2] = new Vector2Int(mapIdx.x, mapIdx.y + 1);
-                neighborGrids[3] = new Vector2Int(mapIdx.x + 1, mapIdx.y);
-                neighborGrids[4] = new Vector2Int(mapIdx.x, mapIdx.y - 1);
-                neighborGrids[5] = new Vector2Int(mapIdx.x - 1, mapIdx.y - 1);
-
-            }
 
             SetGridColor(MapEnum.DefaultGridColor);
 
@@ -1011,15 +1220,42 @@ namespace LZ.WarGameMap.Runtime {
         }
 
 
+        /// <summary>按方向名称即时计算邻居 offset 坐标，不保证该坐标存在有效实体。</summary>
         public Vector2Int GetNeighborIdx(HexDirection direction) {
-            int idx = (int)direction;
-            return neighborGrids[idx];
+            switch (direction) {
+                case HexDirection.W: return GetNeighborIdx(0);
+                case HexDirection.NW: return GetNeighborIdx(1);
+                case HexDirection.NE: return GetNeighborIdx(2);
+                case HexDirection.E: return GetNeighborIdx(3);
+                case HexDirection.SE: return GetNeighborIdx(4);
+                case HexDirection.SW: return GetNeighborIdx(5);
+                default: throw new ArgumentOutOfRangeException(nameof(direction));
+            }
         }
 
+        /// <summary>保持旧整数顺序：W、NW、NE、E、SE、SW；即时计算，不分配数组。</summary>
         public Vector2Int GetNeighborIdx(int direction) {
-            return neighborGrids[direction];
+            int x = mapIdx.x;
+            int y = mapIdx.y;
+            bool oddRow = (y & 1) != 0;
+            switch (direction) {
+                case 0: return new Vector2Int(x - 1, y);
+                case 1:
+                    if (oddRow) return new Vector2Int(x, y + 1);
+                    return new Vector2Int(x - 1, y + 1);
+                case 2:
+                    if (oddRow) return new Vector2Int(x + 1, y + 1);
+                    return new Vector2Int(x, y + 1);
+                case 3: return new Vector2Int(x + 1, y);
+                case 4:
+                    if (oddRow) return new Vector2Int(x + 1, y - 1);
+                    return new Vector2Int(x, y - 1);
+                case 5:
+                    if (oddRow) return new Vector2Int(x, y - 1);
+                    return new Vector2Int(x - 1, y - 1);
+                default: throw new ArgumentOutOfRangeException(nameof(direction));
+            }
         }
-
 
         internal void SetGridColor(Color32 color) {
             GridColor = color;

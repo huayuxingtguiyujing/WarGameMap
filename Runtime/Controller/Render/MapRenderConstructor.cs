@@ -88,25 +88,16 @@ namespace LZ.WarGameMap.Runtime
 
         #region Init Map Render
 
-        public void InitMapRenderCons(TerrainSettingSO terSet, HexSettingSO hexSet, MapRuntimeSetting mapSet, GridTerrainSO gridTerrainSO, CountrySO countrySO)
+        public void InitMapRenderCons(TerrainSettingSO terSet, HexSettingSO hexSet,
+            MapRuntimeSetting mapSet, GridTerrainSO gridTerrainSO, CountrySO countrySO)
         {
             this.terSet = terSet;
             this.hexSet = hexSet;
             this.mapSet = mapSet;
             this.gridTerrainSO = gridTerrainSO;
             this.countrySO = countrySO;
-
-            MapModeDict.Clear();
-            MapModeList = new List<BaseMapMode>()
-            {
-                new CountryMapMode(), new TerrainMapMode(), new PoliticalMapMode()
-            };
-            foreach (var mapMode in MapModeList)
-            {
-                MapModeDict.Add(mapMode.GetMapModeName(), mapMode);
-            }
         }
-
+        
         #region Runtime landform initialization
 
         // 注入已加载的渲染资产，不读取路径或创建替代资源。
@@ -162,11 +153,12 @@ namespace LZ.WarGameMap.Runtime
             {
                 throw new System.InvalidOperationException("Landform types or Hex grid data are incomplete.");
             }
+            // NOTE : 由于现阶段 没有足够的 material，所以不做这项效验
             int terrainTypeCount = terrainTypes.Count;
-            if (TerrainAlbedoArray.depth < terrainTypeCount || TerrainNormalArray.depth < terrainTypeCount)
-            {
-                throw new System.InvalidOperationException("Landform texture arrays do not contain all terrain types.");
-            }
+            // if (TerrainAlbedoArray.depth < terrainTypeCount || TerrainNormalArray.depth < terrainTypeCount)
+            // {
+            //     throw new System.InvalidOperationException("Landform texture arrays do not contain all terrain types.");
+            // }
             foreach (var grid in gridTypes)
             {
                 if (grid[0] >= terrainTypeCount)
@@ -182,6 +174,15 @@ namespace LZ.WarGameMap.Runtime
                     throw new System.InvalidOperationException("Missing region SDF kernel: " + kernel);
                 }
             }
+        }
+
+        // 高亮格子相关
+        public void InitHexHighlight(Camera camera, HexmapConstructor hexConstructor)
+        {
+            hoverCamera = camera;
+            hoverHexConstructor = hexConstructor;
+            hasHighlightedGrid = false;
+            TerLandformMaterial.SetFloat(highlightEnabledId, 0f);
         }
 
         #endregion
@@ -269,6 +270,9 @@ namespace LZ.WarGameMap.Runtime
             TerLandformMaterial.SetBuffer("_TerrainMaterialParamsBuffer", terrainMaterialParamsBuffer);
             TerLandformMaterial.SetInt("_HexmapWidth", hexSet.mapWidth);
             TerLandformMaterial.SetInt("_HexmapHeight", hexSet.mapHeight);
+
+            // 与 C# 拾取共用 HexSetting 中的格子尺寸，统一世界 XZ 坐标换算。
+            TerLandformMaterial.SetFloat("_HexGridSize", hexSet.hexGridSize);
 
             // 区域划分所需纹理（ApplyRegionDivide 依赖 _RegionTexture）
             TerLandformMaterial.SetTexture("_RegionTexture", RegionTexture);
@@ -376,6 +380,130 @@ namespace LZ.WarGameMap.Runtime
 
         #endregion
 
+        public void UpdateMapRender()
+        {
+            UpdateHexHighlight();
+            LogHexHighlight();
+        }
+
+        #region Hex Hover Highlight
+
+        private static readonly int highlightCoordXId = Shader.PropertyToID("_HighlightHexCoordX");
+        private static readonly int highlightCoordYId = Shader.PropertyToID("_HighlightHexCoordY");
+        private static readonly int highlightEnabledId = Shader.PropertyToID("_HighlightEnabled");
+
+        private Camera hoverCamera;
+        private HexmapConstructor hoverHexConstructor;
+        private Vector2Int highlightedCoordinate;
+        private bool hasHighlightedGrid;
+        private string highlightDebugStatus = "Not initialized";
+        private Vector3 hoverWorldPosition;
+
+        private void UpdateHexHighlight()
+        {
+            if (TerLandformMaterial == null)
+            {
+                highlightDebugStatus = "Landform material missing";
+                return;
+            }
+
+            hoverWorldPosition = Vector3.zero;
+            Vector3 mapPosition;
+            if (hoverHexConstructor == null
+                || !CameraUtil.TryGetMouseMapPosition(hoverCamera, out mapPosition))
+            {
+                highlightDebugStatus = "Mouse pick failed or Hex constructor missing";
+                ClearHexHighlight();
+                return;
+            }
+
+            hoverWorldPosition = mapPosition;
+            MapGrid grid = hoverHexConstructor.GetHexMapGridByWorldPosition(mapPosition);
+            if (grid == null)
+            {
+                highlightDebugStatus = "No valid grid at mouse position";
+                ClearHexHighlight();
+                return;
+            }
+
+            highlightDebugStatus = "Valid hover grid";
+            Vector2Int coordinate = grid.mapIdx;
+            if (hasHighlightedGrid && highlightedCoordinate == coordinate)
+            {
+                return;
+            }
+
+            TerLandformMaterial.SetFloat(highlightCoordXId, coordinate.x);
+            TerLandformMaterial.SetFloat(highlightCoordYId, coordinate.y);
+            TerLandformMaterial.SetFloat(highlightEnabledId, 1f);
+            highlightedCoordinate = coordinate;
+            hasHighlightedGrid = true;
+        }
+
+        #region Highlight Debug
+
+        private void LogHexHighlight()
+        {
+            Vector2Int currentCoordinate = new Vector2Int(-1, -1);
+            if (hasHighlightedGrid)
+            {
+                currentCoordinate = highlightedCoordinate;
+            }
+
+            string materialName = "null";
+            string shaderName = "null";
+            float materialEnabled = -1f;
+            float materialCoordX = -1f;
+            float materialCoordY = -1f;
+            if (TerLandformMaterial != null)
+            {
+                materialName = TerLandformMaterial.name;
+                shaderName = TerLandformMaterial.shader.name;
+                if (TerLandformMaterial.HasProperty(highlightEnabledId))
+                {
+                    materialEnabled = TerLandformMaterial.GetFloat(highlightEnabledId);
+                }
+                if (TerLandformMaterial.HasProperty(highlightCoordXId))
+                {
+                    materialCoordX = TerLandformMaterial.GetFloat(highlightCoordXId);
+                }
+                if (TerLandformMaterial.HasProperty(highlightCoordYId))
+                {
+                    materialCoordY = TerLandformMaterial.GetFloat(highlightCoordYId);
+                }
+            }
+
+            bool hasCamera = hoverCamera != null;
+            bool hasHexData = hoverHexConstructor != null && hoverHexConstructor.IsGridDataInitialized;
+            UnityEngine.EventSystems.EventSystem eventSystem = UnityEngine.EventSystems.EventSystem.current;
+            bool isPointerOverUI = false;
+            if (eventSystem != null)
+            {
+                isPointerOverUI = eventSystem.IsPointerOverGameObject();
+            }
+
+            Debug.Log($"[WarGameMap][HexHighlight] status={highlightDebugStatus}, "
+                + $"enabled={hasHighlightedGrid}, coordinate={currentCoordinate}, world={hoverWorldPosition}, "
+                + $"camera={hasCamera}, hexData={hasHexData}, focused={Application.isFocused}, "
+                + $"overUI={isPointerOverUI}, mouse={Input.mousePosition}, "
+                + $"material={materialName}, shader={shaderName}, "
+                + $"materialEnabled={materialEnabled}, materialCoordinate=({materialCoordX}, {materialCoordY})", this);
+        }
+
+        #endregion
+
+        private void ClearHexHighlight()
+        {
+            if (!hasHighlightedGrid)
+            {
+                return;
+            }
+
+            TerLandformMaterial.SetFloat(highlightEnabledId, 0f);
+            hasHighlightedGrid = false;
+        }
+
+        #endregion
 
         #region Map Mode
 

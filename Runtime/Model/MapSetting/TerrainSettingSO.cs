@@ -95,6 +95,18 @@ namespace LZ.WarGameMap.Runtime {
         }
 
 
+        #region Camera Setting
+
+        [Header("Camera Setting")]
+        [LabelText("摄像机初始位置")]
+        public Vector3 cameraInitialPosition = new Vector3(0f, 100f, 0f);
+
+        [LabelText("摄像机初始倾斜角度")]
+        [Tooltip("从竖直向下朝世界 +Z 偏转的角度，15度对应 Unity Euler X=75度")]
+        public float cameraInitialTiltAngle = 15f;
+
+        #endregion
+
         // River setting
         [Header("River Setting")]
         [LabelText("河流编辑数据相比大地图的缩放")]

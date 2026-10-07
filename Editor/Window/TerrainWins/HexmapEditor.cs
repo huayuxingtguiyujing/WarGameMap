@@ -69,6 +69,79 @@ namespace LZ.WarGameMap.MapEditor
 
         #endregion
 
+        #region Hex map Edit
+
+        [FoldoutGroup("六边形地图"), LabelText("Hex地图数据"), AssetsOnly]
+        public HexMapSO hexMapData;
+
+        [FoldoutGroup("六边形地图"), ShowInInspector, LabelText("有效格子数量")]
+        private int HexGridCount
+        {
+            get
+            {
+                if (hexMapData == null) return 0;
+                return hexMapData.GridCount;
+            }
+        }
+
+        [FoldoutGroup("六边形地图")]
+        [InfoBox("全量重建有效格子（排除海洋和山脉），生成后请在地图配置中更新 Addressables。")]
+        [Button("生成Hexmap", ButtonSizes.Medium)]
+        private void InitHexMapData()
+        {
+            HexCtor = EditorSceneManager.HexCtor;
+            if (HexCtor == null)
+            {
+                throw new InvalidOperationException("请先初始化地图编辑器场景。");
+            }
+
+            // 动态创建 hexmapSO
+            bool createAsset = hexMapData == null;
+            if (createAsset)
+            {
+                hexMapData = UnityEditor.AssetDatabase.LoadAssetAtPath<HexMapSO>(MapStoreEnum.HexMapDataPath);
+            }
+            createAsset = hexMapData == null;
+            if (createAsset)
+            {
+                hexMapData = ScriptableObject.CreateInstance<HexMapSO>();
+            }
+            else
+            {
+                UnityEditor.Undo.RecordObject(hexMapData, "Rebuild Hex map data");
+            }
+
+            try
+            {
+                HexCtor.InitHexMapData(EditorSceneManager.HexSet, hexMapData, EditorSceneManager.GridTerrainSO);
+                if (createAsset)
+                {
+                    string folder = System.IO.Path.GetDirectoryName(MapStoreEnum.HexMapDataPath).Replace('\\', '/');
+                    if (!UnityEditor.AssetDatabase.IsValidFolder(folder))
+                        UnityEditor.AssetDatabase.CreateFolder("Assets/WarGameMap/Terrain", "HexmapData");
+                    UnityEditor.AssetDatabase.CreateAsset(hexMapData, MapStoreEnum.HexMapDataPath);
+                }
+                UnityEditor.EditorUtility.SetDirty(hexMapData);
+                UnityEditor.AssetDatabase.SaveAssetIfDirty(hexMapData);
+                MapSetEditor.SetRuntimeHexMapData(hexMapData);
+                UnityEditor.EditorUtility.SetDirty(this);
+                UnityEditor.SceneView.RepaintAll();
+                Debug.Log("[HexMap] 已生成并保存格子：" + hexMapData.GridCount);
+            }
+            catch
+            {
+                if (createAsset && !UnityEditor.AssetDatabase.Contains(hexMapData))
+                {
+                    UnityEngine.Object.DestroyImmediate(hexMapData);
+                    hexMapData = null;
+                }
+                throw;
+            }
+        }
+
+
+        #endregion
+
         #region hexTexture Construct
         // NOTE : 此处输出六边形网格纹理，是为了构建 类似 文明那样的 六边形 Terrain 地表
 
@@ -76,60 +149,60 @@ namespace LZ.WarGameMap.MapEditor
             Catlike, NoCorner, NoInner
         }
 
-        [FoldoutGroup("六边形纹理构建/纹理设置")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/纹理设置")]
         [LabelText("混合方式")]
         public BlendMethod blendMethod = BlendMethod.Catlike;
 
-        [FoldoutGroup("六边形纹理构建/纹理设置")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/纹理设置")]
         [LabelText("六边形内圈比例")]
         public float innerHexRatio = 0.8f;
 
-        [FoldoutGroup("六边形纹理构建/纹理设置")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/纹理设置")]
         [LabelText("分辨率")]
         public int OuputTexResolution = 1024;
 
-        [FoldoutGroup("六边形纹理构建/纹理设置")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/纹理设置")]
         [LabelText("颜色")]
         public Color hexEdgeColor = new Color(1, 1, 1, 0.5f);
 
-        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/噪声与平滑")]
         [LabelText("噪声频率")]
         public float frequency = 16;
 
-        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/噪声与平滑")]
         [LabelText("随机数")]
         public float randomSpeed = 1;
 
-        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/噪声与平滑")]
         [LabelText("分形噪声")]
         public int fbmIteration = 8;
 
-        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/噪声与平滑")]
         [LabelText("噪声强度")]
         public float noiseIntense = 30;
 
-        [FoldoutGroup("六边形纹理构建/噪声与平滑")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]/噪声与平滑")]
         [LabelText("噪声偏移")]
         public float noiseOffset = 0.5f;
 
-        [FoldoutGroup("六边形纹理构建")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]")]
         [LabelText("地貌图集")]
         public Texture2D curHexTerrainSplat;    //当前没有用
 
-        [FoldoutGroup("六边形纹理构建")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]")]
         [LabelText("地貌索引纹理")]
         public Texture2D curHexLandformIdxTex;  //当前没有用
 
-        [FoldoutGroup("六边形纹理构建")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]")]
         [LabelText("地貌混合权重")]
         public Texture2D curHexLandformBlendTex;    //当前没有用
 
-        [FoldoutGroup("六边形纹理构建")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]")]
         [LabelText("生成的地貌纹理")]
         public Texture2D curHexLandformResult;
 
 
-        [FoldoutGroup("六边形纹理构建")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]")]
         [LabelText("贴图导出位置")]
         public string hexLandformTexImportPath = MapStoreEnum.HexLandformTexOutputPath;
 
@@ -389,7 +462,7 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
-        [FoldoutGroup("六边形纹理构建")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]")]
         [Button("导出六边形混合地貌纹理", ButtonSizes.Medium)]
         private void ExportHexLandFormTex() {
             //if (curHexTerrainSplat == null) {
@@ -485,7 +558,7 @@ namespace LZ.WarGameMap.MapEditor
         }
 
 
-        [FoldoutGroup("六边形纹理构建")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]")]
         [Button("保存六边形混合索引/权重图", ButtonSizes.Medium)]
         private void ExportHexBlendWeightTex() {
             if (curHexLandformIdxTex == null) {
@@ -504,7 +577,7 @@ namespace LZ.WarGameMap.MapEditor
 
         }
 
-        [FoldoutGroup("六边形纹理构建")]
+        [FoldoutGroup("六边形纹理构建[Deprecated]")]
         [Button("保存六边形地貌纹理图", ButtonSizes.Medium)]
         private void SaveHexLandFormTex() {
             string texName = string.Format("landform_{0}x{0}_{1}", OuputTexResolution, DateTime.Now.Ticks);

@@ -201,8 +201,7 @@ namespace LZ.WarGameMap.MapEditor
                     }
                 }
                 AssetDatabase.Refresh();
-                TerrainLoader loader = new TerrainLoader();
-                loader.AddTerrainMeshToAB(exportHandleMeshPath);
+                TerrainAddressablesEditor.AddTerrainMeshToAB(exportHandleMeshPath);
                 Debug.Log($"地形保存完成：保存 {savedFiles} 个 LOD 文件，跳过已有文件 {skippedFiles} 个。");
             }
             catch (OperationCanceledException)
@@ -627,16 +626,14 @@ namespace LZ.WarGameMap.MapEditor
                 }
             }
             AssetDatabase.Refresh();
-            TerrainLoader loader = new TerrainLoader();
-            loader.AddTerrainMeshToAB(exportHandleMeshPath);
+            TerrainAddressablesEditor.AddTerrainMeshToAB(exportHandleMeshPath);
         }
 
         [FoldoutGroup("地形持久化")]
         [Button("测试-刷新group", ButtonSizes.Medium)]
         private void RefreshTerrainLoader()
         {
-            TerrainLoader loader = new TerrainLoader();
-            loader.AddTerrainMeshToAB(exportHandleMeshPath);
+            TerrainAddressablesEditor.AddTerrainMeshToAB(exportHandleMeshPath);
         }
 
 

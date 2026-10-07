@@ -402,37 +402,80 @@ namespace LZ.WarGameMap.Runtime
         #region Runtime update terrain, fix LOD seam
 
         // NOTE : LODHeight 根据摄像机距离地面的高度决定地块的 lod level
-        public int UpdateTerrainCluster_LODHeight(int curLODLevel, int LODLevels)
+        public bool HasLoadedLOD(int lodLevel)
         {
-            // if we switch LOD by height, then we do not need to fix the seam
-            //  float FadeDistance, int LODLevels
-            if (tileList == null || tileList.Count <= 0)
+            if (!IsLoaded || tileList == null || tileList.Count == 0)
+            {
+                return false;
+            }
+            foreach (TerrainTile tile in tileList)
+            {
+                TerrainMeshData[] lodMeshes = tile.GetLODMeshes();
+                if (lodMeshes == null || lodLevel < 0 || lodLevel >= lodMeshes.Length
+                    || lodMeshes[lodLevel] == null)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public int UpdateTerrainCluster_LODHeight(int curLODLevel, int lodLevels)
+        {
+            if (!IsLoaded || tileList == null || tileList.Count == 0 || lodLevels <= 0)
             {
                 return -100;
             }
 
-            if (!IsLoaded)
+            int displayLODLevel = Mathf.Clamp(curLODLevel, 0, lodLevels - 1);
+            if (!HasLoadedLOD(displayLODLevel))
             {
-                return -100;
+                if (!HasLoadedLOD(0))
+                {
+                    return -100;
+                }
+                displayLODLevel = 0;
             }
 
-            if (tileList[0, 0].curLODLevel == curLODLevel && IsShowing == true)
+            bool allTilesAtLevel = true;
+            foreach (TerrainTile tile in tileList)
             {
-                // tile's lod do not change and is showing, so return (only if its in height switch method
-                return curLODLevel;
+                if (!tile.isShowing || tile.curLODLevel != displayLODLevel)
+                {
+                    allTilesAtLevel = false;
+                    break;
+                }
             }
-
-            foreach (var tile in tileList)
-            {
-                tile.SetMesh(tile.GetMesh(curLODLevel, 0, LODSwitchMethod.Height), mat);
-            }
-
-            // 当调用这个方法的时候，默认show statu发生了改变，除非LOD级别越界了
-            if (curLODLevel >= 0 && curLODLevel < LODLevels)
+            if (allTilesAtLevel)
             {
                 IsShowing = true;
+                return displayLODLevel;
             }
-            return curLODLevel;
+
+            foreach (TerrainTile tile in tileList)
+            {
+                Mesh mesh = tile.GetMesh(displayLODLevel, 0, LODSwitchMethod.Height);
+                if (mesh != null)
+                {
+                    tile.SetMesh(mesh, mat);
+                }
+            }
+            UpdateShowingState();
+            return displayLODLevel;
+        }
+
+        private void UpdateShowingState()
+        {
+            bool hasVisibleTile = false;
+            foreach (TerrainTile tile in tileList)
+            {
+                if (tile.isShowing)
+                {
+                    hasVisibleTile = true;
+                    break;
+                }
+            }
+            IsShowing = hasVisibleTile;
         }
 
         public void UpdateTerrainCluster_LODDistance(TDList<int> fullLodLevelMap)
@@ -442,7 +485,6 @@ namespace LZ.WarGameMap.Runtime
                 return;
             }
 
-            int showTileNum = 0;
             foreach (var tile in tileList)
             {
                 // use full lod map, so index offset is 1
@@ -471,7 +513,7 @@ namespace LZ.WarGameMap.Runtime
                     }
                 }
 
-                if (fixSeamDirection == 0 && tile.curLODLevel == lodLevel)
+                if (fixSeamDirection == 0 && tile.curLODLevel == lodLevel && tile.isShowing)
                 {
                     // no need to fix seam, and no change LOD level, so continue
                     continue;
@@ -479,14 +521,13 @@ namespace LZ.WarGameMap.Runtime
 
                 // 不管LOD层级有没有发生改变，都必须重新刷新mesh，因为要处理LOD接缝
                 Mesh mesh = tile.GetMesh(lodLevel, fixSeamDirection, LODSwitchMethod.Distance);
-                tile.SetMesh(mesh, mat);
                 if (mesh != null)
                 {
-                    showTileNum++;
+                    tile.SetMesh(mesh, mat);
                 }
             }
 
-            //IsShowing = (showTileNum > 0);
+            UpdateShowingState();
             //DebugUtility.Log(string.Format("update successfully! handle tile num {0}", terrainTileList.GetLength(0)));
         }
 

@@ -95,6 +95,30 @@ namespace LZ.WarGameMap.Runtime
             Debug.Log(string.Format($"successfully init terrain constructor!  create {terrainWidth}*{terrainHeight}"));
         }
 
+        #region Map Bounds
+
+        public Rect GetMapBoundsXZ()
+        {
+            bool hasValidSize = terrainWidth > 0 && terrainHeight > 0;
+            if (!IsInit || terSet == null || !hasValidSize)
+            {
+                throw new InvalidOperationException("Terrain bounds are not initialized.");
+            }
+
+            int clusterSize = terSet.clusterSize;
+            if (clusterSize <= 0)
+            {
+                throw new InvalidOperationException("Terrain cluster size must be positive.");
+            }
+
+            float mapWidth = terrainWidth * (float)clusterSize;
+            float mapHeight = terrainHeight * (float)clusterSize;
+            Rect mapBoundsXZ = new Rect(0f, 0f, mapWidth, mapHeight);
+            return mapBoundsXZ;
+        }
+
+        #endregion
+
         public void ClearClusterObj()
         {
             terrainWidth = 0;
@@ -533,16 +557,37 @@ namespace LZ.WarGameMap.Runtime
 
         public HashSet<Vector2Int> preClusterIdxSet = new HashSet<Vector2Int>();
 
-        public void UpdateTerrain() {
-            if(!IsInit || !IsGen) 
+        // Legacy editor entry; gameplay supplies the CameraController view explicitly.
+        public void UpdateTerrain()
+        {
+            if (!IsInit || !IsGen || clusterList == null)
             {
-                //Debug.LogError("cons do not init!");
-                return; 
-            }
-            if (clusterList == null) 
-            {
-                //Debug.LogError("cluster list is null!");
                 return;
+            }
+            if (previewLODLevel >= 0 || !mapSet.UseAOI)
+            {
+                UpdateTerrain(Vector3.zero, Vector3.zero);
+                return;
+            }
+
+            Camera camera = Camera.main;
+            if (camera == null)
+            {
+                return;
+            }
+            Vector3 cameraPosition = camera.transform.position;
+            UpdateTerrain(cameraPosition, cameraPosition);
+        }
+
+        public void UpdateTerrain(Vector3 focusPoint, Vector3 cameraPosition)
+        {
+            if (!IsInit || !IsGen || clusterList == null)
+            {
+                return;
+            }
+            if (terSet.LODLevel <= 0 || terSet.clusterSize <= 0)
+            {
+                throw new InvalidOperationException("Terrain LOD count and cluster size must be positive.");
             }
             if (previewLODLevel >= 0)
             {
@@ -560,108 +605,129 @@ namespace LZ.WarGameMap.Runtime
                 ShowAllTerrain();
                 return;
             }
+            if (mapSet.MeshFadeDistance <= 0f)
+            {
+                throw new InvalidOperationException("Terrain mesh fade distance must be positive.");
+            }
 
-            Vector3 cameraPos = Camera.main.transform.position;
-            int cameraIdxX = (int)(cameraPos.x / terSet.clusterSize);
-            int cameraIdxY = (int)(cameraPos.z / terSet.clusterSize);
-            // get the current LOD level
-            float ratio = cameraPos.y / mapSet.MeshFadeDistance;
-            int distanceLevel = (int)(terSet.LODLevel * ratio);
+            int focusIdxX = Mathf.FloorToInt(focusPoint.x / terSet.clusterSize);
+            int focusIdxZ = Mathf.FloorToInt(focusPoint.z / terSet.clusterSize);
+            focusIdxX = Mathf.Clamp(focusIdxX, 0, terrainWidth - 1);
+            focusIdxZ = Mathf.Clamp(focusIdxZ, 0, terrainHeight - 1);
+            float heightRatio = cameraPosition.y / mapSet.MeshFadeDistance;
+            int distanceLevel = Mathf.FloorToInt(terSet.LODLevel * heightRatio);
             int curLODLevel = terSet.LODLevel - distanceLevel - 1;
+            curLODLevel = Mathf.Clamp(curLODLevel, 0, terSet.LODLevel - 1);
+            // TODO: Add the political PNG map later; retain a valid terrain LOD for now.
 
-            Vector3Int curCameraIdx = new Vector3Int(cameraIdxX, curLODLevel, cameraIdxY);
-            if (curCameraIdx == preCameraIdx && preClusterIdxSet != null && preClusterIdxSet.Count > 0) {
-                // if camera-cluster do not change and pre cls is not null, then return
+            Vector3Int curCameraIdx = new Vector3Int(focusIdxX, curLODLevel, focusIdxZ);
+            bool isHeightMode = mapSet.lodSwitchMethod == LODSwitchMethod.Height;
+            if (isHeightMode && curCameraIdx == preCameraIdx
+                && preClusterIdxSet != null && preClusterIdxSet.Count > 0)
+            {
                 return;
             }
 
-            int aoiScope = mapSet.AOIScope;
+            int aoiScope = Mathf.Max(0, mapSet.AOIScope);
             HashSet<Vector2Int> newScopeCls = new HashSet<Vector2Int>();
-
-            for (int i = Mathf.Max(0, curCameraIdx.x - aoiScope); i <= Mathf.Min(terrainWidth - 1, curCameraIdx.x + aoiScope); i++)
+            for (int i = Mathf.Max(0, focusIdxX - aoiScope); i <= Mathf.Min(terrainWidth - 1, focusIdxX + aoiScope); i++)
             {
-                for (int j = Mathf.Max(0, curCameraIdx.z - aoiScope); j <= Mathf.Min(terrainHeight - 1, curCameraIdx.z + aoiScope); j++)
+                for (int j = Mathf.Max(0, focusIdxZ - aoiScope); j <= Mathf.Min(terrainHeight - 1, focusIdxZ + aoiScope); j++)
                 {
                     newScopeCls.Add(new Vector2Int(i, j));
                 }
             }
 
-            HashSet<Vector2Int> shouldHideIdxs = new HashSet<Vector2Int>();
-            HashSet<Vector2Int> shouldShowIdxs = new HashSet<Vector2Int>();
-            foreach (var idx in preClusterIdxSet) 
+            foreach (Vector2Int idx in preClusterIdxSet)
             {
-                if (!newScopeCls.Contains(idx)) 
-                {
-                    shouldHideIdxs.Add(idx);
-                }
-            }
-            foreach (var idx in newScopeCls) 
-            {
-                if (!preClusterIdxSet.Contains(idx)) 
-                {
-                    shouldShowIdxs.Add(idx);
-                }
-            }
-
-            // hide all cluster in list
-            foreach (var idx in shouldHideIdxs) 
-            {
-                if (idx.x < 0 || idx.x >= terrainHeight || idx.y < 0 || idx.y >= terrainWidth) 
+                if (newScopeCls.Contains(idx))
                 {
                     continue;
                 }
-                if (clusterList[idx.x, idx.y].IsShowing) 
-                {
-                    clusterList[idx.x, idx.y].HideTerrainCluster();
-                }
-            }
-
-            // show all cluster in list
-            foreach (var idx in newScopeCls) 
-            {
-                if (idx.x < 0 || idx.x >= terrainHeight || idx.y < 0 || idx.y >= terrainWidth) 
+                if (idx.x < 0 || idx.x >= terrainWidth || idx.y < 0 || idx.y >= terrainHeight)
                 {
                     continue;
                 }
                 TerrainCluster cluster = clusterList[idx.x, idx.y];
-                if (cluster.IsInited) 
+                if (cluster.IsShowing)
                 {
-                    if(mapSet.lodSwitchMethod == LODSwitchMethod.Height) 
-                    {
-                        UpdateTerrain_LODHeight(curLODLevel, cluster);
-                    } 
-                    else if (mapSet.lodSwitchMethod == LODSwitchMethod.Distance) 
-                    {
-                        UpdateTerrain_LODDistance(cameraPos, cluster);
-                    }
+                    cluster.HideTerrainCluster();
                 }
             }
-            // do not delete!
-            //DebugHashSet(newScopeCls, "new-scope");
-            //DebugHashSet(preClusterIdxSet, "pre-scope");
-            //DebugHashSet(shouldHideIdxs, "hide");
-            //DebugHashSet(shouldShowIdxs, "show");
 
-            preCameraIdx = new Vector3Int(cameraIdxX, curLODLevel, cameraIdxY);
+            foreach (Vector2Int idx in newScopeCls)
+            {
+                TerrainCluster cluster = clusterList[idx.x, idx.y];
+                if (!cluster.IsLoaded)
+                {
+                    continue;
+                }
+                if (isHeightMode)
+                {
+                    UpdateTerrain_LODHeight(curLODLevel, cluster);
+                }
+                else if (mapSet.lodSwitchMethod == LODSwitchMethod.Distance)
+                {
+                    UpdateTerrain_LODDistance(cameraPosition, cluster);
+                }
+            }
+
+            preCameraIdx = new Vector3Int(-100, 0, -100);
+            if (isHeightMode)
+            {
+                preCameraIdx = curCameraIdx;
+            }
             preClusterIdxSet = newScopeCls;
-            DebugUtility.Log(string.Format("cur camera cls idx : {0}, cur LOD : {1}, hide cluster : {2}, show cluster {3}, load cluster {4}", curCameraIdx, curLODLevel, shouldHideIdxs.Count, shouldShowIdxs.Count, 0), DebugPriority.High);
         }
 
         private void ShowAllTerrain()
         {
             int maxLODLevel = terSet.LODLevel - 1;
-            for (int i = 0; i < terrainHeight; i++)
+            preClusterIdxSet.Clear();
+            for (int i = 0; i < terrainWidth; i++)
             {
-                for(int j = 0; j < terrainWidth; j++)
+                for (int j = 0; j < terrainHeight; j++)
                 {
                     TerrainCluster cluster = clusterList[i, j];
-                    if (cluster.IsInited)
+                    if (cluster.IsLoaded)
                     {
                         UpdateTerrain_LODHeight(maxLODLevel, cluster);
+                        if (cluster.IsShowing)
+                        {
+                            preClusterIdxSet.Add(new Vector2Int(i, j));
+                        }
                     }
                 }
             }
+            preCameraIdx = new Vector3Int(-100, 0, -100);
         }
+
+        #region Display Scope
+
+        public List<Rect> GetShowClusterScope()
+        {
+            List<Rect> showRegions = new List<Rect>();
+            if (clusterList == null || terSet == null)
+            {
+                return showRegions;
+            }
+
+            float clusterSize = terSet.clusterSize;
+            foreach (TerrainCluster cluster in clusterList)
+            {
+                if (!cluster.IsLoaded || !cluster.IsShowing)
+                {
+                    continue;
+                }
+                float startX = cluster.idxX * clusterSize;
+                float startZ = cluster.idxY * clusterSize;
+                Rect showRegion = new Rect(startX, startZ, clusterSize, clusterSize);
+                showRegions.Add(showRegion);
+            }
+            return showRegions;
+        }
+
+        #endregion
 
         private void DebugHashSet(HashSet<Vector2Int> sets, string name) {
             StringBuilder stringBuilder = new StringBuilder();
